@@ -116,8 +116,9 @@ struct DocumentHistoryView: View {
                 Text(L10n.text(removed ? "Removed" : "Added"))
                     .font(.system(size: 10)).foregroundStyle(removed ? Theme.red : Theme.green)
             }
-            ScrollView([.vertical, .horizontal]) {
+            ScrollView {
                 Text(highlighted(source, ranges: ranges, removed: removed)).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .topLeading).padding(12)
             }.background(Theme.background, in: RoundedRectangle(cornerRadius: 8))
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
