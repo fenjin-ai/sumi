@@ -11,7 +11,16 @@ test "$(uname -m)" = arm64 || { echo 'Public releases support Apple Silicon only
 umask 077
 signing_dir=$(mktemp -d "$TMPDIR/sumi-signing.XXXXXX")
 keychain="$signing_dir/signing.keychain-db"
+security list-keychains -d user > "$signing_dir/keychains.txt"
+set_keychain_search_list() {
+  python3 - "$signing_dir/keychains.txt" "$@" <<'PY'
+import pathlib, shlex, subprocess, sys
+original = shlex.split(pathlib.Path(sys.argv[1]).read_text())
+subprocess.run(["security", "list-keychains", "-d", "user", "-s", *sys.argv[2:], *original], check=True)
+PY
+}
 cleanup() {
+  set_keychain_search_list >/dev/null 2>&1 || true
   security delete-keychain "$keychain" >/dev/null 2>&1 || true
   rm -rf "$signing_dir"
 }
@@ -32,6 +41,8 @@ printf '%s  %s\n' f16cd3c54c7f83cea4bf1a3e6a0819c8aaa8e4a1528fd144715f350643d2df
 security import "$signing_dir/DeveloperIDG2CA.cer" -k "$keychain" >/dev/null
 security import "$signing_dir/certificate.p12" -k "$keychain" -P "$SIGNING_CERTIFICATE_PASSWORD" -T /usr/bin/codesign >/dev/null
 security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain" >/dev/null
+# codesign also needs the identity and intermediate certificates in its search list.
+set_keychain_search_list "$keychain"
 unset SIGNING_CERTIFICATE_P12 SIGNING_CERTIFICATE_PASSWORD APP_STORE_CONNECT_PRIVATE_KEY
 identities=$(security find-identity -v -p codesigning "$keychain" | awk '/"Developer ID Application:/ {print $2}')
 test "$(printf '%s\n' "$identities" | awk 'NF {n++} END {print n+0}')" = 1 || { echo 'Expected exactly one valid Developer ID Application identity.' >&2; exit 1; }
