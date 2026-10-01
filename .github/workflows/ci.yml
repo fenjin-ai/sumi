@@ -18,8 +18,13 @@ jobs:
     name: Build and functional tests (Apple Silicon)
     runs-on: macos-15
     timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
       - name: Toolchain
         run: |
           sw_vers
@@ -27,6 +32,18 @@ jobs:
           swift --version
       - name: Functional integration tests and 80% coverage gate
         run: scripts/test.sh
+      - name: Upload application coverage to Codecov
+        if: ${{ !cancelled() && hashFiles('build/coverage/codecov.lcov') != '' }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          # Fork PRs use Codecov's public-repository tokenless upload support.
+          use_oidc: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          files: build/coverage/codecov.lcov
+          disable_search: true
+          disable_file_fixes: true
+          plugins: noop
+          fail_ci_if_error: true
+          name: macos-apple-silicon
       - name: Release build and signature validation
         run: |
           scripts/build.sh release
