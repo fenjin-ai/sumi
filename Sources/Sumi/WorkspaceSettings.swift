@@ -102,9 +102,6 @@ struct WritingSettingsView: View {
         Form {
             LanguageSettingsSection()
             Section {
-                Picker(L10n.text("New document template"), selection: $workspace.documentTemplate) {
-                    ForEach(DocumentTemplate.allCases) { Text($0.title).tag($0) }
-                }
                 Picker(L10n.text("Discover commands"), selection: $workspace.commandKey) {
                     Text("⌘J").tag("j"); Text("⌘K").tag("k")
                 }

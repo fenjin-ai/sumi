@@ -1,5 +1,4 @@
 /* Sumi app strings. English source keys; keep placeholders identical across languages. */
-"#set page(paper: \"a4\", margin: 24mm)\n#set text(font: \"Libertinus Serif\", size: 11pt)\n#set par(leading: 0.65em)\n\n= A quiet space to write\n\nGood writing begins with a little room to think.\n\nSumi keeps your words close and the tools you need within reach.\nStart with an idea. The page will take shape as you go.\n\n== Begin with one sentence\n\nWrite down what is on your mind. You do not need to organize everything\nat once, or remember every command. Press *⌘J* to discover a useful tool.\n\n- Use headings to trace an idea\n- Use images and tables to explain a detail\n- Use an equation to express a simple relationship\n\n$ E = m c^2 $\n\n== See the finished page\n\nSwitch to the side-by-side preview to see your writing on the page.\nEvery edit becomes part of the finished document.\n\n#quote(block: true)[\n  Simplicity makes room for what matters.\n]\n\n// Your next paragraph starts here." = "#set page(paper: \"a4\", margin: 24mm)\n#set text(font: \"Libertinus Serif\", size: 11pt)\n#set par(leading: 0.65em)\n\n= A quiet space to write\n\nGood writing begins with a little room to think.\n\nSumi keeps your words close and the tools you need within reach.\nStart with an idea. The page will take shape as you go.\n\n== Begin with one sentence\n\nWrite down what is on your mind. You do not need to organize everything\nat once, or remember every command. Press *⌘J* to discover a useful tool.\n\n- Use headings to trace an idea\n- Use images and tables to explain a detail\n- Use an equation to express a simple relationship\n\n$ E = m c^2 $\n\n== See the finished page\n\nSwitch to the side-by-side preview to see your writing on the page.\nEvery edit becomes part of the finished document.\n\n#quote(block: true)[\n  Simplicity makes room for what matters.\n]\n\n// Your next paragraph starts here.";
 "%@ commands" = "%@ commands";
 "%@ packages · Local index %@" = "%@ packages · Local index %@";
 "%@ packages · Updated %@" = "%@ packages · Updated %@";
@@ -41,7 +40,6 @@
 "Arrows & Mappings" = "Arrows & Mappings";
 "Author" = "Author";
 "Basic Operations" = "Basic Operations";
-"Begin with a quiet blank page." = "Begin with a quiet blank page.";
 "Bibliography" = "Bibliography";
 "Bibliography file · .bib / .yaml" = "Bibliography file · .bib / .yaml";
 "Binomial Coefficient" = "Binomial Coefficient";
@@ -298,7 +296,6 @@
 "Move to Trash" = "Move to Trash";
 "New Document" = "New Document";
 "New document" = "New document";
-"New document template" = "New document template";
 "No completions are available here." = "No completions are available here.";
 "No issues found" = "No issues found";
 "No matching commands" = "No matching commands";
@@ -632,7 +629,7 @@
 "No matches yet" = "No matches yet";
 "Try a shorter phrase or another collection." = "Try a shorter phrase or another collection.";
 "Back to results" = "Back to results";
-"Includes the starter document and its assets. Your new document is an independent copy." = "Includes the starter document and its assets. Your new document is an independent copy.";
+"Includes the document and its assets. First use may download packages. Your copy is independent." = "Includes the document and its assets. First use may download packages. Your copy is independent.";
 "Preparing your document…" = "Preparing your document…";
 "Create document" = "Create document";
 "Insert import" = "Insert import";
@@ -673,6 +670,16 @@
 "Add to my writing" = "Add to my writing";
 "1.9 MB · downloads once" = "1.9 MB · downloads once";
 "The example could not be downloaded or verified. Please try again." = "The example could not be downloaded or verified. Please try again.";
+
+// Template-first creation
+"Choose a blank page or a template for your next idea." = "Choose a blank page or a template for your next idea.";
+"A quiet space to write" = "A quiet space to write";
+"Start here" = "Start here";
+"A small guide to Sumi, with equations, a diagram and code. Make it your own." = "A small guide to Sumi, with equations, a diagram and code. Make it your own.";
+"Just a page and your next thought." = "Just a page and your next thought.";
+"Included · works offline" = "Included · works offline";
+"Create your own copy of the Sumi guide" = "Create your own copy of the Sumi guide";
+"Start with a blank page" = "Start with a blank page";
 "Expand All Headings" = "Expand All Headings";
 "Collapse All Headings" = "Collapse All Headings";
 "Expand section" = "Expand section";

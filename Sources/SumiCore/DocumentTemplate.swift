@@ -41,7 +41,7 @@ public enum BundledPackages {
         #endif
         guard let source, FileManager.default.fileExists(atPath: source.path) else { return }
         let manager = FileManager.default
-        for (name, version) in [("codly", "1.3.0"), ("codly-languages", "0.1.1")] {
+        for (name, version) in [("codly", "1.3.0"), ("codly-languages", "0.1.1"), ("cetz", "0.5.2"), ("oxifmt", "1.0.0")] {
             let path = "preview/\(name)/\(version)"
             let destination = cache.appendingPathComponent(path)
             guard !manager.fileExists(atPath: destination.path) else { continue }

@@ -89,11 +89,16 @@ final class LibraryController: ObservableObject {
     }
 
     func create(title: String? = nil, text: String? = nil, template: DocumentTemplate? = nil) async throws {
-        let selected = template ?? workspace?.documentTemplate ?? .blank
+        let selected = template ?? .blank
         let content = text ?? selected.source
         let document = try await store.create(title: title ?? L10n.text(selected == .codeNotes ? "Code notes" : "Untitled"), text: content)
         await refresh()
         try await open(document.id)
+    }
+
+    func create(builtIn template: BuiltInTemplate) async throws {
+        try await create(title: template == .welcome ? L10n.text("Welcome") : nil, text: template.source)
+        if template == .welcome { workspace?.layout = .split }
     }
 
     /// A dedicated resolver keeps template downloads independent of the live

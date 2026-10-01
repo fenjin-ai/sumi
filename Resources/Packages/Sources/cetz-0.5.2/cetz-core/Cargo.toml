@@ -1,0 +1,27 @@
+[package]
+name = "cetz-core"
+version = "0.1.0"
+edition = "2021"
+# To avoid accidentally publishing on crates.io.
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ciborium = "0.2.1"
+kurbo = "0.13"
+linesweeper = "0.3"
+serde = "1.0.219"
+wasm-minimal-protocol = "0.1"
+
+[dev-dependencies]
+rand = { version = "0.9.1", features = ["alloc"] }
+rand_chacha = "0.9.0"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = 'z'
+codegen-units = 1
+panic = "abort"
