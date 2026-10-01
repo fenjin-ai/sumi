@@ -26,7 +26,7 @@ func bundledWelcomeCompilesWithFreshPackagesAndBlockedRegistry() throws {
         try Data(source.utf8).write(to: input)
         let process = Process()
         process.executableURL = repo.appendingPathComponent(".tools/tinymist")
-        process.arguments = ["compile", "--package-path", root.appendingPathComponent("empty-local").path,
+        process.arguments = ["compile", "--root", root.path, "--package-path", root.appendingPathComponent("empty-local").path,
             "--package-cache-path", cache.path, input.path, output.path]
         var environment = ProcessInfo.processInfo.environment
         // Both the fresh cache and local package directory are isolated. A missing
