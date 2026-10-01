@@ -31,8 +31,7 @@ struct FloatingOutline: View {
                         }
                         Spacer(minLength: 0)
                         if panelWidth >= 140, !navigation.branches.isEmpty {
-                            foldButton(expand: true)
-                            foldButton(expand: false)
+                            foldButton(expand: !navigation.branches.allSatisfy(navigation.isExpanded))
                         }
                         Button {
                             if pinned {
