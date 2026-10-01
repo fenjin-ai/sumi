@@ -1,4 +1,5 @@
 import AppKit
+import SumiCore
 import SwiftUI
 
 public enum SumiApplication {
@@ -79,6 +80,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             entry.target = target
             owner.addItem(entry)
         }
+        func commandItem(_ id: String, in menu: NSMenu) {
+            guard let command = WritingCommand.all.first(where: { $0.id == id }), let shortcut = command.shortcuts.first else { return }
+            let entry = NSMenuItem(title: command.title, action: #selector(runWritingCommand(_:)), keyEquivalent: shortcut.key)
+            var flags: NSEvent.ModifierFlags = []
+            if shortcut.modifiers.contains(.command) { flags.insert(.command) }
+            if shortcut.modifiers.contains(.shift) { flags.insert(.shift) }
+            if shortcut.modifiers.contains(.option) { flags.insert(.option) }
+            if shortcut.modifiers.contains(.control) { flags.insert(.control) }
+            entry.keyEquivalentModifierMask = flags
+            entry.representedObject = id; entry.target = self
+            menu.addItem(entry)
+        }
         let app = section("Sumi")
         item("关于 Sumi", #selector(about), "", app, target: self)
         item("设置…", #selector(settings), ",", app, target: self)
@@ -106,12 +119,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         edit.addItem(.separator())
         item("查找…", #selector(find), "f", edit, target: self)
         item("补全 Typst", #selector(completion), ".", edit, modifiers: .control, target: self)
+        for id in ["indent", "outdent", "comment", "format"] { commandItem(id, in: edit) }
         let view = section("视图")
         item("发现命令", #selector(palette), workspace.commandKey, view, target: self)
         item("打开诊断日志", #selector(revealLogs), "", view, target: self)
         item("专注写作", #selector(writing), "1", view, target: self)
         item("并排预览", #selector(split), "2", view, target: self)
         item("阅读成稿", #selector(preview), "3", view, target: self)
+        for id in ["outline", "diagnostics", "universe"] { commandItem(id, in: view) }
         view.addItem(.separator())
         item("放大文字", #selector(increaseFont), "+", view, target: self)
         item("缩小文字", #selector(decreaseFont), "-", view, target: self)
@@ -122,9 +137,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.mainMenu = menu
     }
 
+    @objc private func runWritingCommand(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String, let command = WritingCommand.all.first(where: { $0.id == id }) else { return }
+        workspace.execute(command)
+    }
     @objc private func about() {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: version, .credits: NSAttributedString(string: "一个安静的 Typst 写作空间。\nBuilt with Swift, Tinymist and Phosphor Icons.")])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: version, .credits: NSAttributedString(string: "给想法一点留白。\nA quiet space to write.")])
     }
     @objc private func settings() {
         let alert = NSAlert()

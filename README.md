@@ -1,37 +1,46 @@
 # Sumi
 
+<img src="Brand/logo.svg" alt="Sumi · Σ" width="80">
+
 [![CI](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml/badge.svg)](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/fenjin-ai/sumi/branch/main/graph/badge.svg)](https://app.codecov.io/github/fenjin-ai/sumi)
 
-Sumi 是一款面向 macOS 的原生 Typst 写作编辑器。它采用 Nano Emacs 启发的安静深色界面，以可发现的键盘命令帮助用户写出 Typst，用 Tinymist 提供语言服务和实时排版预览。
+**给想法一点留白。** A quiet space to write.
 
-文稿始终是普通 `.typ` 文件。Swift 负责应用和编辑交互，Tinymist 作为应用管理的独立进程运行。
+Sumi 是一个安静的写作空间。简洁的界面、随手可发现的工具与实时成稿，让你专注于文字和思考。
 
 - [产品需求](docs/requirements.md)
 - [技术架构与交互规范](docs/architecture.md)
 - [实施与验收记录](docs/progress.md)
 - [0.2 编辑体验与工程化](docs/editor-evolution.md)
-
-当前为 **0.2.0** 开发预览版。目标 macOS 14+，本地验证环境为 Apple Silicon / macOS 27；仅支持 Apple Silicon，CI 在 macOS 15 arm64 上构建。
+- [0.3 交互与性能](docs/interaction.md)
+- [品牌资源与 favicon](Brand/README.md)
 
 ## 使用
+
+当前为 **0.3.0** 开发预览版。支持搭载 Apple M 系列芯片的 Mac，需要 macOS 14 或更新版本。
 
 打开 `build/Sumi.app`。应用自带 Tinymist，无需另外安装 Typst、Rust 或 Homebrew。入门文稿见 [留白.typ](Examples/留白.typ)。
 
 | 操作 | 快捷键 |
 |---|---|
 | 发现命令 | `⌘J`，设置中可改为 `⌘K` |
-| 命令分组 | `i` 插入、`s` 样式、`p` 页面、`m` 数学、`l` 布局、`r` 文献、`c` 代码、`v` 视图、`f` 文件 |
+| 命令分组 | `i` 插入内容、`s` 文字样式、`p` 纸张设置、`m` 数学、`l` 文稿排版、`r` 引用与目录、`c` 编辑与代码、`v` 工作空间、`f` 文件 |
 | 搜索命令 | 打开面板后按 `/`，支持中文和英文关键词 |
 | 返回 / 退出面板 | `Esc` |
 | 插入后的占位内容 | `Tab` / `⇧Tab` 切换，`Esc` 结束 |
 | 写作 / 并排 / 成稿 | `⌘1` / `⌘2` / `⌘3` |
+| 文章脉络 / 文稿检查 | `⌘4` / `⌘5` |
 | 新建 / 打开 / 保存 | `⌘N` / `⌘O` / `⌘S` |
 | 另存为 / 导出 PDF | `⇧⌘S` / `⇧⌘E` |
 | Typst 补全 / 查找 | `⌃.` / `⌘F` |
 
 例如：`⌘J → i → t` 打开表格参数，填列数和行数后插入；选中文字后 `⌘J → s → b` 加粗。每次命令插入可以一次撤销。正文、代码和数学仍可直接输入完整 Typst。
 
-共有 **97 个命令**，其中 **74 个 Typst 插入命令**。数学下有基本运算、公式结构、符号与字形三级发现路径；例如 `⌘J → m → b → f` 插入分式，在公式中自动使用数学语法。列表支持方向键与回车，并显示语法示例、完整键路径和官方文档。
+共有 **106 个命令**，其中 **74 个 Typst 插入命令**。数学下有基本运算、公式结构、符号与字形三级发现路径；例如 `⌘J → m → b → f` 插入分式，在公式中自动使用数学语法。列表支持方向键与回车，并显示语法示例、完整键路径和官方文档。
+
+常用操作可以直接按组合键：`⌘1` 写作、`⌘2` 并排、`⌘3` 阅读、`⌘4` 文章脉络、`⌘5` 文稿检查、`⇧⌘U` Universe、`⇧⌘E` 导出。which-key 分组路径仍然有效，同一功能可以有多个入口；列表与语法说明同时展示直接快捷键和发现路径。`⌘]` / `⌘[` 调整缩进，`⌘/` 切换注释，`⌥⇧F` 整理代码。悬停工具栏可看到紧凑的“功能名 + 快捷键”提示。
+
+文章脉络默认以细小标记融入左侧留白，悬停渐进展开；`⌘4` 固定展开，再按一次或 Esc 收起。目录不占正文列宽，不显示独立外框或关闭按钮。命令面板固定高度，搜索、滚动选择和参数表单之间不会带动编辑区域跳动，右侧固定显示语法与快捷键。
 
 `⌘J → c → u` 打开 Universe 包发现，按用途和分类搜索官方索引、查看版本和文档、插入固定版本的导入语句。默认浏览绘图包。索引缓存 24 小时，网络不可用时保留离线浏览；不兼容当前 Typst 引擎的包会提示所需版本。
 
@@ -53,6 +62,8 @@ Sumi 是一款面向 macOS 的原生 Typst 写作编辑器。它采用 Nano Emac
 
 ## 构建与测试
 
+文稿始终是普通 `.typ` 文件。Swift 负责应用和编辑交互，Tinymist 作为应用管理的独立进程提供 Typst 语言服务与排版预览。界面设计受 Nano Emacs 启发。
+
 需要 Xcode 的 Swift 6 工具链、macOS SDK，以及已挂载的 `/Volumes/SSD/Developer`。在 SSD 上的仓库或工作树中运行：
 
 ```sh
@@ -64,7 +75,7 @@ scripts/test.sh
 
 `scripts/test.sh` 会生成 `build/coverage/summary.md`、HTML 与原始覆盖率数据，并对**所有应用和核心 Swift 源文件的唯一可执行源码行**执行 **80%** 门槛。SwiftUI 编译器会将同一源码行实例化多次，因此使用 LCOV 按文件/行去重，不排除界面文件。直接运行 `swift test` 会跳过显式启用的集成场景，也不执行覆盖率门槛。
 
-GitHub Actions 对 PR 和 main 运行 Apple Silicon CI 并上传覆盖率与构建产物。推送与应用版本一致的标签（例如 `v0.2.0`）触发测试、打包与 GitHub Release，包含 arm64 ZIP 和 SHA-256。正式发布流程要求 **Developer ID 签名、Apple 公证及票据装订全部成功**，缺少凭据时停止发布；配置和验证方法见 [签名说明](docs/signing.md)。普通 CI 产物仍为临时签名开发包。
+GitHub Actions 对 PR 和 main 运行 Apple Silicon CI 并上传覆盖率与构建产物。推送与应用版本一致的标签（例如 `v0.3.0`）触发测试、打包与 GitHub Release，包含 arm64 ZIP 和 SHA-256。正式发布流程要求 **Developer ID 签名、Apple 公证及票据装订全部成功**，缺少凭据时停止发布；配置和验证方法见 [签名说明](docs/signing.md)。普通 CI 产物仍为临时签名开发包。
 
 源码划分为 `Sources/SumiLauncher` 启动器、`Sources/Sumi` 可测试的原生应用库、`Sources/SumiCore` 协议与文本/文件逻辑；`Tests/SumiAppTests` 验证应用功能流程。第三方许可证和固定版本记录在 `Resources/ThirdParty.txt`。
 
@@ -72,4 +83,4 @@ GitHub Actions 对 PR 和 main 运行 Apple Silicon CI 并上传覆盖率与构�
 
 这是可运行的本地首版：单窗口、一个活动编辑缓冲区，暂无 Vim、云同步、折叠、插件或任意成稿直接编辑。从主文稿预览/诊断跳转子文件时保留编译入口；手动打开或另存为会采用新的入口。
 
-中文文本、组合输入期间不重设样式、撤销和保存有自动验证；完整拼音候选输入流程仍需人工确认。macOS 14 实机、大型长文性能和完整 VoiceOver 流程尚未验证。仍属开发预览版，尚未做 Developer ID 签名和公证。详见[验收记录](docs/progress.md)。
+中文文本、组合输入期间不重设样式、撤销和保存有自动验证；完整拼音候选输入流程仍需人工确认。已验证约 10 万 UTF-16 字符文稿的命令导航与段落样式刷新，结果见[交互与性能记录](docs/interaction.md)。macOS 14 实机和完整 VoiceOver 流程尚未验证。仍属开发预览版；Developer ID 签名、公证及 Gatekeeper 的真实 CI 发布验证已通过。详见[验收记录](docs/progress.md)。

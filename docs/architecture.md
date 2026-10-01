@@ -162,3 +162,9 @@ GitHub Actions 使用 macOS 15 Apple Silicon runner，PR/main 执行测试与覆
 - [CotEditor package/app test workflow](https://github.com/coteditor/CotEditor/blob/main/.github/workflows/test.yml)
 - [CodeEdit tests workflow](https://github.com/CodeEditApp/CodeEdit/blob/main/.github/workflows/tests.yml)
 - [GitHub macOS hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+
+## 0.3 交互与性能
+
+命令目录同时声明直接组合键与 which-key 路径。原生菜单、工具栏与命令区共享元数据；发现机制不限定执行入口。`CommandPalette` 固定尺寸、`FloatingOutline` 独立覆盖、`LearningHelp` 使用实际内容大小，避免小操作改变正文几何。
+
+`DocumentMetrics` 按文本修订建立 UTF-16 行索引；`ManuscriptTextView` 缓存源码与阅读属性快照，跨段落仅恢复旧段落和当前段落。图标、搜索结果、规范化搜索索引、示例与命令路径缓存由各自组件持有。具体边界、基准和回归见 [交互记录](interaction.md)。

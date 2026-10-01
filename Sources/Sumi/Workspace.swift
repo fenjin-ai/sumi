@@ -16,7 +16,7 @@ enum SidePanel { case outline, diagnostics }
 
 @MainActor
 final class Workspace: ObservableObject {
-    @Published var text = ""
+    @Published var text = "" { didSet { textMetrics = nil } }
     @Published var fileURL: URL?
     @Published var mainFileURL: URL?
     @Published var savedText: String?
@@ -81,10 +81,22 @@ final class Workspace: ObservableObject {
     var documentURL: URL { fileURL ?? draftURL }
     var compilationURL: URL { mainFileURL ?? documentURL }
     var title: String { fileURL?.deletingPathExtension().lastPathComponent ?? "未命名文稿" }
-    var position: TextPosition { TextPosition(offset: selection.location, in: text) }
-    var wordCount: Int { text.filter { !$0.isWhitespace }.count }
+    private var textMetrics: DocumentMetrics?
+    private var metrics: DocumentMetrics {
+        if let textMetrics { return textMetrics }
+        let value = DocumentMetrics(text)
+        textMetrics = value
+        return value
+    }
+    var position: TextPosition { metrics.position(at: selection.location) }
+    var wordCount: Int { metrics.wordCount }
+    private var commandResults: (query: String, group: String?, searching: Bool, commands: [WritingCommand])?
+
     var filteredCommands: [WritingCommand] {
-        searchMode ? WritingCommand.search(query) : WritingCommand.all.filter { $0.group == paletteGroup }
+        if let cached = commandResults, cached.query == query, cached.group == paletteGroup, cached.searching == searchMode { return cached.commands }
+        let commands = searchMode ? WritingCommand.search(query) : WritingCommand.all.filter { $0.group == paletteGroup }
+        commandResults = (query, paletteGroup, searchMode, commands)
+        return commands
     }
     var paletteGroups: [CommandGroup] { searchMode ? [] : CommandGroup.children(of: paletteGroup) }
     var paletteEntryCount: Int { paletteGroups.count + filteredCommands.count }
@@ -93,13 +105,7 @@ final class Workspace: ObservableObject {
         return filteredCommands.indices.contains(index) ? filteredCommands[index] : nil
     }
     func keyPath(for command: WritingCommand) -> String {
-        var path = [command.key]
-        var group = CommandGroup.all.first { $0.id == command.group }
-        while let current = group {
-            path.insert(current.key, at: 0)
-            group = CommandGroup.all.first { $0.id == current.parentID }
-        }
-        return path.joined(separator: " ")
+        command.keyPath
     }
 
     init(stateDirectory directory: URL? = nil) {
@@ -374,8 +380,12 @@ final class Workspace: ObservableObject {
         if event.keyCode == 53 { backPalette(); return true }
         guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return false }
         if activeCommand != nil { return false }
-        if event.keyCode == 125 { selectedCommandIndex = min(selectedCommandIndex + 1, max(0, paletteEntryCount - 1)); return true }
-        if event.keyCode == 126 { selectedCommandIndex = max(0, selectedCommandIndex - 1); return true }
+        let grid = !searchMode && paletteGroup == nil
+        let step = grid ? 3 : 1
+        if event.keyCode == 125 { selectedCommandIndex = min(selectedCommandIndex + step, max(0, paletteEntryCount - 1)); return true }
+        if event.keyCode == 126 { selectedCommandIndex = max(0, selectedCommandIndex - step); return true }
+        if grid, event.keyCode == 124 { selectedCommandIndex = min(selectedCommandIndex + 1, max(0, paletteEntryCount - 1)); return true }
+        if grid, event.keyCode == 123 { selectedCommandIndex = max(0, selectedCommandIndex - 1); return true }
         if event.keyCode == 36, paletteEntryCount > 0 {
             if paletteGroups.indices.contains(selectedCommandIndex) { enterGroup(paletteGroups[selectedCommandIndex].id) }
             else if let command = highlightedCommand { selectCommand(command) }
@@ -392,6 +402,20 @@ final class Workspace: ObservableObject {
     func execute(_ command: WritingCommand) {
         recordOperation("command.execute", ["command": command.id])
         switch command.id {
+        case "undo": closePalette(); editor?.undoManager?.undo()
+        case "redo": closePalette(); editor?.undoManager?.redo()
+        case "cut": closePalette(); editor?.cut(nil)
+        case "copy": closePalette(); editor?.copy(nil)
+        case "paste": closePalette(); editor?.paste(nil)
+        case "selectAll": closePalette(); editor?.selectAll(nil)
+        case "find":
+            closePalette()
+            if layout == .preview { layout = .split }
+            let sender = NSMenuItem()
+            sender.tag = NSTextFinder.Action.showFindInterface.rawValue
+            editor?.performFindPanelAction(sender)
+        case "fontLarger": closePalette(); fontSize = min(28, fontSize + 1)
+        case "fontSmaller": closePalette(); fontSize = max(12, fontSize - 1)
         case "new": closePalette(); newDocument()
         case "open": closePalette(); openPanel()
         case "save": closePalette(); save()
@@ -667,7 +691,7 @@ final class Workspace: ObservableObject {
 
     好的文字，始于一个安静的地方。
 
-    Sumi 是你的 Typst 写作空间。在这里，文字保留原本的样子，
+    Sumi 是你的写作空间。在这里，文字保留原本的样子，
     排版自然发生。把注意力交给想法，剩下的慢慢来。
 
     == 从一句话开始

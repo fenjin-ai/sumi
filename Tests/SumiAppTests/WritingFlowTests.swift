@@ -11,6 +11,47 @@ import SumiCore
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
 @MainActor
 struct WritingFlowTests {
+    @Test func directShortcutsAndLeaderPathsShareTheSameActions() async throws {
+        let app = try WritingFixture(text: "= Shortcuts\n\nBody\n", startService: false)
+        defer { app.close() }
+        let delegate = AppDelegate(workspace: app.workspace)
+        let previousMenu = NSApp.mainMenu, previousWindowsMenu = NSApp.windowsMenu
+        defer { NSApp.mainMenu = previousMenu; NSApp.windowsMenu = previousWindowsMenu }
+        delegate.installMenu()
+        let menu = try #require(NSApp.mainMenu)
+        #expect(menu.performKeyEquivalent(with: app.key("4", code: 21, modifiers: .command)))
+        #expect(app.workspace.sidePanel == .outline)
+        app.window.sendEvent(app.key(app.workspace.commandKey, code: 38, modifiers: .command))
+        app.window.sendEvent(app.key("v", code: 9))
+        app.window.sendEvent(app.key("o", code: 31))
+        #expect(app.workspace.sidePanel == nil)
+        #expect(!app.workspace.paletteOpen)
+        #expect(menu.performKeyEquivalent(with: app.key("5", code: 23, modifiers: .command)))
+        #expect(app.workspace.sidePanel == .diagnostics)
+        app.window.sendEvent(app.key("\u{1b}", code: 53))
+        #expect(app.workspace.sidePanel == nil)
+        let editor = try #require(app.workspace.editor)
+        editor.setSelectedRange(NSRange(location: 0, length: 0))
+        #expect(menu.performKeyEquivalent(with: app.key("]", code: 30, modifiers: .command)))
+        #expect(editor.string.hasPrefix("  = Shortcuts"))
+        #expect(menu.performKeyEquivalent(with: app.key("[", code: 33, modifiers: .command)))
+        #expect(editor.string.hasPrefix("= Shortcuts"))
+        #expect(menu.performKeyEquivalent(with: app.key("/", code: 44, modifiers: .command)))
+        #expect(editor.string.hasPrefix("// = Shortcuts"))
+        app.workspace.togglePalette()
+        app.workspace.searchMode = true
+        app.workspace.query = "撤销"
+        app.workspace.selectCommand(try #require(app.workspace.filteredCommands.first))
+        #expect(editor.string.hasPrefix("= Shortcuts"))
+        app.workspace.execute(try #require(WritingCommand.all.first { $0.id == "redo" }))
+        #expect(editor.string.hasPrefix("// = Shortcuts"))
+        let outline = try #require(WritingCommand.search("⌘4").first)
+        #expect(outline.id == "outline")
+        #expect(outline.keyPath == "v o")
+        #expect(outline.shortcuts.first?.label == "⌘4")
+        #expect(WritingCommand.all.filter { !$0.shortcuts.isEmpty }.count == 25)
+    }
+
     @Test func discoverInsertUndoRedoAndExport() async throws {
         let app = try WritingFixture(text: "= Writing flow\n\nBody\n\n")
         defer { app.close() }
