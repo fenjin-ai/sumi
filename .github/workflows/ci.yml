@@ -24,11 +24,11 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Cache Swift package sources
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .build/repositories
@@ -62,7 +62,7 @@ jobs:
         run: scripts/benchmark-books.sh
       - name: Upload book performance reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: book-performance-macos-15
           path: build/benchmarks
@@ -77,7 +77,7 @@ jobs:
           python3 scripts/smoke-app.py --development-resources "$(swift build -c release --show-bin-path)/Sumi_SumiCore.bundle"
           ditto -c -k --sequesterRsrc --keepParent build/Sumi.app build/Sumi-CI.zip
       - name: Upload runnable app
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: app-macos-15
           path: build/Sumi-CI.zip
@@ -94,7 +94,7 @@ jobs:
           fi
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-macos-15
           path: build/coverage
@@ -102,7 +102,7 @@ jobs:
           retention-days: 14
       - name: Packaged launch diagnostics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: launch-smoke-macos-15
           path: build/launch-smoke
