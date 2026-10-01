@@ -195,8 +195,11 @@ extension WritingFlowTests {
         const nativeScrollTo = Element.prototype.scrollTo;
         Element.prototype.scrollTo = function(options, ...rest) {
             if (options && typeof options === 'object') {
-                window.sumiRequestedScroll = options;
-                return nativeScrollTo.call(this, {...options, behavior: 'instant'});
+                const trace = {options, before: this.scrollTop, id: this.id};
+                const result = nativeScrollTo.call(this, {...options, behavior: 'instant'});
+                trace.after = this.scrollTop;
+                window.sumiRequestedScroll = trace;
+                return result;
             }
             return nativeScrollTo.call(this, options, ...rest);
         };
@@ -214,8 +217,27 @@ extension WritingFlowTests {
         editor.setSelectedRange(NSRange(location: 0, length: 0))
         await app.layout()
         #expect((try await web.evaluateJavaScript("document.getElementById('typst-container-main').scrollTop") as? Double ?? 0) > 1000)
+        // Retain a real viewport anchor as Tinymist does during resize. The
+        // explicit source jump must supersede that position, including when a
+        // later rendering pass runs after the jump.
+        try await web.evaluateJavaScript("""
+        (() => {
+            const impl = document.getElementById('typst-container').documents[0].impl;
+            const svg = impl.hookedElem.firstElementChild;
+            const scroll = impl.hookedElem.parentElement;
+            const fixedTop = svg.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop;
+            impl.svgResizeAnchor = {
+                contentY: (scroll.scrollTop - fixedTop) / impl.lastSvgScale,
+                scaleRatio: impl.currentScaleRatio,
+                viewportAnchor: impl.captureViewportTopResizeAnchor(svg, scroll)
+            };
+            impl.keepSvgResizeAnchorAlive();
+        })()
+        """)
         app.workspace.jump(to: (source as NSString).range(of: "Chapter 1").location)
         try await waitForJavaScript(web, condition: "document.getElementById('typst-container-main').scrollTop < innerHeight")
+        try await web.evaluateJavaScript("document.getElementById('typst-container').documents[0].impl.rescale$svg()")
+        #expect((try await web.evaluateJavaScript("document.getElementById('typst-container-main').scrollTop") as? Double ?? .infinity) < 820)
         #expect(editor.string == source)
     }
 
@@ -275,7 +297,7 @@ private func waitForJavaScript(_ web: WKWebView, condition: String) async throws
         if (try? await web.evaluateJavaScript(condition)) as? Bool == true { return }
         try await Task.sleep(for: .milliseconds(50))
     }
-    let state = try? await web.evaluateJavaScript("JSON.stringify({visibility:document.visibilityState, requestedScroll:window.sumiRequestedScroll, scroll:document.getElementById('typst-container-main')?.scrollTop, height:innerHeight, pages:[...document.querySelectorAll('.typst-doc > g.typst-page')].map(p=>({page:p.dataset.pageNumber,top:p.getBoundingClientRect().top,bottom:p.getBoundingClientRect().bottom})), renderers:document.getElementById('typst-container')?.documents?.map(d=>({rendering:d.impl.isRendering,initialized:d.impl.moduleInitialized}))})")
+    let state = try? await web.evaluateJavaScript("JSON.stringify({visibility:document.visibilityState, requestedScroll:window.sumiRequestedScroll, scroll:document.getElementById('typst-container-main')?.scrollTop, height:innerHeight, pages:[...document.querySelectorAll('.typst-doc > g.typst-page')].map(p=>({page:p.dataset.pageNumber,top:p.getBoundingClientRect().top,bottom:p.getBoundingClientRect().bottom})), renderers:document.getElementById('typst-container')?.documents?.map(d=>({rendering:d.impl.isRendering,initialized:d.impl.moduleInitialized,anchor:d.impl.svgResizeAnchor,scale:d.impl.lastSvgScale}))})")
     Issue.record("Preview did not reach expected state: \(condition); state: \(state ?? "unavailable")")
     throw CommandError.invalid("Preview state timed out")
 }
