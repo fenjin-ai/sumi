@@ -2,6 +2,14 @@
 
 Date: 2026-10-01. This record preserves evidence from each development iteration. New feature acceptance is recorded separately; historical counts and measurements refer to the stated version.
 
+## 0.4.0 (8) · Trash controls, syntax colors and the Dock icon
+
+- Trash has an Empty Trash action with a native confirmation and total document count, independent of search. Permanent removal coordinates the full document folder, including attachments. Confirmed identities and trash timestamps protect restored, newly trashed and re-trashed documents; a changed library location invalidates the confirmation. Partial failures preserve remaining files and report an error after refreshing the list. The operation log records counts without manuscript content.
+- The editor now consumes real Tinymist semantic tokens. Fenced code uses the pinned offline Highlight.js common bundle on a background actor, with caching and size limits. Old revisions and document-switch responses are discarded. Equations still render in the page preview; inline equation widgets remain future work. See [editor rendering](editor-rendering.md).
+- The bundled Sigma icon is assigned explicitly at launch, including when starting the app executable directly from a checkout. The relocated cold-launch gate requires successful icon loading.
+- Local validation: **77 Swift tests passed**, plus **3 profile-validation checks**; production source-line coverage is **88.34% (4348/4922)**. New flows cover native confirmation cancellation and deletion, restore races, damaged metadata, Unicode token positions, real Tinymist highlighting, code grammars, undo and rapid document switching.
+- The preceding build 7 release workflow completed Developer ID signing, provisioning-profile embedding, Apple notarization and Gatekeeper validation. Real two-Mac iCloud delivery is still unverified.
+
 
 ## 0.4.0 (7) · Trash without replacement drafts
 

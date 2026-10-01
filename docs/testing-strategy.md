@@ -24,7 +24,7 @@ Start with six journeys:
 
 1. Launch an isolated library, create a document, type Unicode text, quit and reopen.
 2. Search for a table, change parameters, insert, move through placeholders, undo and redo.
-3. Search document content, rename, trash, restore and reopen without losing edits.
+3. Search document content, rename, trash, restore and reopen without losing edits; cancel and then confirm emptying an isolated trash.
 4. Switch interface language while preserving the editor buffer and selection.
 5. Switch writing views, pin the outline and verify the manuscript's position stays fixed.
 6. Render a valid document, introduce a syntax error, retain the last successful preview, recover and export a new PDF.

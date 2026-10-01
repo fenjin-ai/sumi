@@ -8,6 +8,62 @@ private func libraryFixture() throws -> URL {
     return url
 }
 
+@Test func emptyTrashRemovesConfirmedProjectsAndPreservesRestoredAndNewTrash() async throws {
+    let root = try libraryFixture()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let library = DocumentLibrary(rootURL: root)
+    let live = try await library.create(title: "Keep", text: "Live writing")
+    let deleted = try await library.create(title: "Delete", text: "Old writing")
+    let restored = try await library.create(title: "Restore", text: "Recovered writing")
+    let later = try await library.create(title: "Later", text: "Not yet confirmed")
+    let retrash = try await library.create(title: "Again", text: "A different trash generation")
+    let attachment = deleted.folderURL.appendingPathComponent("figure.svg")
+    try Data("<svg/>".utf8).write(to: attachment)
+    for id in [deleted.id, restored.id, retrash.id] { _ = try await library.trash(id) }
+    let snapshot = try await library.trashSnapshot()
+    #expect(snapshot.count == 3)
+    _ = try await library.restore(restored.id)
+    _ = try await library.restore(retrash.id)
+    _ = try await library.trash(retrash.id)
+    _ = try await library.trash(later.id)
+    let result = try await library.emptyTrash(snapshot)
+    #expect(result.deletedCount == 1)
+    #expect(result.issues.isEmpty)
+    #expect(!FileManager.default.fileExists(atPath: deleted.folderURL.path))
+    #expect(!FileManager.default.fileExists(atPath: attachment.path))
+    #expect(try await library.read(live.id).text == "Live writing")
+    #expect(try await library.read(restored.id).document.isTrashed == false)
+    #expect(try await library.read(later.id).document.isTrashed)
+    #expect(try await library.read(retrash.id).document.isTrashed)
+    #expect(try await library.emptyTrash(snapshot).deletedCount == 0)
+    #expect(try await library.emptyTrash(library.trashSnapshot()).deletedCount == 2)
+    #expect(try await library.trashSnapshot().count == 0)
+    #expect(try await library.emptyTrash(library.trashSnapshot()).deletedCount == 0)
+}
+
+@Test func emptyTrashReportsFailuresAndRejectsChangedLibrary() async throws {
+    let root = try libraryFixture()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let cloud = root.appendingPathComponent("Cloud")
+    let library = DocumentLibrary(rootURL: root.appendingPathComponent("Local"), cloudResolver: { cloud })
+    let good = try await library.create(title: "Good", text: "Delete me")
+    let corrupt = try await library.create(title: "Corrupt", text: "Preserve me")
+    let linked = try await library.create(title: "Linked", text: "Outside library")
+    for id in [good.id, corrupt.id, linked.id] { _ = try await library.trash(id) }
+    let snapshot = try await library.trashSnapshot()
+    try Data("broken".utf8).write(to: corrupt.folderURL.appendingPathComponent("document.json"))
+    let outside = root.appendingPathComponent("Outside")
+    try FileManager.default.moveItem(at: linked.folderURL, to: outside)
+    try FileManager.default.createSymbolicLink(at: linked.folderURL, withDestinationURL: outside)
+    let result = try await library.emptyTrash(snapshot)
+    #expect(result.deletedCount == 1)
+    #expect(result.issues.count == 2)
+    #expect(try String(contentsOf: corrupt.sourceURL, encoding: .utf8) == "Preserve me")
+    #expect(try String(contentsOf: outside.appendingPathComponent("main.typ"), encoding: .utf8) == "Outside library")
+    _ = try await library.resumeICloud()
+    await #expect(throws: LibraryError.self) { try await library.emptyTrash(snapshot) }
+}
+
 @Test func libraryCreateEditSearchRenameTrashRestore() async throws {
     let root = try libraryFixture()
     defer { try? FileManager.default.removeItem(at: root) }

@@ -9,12 +9,26 @@ public struct SourceDecoration: Equatable, Sendable {
     public let markers: [NSRange]
 }
 
+public struct SourceCodeBlock: Sendable {
+    public let language: String
+    public let contentRange: NSRange
+}
+
 public enum SourcePresentation {
     public static func decorations(in text: String) -> [SourceDecoration] {
+        scan(text).decorations
+    }
+
+    public static func codeBlocks(in text: String) -> [SourceCodeBlock] {
+        scan(text).blocks
+    }
+
+    private static func scan(_ text: String) -> (decorations: [SourceDecoration], blocks: [SourceCodeBlock]) {
         let source = text as NSString
         let units = Array(text.utf16)
         var excluded: [NSRange] = []
         var result: [SourceDecoration] = []
+        var blocks: [SourceCodeBlock] = []
         var cursor = 0
         func escaped(_ index: Int) -> Bool {
             var i = index, count = 0
@@ -49,6 +63,16 @@ public enum SourcePresentation {
                 let range = NSRange(location: start, length: cursor - start)
                 if count == 1, closed, !source.substring(with: range).contains("\n") {
                     result.append(.init(kind: .code, range: range, markers: [NSRange(location: start, length: 1), NSRange(location: cursor - 1, length: 1)]))
+                } else if count >= 3 {
+                    let bodyStart = start + count
+                    let bodyEnd = closed ? cursor - count : cursor
+                    let body = NSRange(location: bodyStart, length: bodyEnd - bodyStart)
+                    let newline = source.rangeOfCharacter(from: .newlines, range: body)
+                    if newline.location != NSNotFound {
+                        let language = source.substring(with: NSRange(location: bodyStart, length: newline.location - bodyStart)).trimmingCharacters(in: .whitespaces).lowercased()
+                        let contentStart = NSMaxRange(newline)
+                        blocks.append(.init(language: language, contentRange: NSRange(location: contentStart, length: bodyEnd - contentStart)))
+                    }
                 }
             } else if c == 36, !escaped(cursor) {
                 cursor += 1
@@ -91,7 +115,7 @@ public enum SourcePresentation {
         add("(?m)^(={1,6})[ \\t]+[^\\r\\n]+", kind: { .heading($0.range(at: 1).length) }, markers: { [$0.range(at: 1)] })
         add("(?<![\\w\\\\])\\*(?=\\S)[^*\\r\\n]+(?<=\\S)\\*(?!\\w)", kind: { _ in .strong }, markers: { [.init(location: $0.range.location, length: 1), .init(location: NSMaxRange($0.range) - 1, length: 1)] })
         add("(?<![\\w\\\\])_(?=\\S)[^_\\r\\n]+(?<=\\S)_(?!\\w)", kind: { _ in .emphasis }, markers: { [.init(location: $0.range.location, length: 1), .init(location: NSMaxRange($0.range) - 1, length: 1)] })
-        return result.sorted { $0.range.location < $1.range.location }
+        return (result.sorted { $0.range.location < $1.range.location }, blocks)
     }
 
     public static func activeParagraph(in text: String, selection: NSRange) -> NSRange {

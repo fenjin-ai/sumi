@@ -13,10 +13,10 @@ public enum CoordinatedFileAccess {
         return try result.get()
     }
 
-    public static func write<T>(_ url: URL, _ body: (URL) throws -> T) throws -> T {
+    public static func write<T>(_ url: URL, options: NSFileCoordinator.WritingOptions = [], _ body: (URL) throws -> T) throws -> T {
         var coordinationError: NSError?
         var result: Result<T, Error>?
-        NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: [], error: &coordinationError) { coordinatedURL in
+        NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: options, error: &coordinationError) { coordinatedURL in
             result = Result { try body(coordinatedURL) }
         }
         if let coordinationError { throw coordinationError }

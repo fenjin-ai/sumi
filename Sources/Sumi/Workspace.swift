@@ -79,6 +79,10 @@ final class Workspace: ObservableObject {
     private var serviceGeneration = UUID()
     private var saveTask: Task<Void, Never>?
     private var syncTask: Task<Void, Never>?
+    private var syntaxTask: Task<Void, Never>?
+    private let codeHighlighter = CodeBlockHighlighting()
+    private(set) var syntaxSnapshot: (source: String, tokens: [HighlightToken])?
+    private(set) var syntaxRevision = 0
     private var messageTask: Task<Void, Never>?
     private var sentVersion = 0
     let stateDirectory: URL
@@ -155,6 +159,7 @@ final class Workspace: ObservableObject {
         recordOperation("service.start")
         let generation = UUID()
         serviceGeneration = generation
+        syntaxTask?.cancel(); syntaxTask = nil; syntaxSnapshot = nil; syntaxRevision += 1
         serviceReady = false
         serviceStatus = "Connecting"
         diagnostics = []
@@ -181,6 +186,7 @@ final class Workspace: ObservableObject {
                 previewURL = url
                 recordOperation("service.ready")
                 try flushChanges()
+                refreshSyntax()
                 await refreshOutline()
             } catch {
                 guard serviceGeneration == generation else { return }
@@ -208,7 +214,34 @@ final class Workspace: ObservableObject {
         syncTask = Task {
             do { try await Task.sleep(for: .milliseconds(160)) } catch { return }
             try? flushChanges()
+            refreshSyntax()
             await refreshOutline()
+        }
+    }
+
+    /// At most one request is in flight. If typing overtakes it, discard its
+    /// ranges and immediately request the latest buffer without blocking input.
+    private func refreshSyntax() {
+        guard serviceReady, syntaxTask == nil else { return }
+        let generation = serviceGeneration
+        syntaxTask = Task {
+            defer { if generation == serviceGeneration { syntaxTask = nil } }
+            while !Task.isCancelled, serviceReady, generation == serviceGeneration {
+                let version = documentVersion, source = text
+                do {
+                    try flushChanges()
+                    async let embedded = codeHighlighter.tokens(in: source)
+                    let response = try await client.request("textDocument/semanticTokens/full", ["textDocument": ["uri": documentURL.absoluteString]])
+                    let tokens = SemanticHighlighting.decode(response["data"].array.compactMap(\.int), source: source,
+                        types: client.semanticTokenTypes, modifiers: client.semanticTokenModifiers)
+                    let combined = await tokens + embedded
+                    guard !Task.isCancelled, generation == serviceGeneration else { return }
+                    if version != documentVersion { continue }
+                    syntaxSnapshot = (source, combined); syntaxRevision += 1
+                    editor?.highlight()
+                } catch { /* Keep editing with the lightweight local styles. */ }
+                return
+            }
         }
     }
 
@@ -346,7 +379,8 @@ final class Workspace: ObservableObject {
 
     /// No replacement draft is created when the last document is trashed.
     func showLibraryHome() {
-        saveTask?.cancel(); syncTask?.cancel(); messageTask?.cancel()
+        saveTask?.cancel(); syncTask?.cancel(); syntaxTask?.cancel(); syntaxTask = nil; messageTask?.cancel()
+        syntaxSnapshot = nil; syntaxRevision += 1
         serviceGeneration = UUID()
         client.stop()
         isLibraryHome = true
@@ -731,7 +765,7 @@ final class Workspace: ObservableObject {
         return false
     }
 
-    func shutdown() { recordOperation("session.end"); saveTask?.cancel(); syncTask?.cancel(); library.stop(); client.stop() }
+    func shutdown() { recordOperation("session.end"); saveTask?.cancel(); syncTask?.cancel(); syntaxTask?.cancel(); library.stop(); client.stop() }
 
     func recordOperation(_ event: String, _ fields: [String: String] = [:]) {
         var context = fields

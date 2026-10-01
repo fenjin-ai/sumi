@@ -25,12 +25,25 @@ public struct LibraryIssue: Sendable {
     public let message: String
 }
 
+/// Captures the exact trash contents the user confirmed, independent of search.
+public struct LibraryTrashSnapshot: Sendable {
+    let rootURL: URL
+    let entries: [UUID: Date]
+    public var count: Int { entries.count }
+}
+
+public struct LibraryEmptyTrashResult: Sendable {
+    public let deletedCount: Int
+    public let issues: [LibraryIssue]
+}
+
 public enum LibraryError: LocalizedError {
-    case notFound, invalidTitle, invalidMetadata, invalidProject, unsafeResource, destinationExists
+    case notFound, invalidTitle, invalidMetadata, invalidProject, unsafeResource, destinationExists, libraryChanged
     case downloadPending, unresolvedConflict, cloudNotConfigured, cloudAccountUnavailable, cloudUnavailable
     public var errorDescription: String? {
         switch self {
         case .notFound: L10n.text("This document is no longer available in the library.")
+        case .libraryChanged: L10n.text("The library location changed. Open Trash and try again.")
         case .invalidTitle: L10n.text("Use a document title between 1 and 200 characters.")
         case .invalidMetadata: L10n.text("This document's library metadata could not be read. Its files have been preserved.")
         case .invalidProject: L10n.text("Choose a project folder containing the selected Typst source file.")
@@ -129,6 +142,38 @@ public actor DocumentLibrary {
 
     public func restore(_ id: UUID) throws -> LibraryDocument {
         try updateMetadata(id) { $0.trashedAt = nil; $0.modifiedAt = now() }
+    }
+
+    public func trashSnapshot() throws -> LibraryTrashSnapshot {
+        let entries = try list(includeTrashed: true).compactMap { document in
+            document.trashedAt.map { (document.id, $0) }
+        }
+        return LibraryTrashSnapshot(rootURL: rootURL, entries: Dictionary(uniqueKeysWithValues: entries))
+    }
+
+    /// Permanent deletion is limited to the confirmed trash generation. A restore,
+    /// re-trash, or library migration while the confirmation is open is preserved.
+    public func emptyTrash(_ snapshot: LibraryTrashSnapshot) throws -> LibraryEmptyTrashResult {
+        guard snapshot.rootURL == rootURL else { throw LibraryError.libraryChanged }
+        var deleted = 0, failures: [LibraryIssue] = []
+        for (id, trashedAt) in snapshot.entries {
+            let candidate = rootURL.appendingPathComponent("Documents/" + id.uuidString)
+            guard manager.fileExists(atPath: candidate.path) else { continue }
+            do {
+                let folder = try folder(for: id)
+                let removed = try CoordinatedFileAccess.write(folder, options: .forDeleting) { coordinated in
+                    let metadata = try decodeMetadata(coordinated.appendingPathComponent(Self.metadataName), in: coordinated)
+                    guard metadata.trashedAt == trashedAt else { return false }
+                    if (try? coordinated.appendingPathComponent(Self.metadataName).resourceValues(forKeys: [.ubiquitousItemHasUnresolvedConflictsKey]).ubiquitousItemHasUnresolvedConflicts) == true {
+                        throw LibraryError.unresolvedConflict
+                    }
+                    try manager.removeItem(at: coordinated)
+                    return true
+                }
+                if removed { deleted += 1 }
+            } catch { failures.append(LibraryIssue(folderURL: candidate, message: error.localizedDescription)) }
+        }
+        return LibraryEmptyTrashResult(deletedCount: deleted, issues: failures)
     }
 
     /// Imports one source file; use importProject when it has relative resource dependencies.
@@ -252,11 +297,17 @@ public actor DocumentLibrary {
               (try? metadataURL.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true else { throw LibraryError.unsafeResource }
         try LibraryCloudEnvironment.requestDownloadIfNeeded(metadataURL)
         return try CoordinatedFileAccess.read(metadataURL) { url in
-            guard let data = try? Data(contentsOf: url), let metadata = try? JSONDecoder().decode(Metadata.self, from: data),
-                  metadata.schema == 1, metadata.id.uuidString == folder.lastPathComponent else { throw LibraryError.invalidMetadata }
-            _ = try sourceURL(metadata, in: folder)
-            return metadata
+            try decodeMetadata(url, in: folder)
         }
+    }
+    private func decodeMetadata(_ url: URL, in folder: URL) throws -> Metadata {
+        let properties = try folder.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard properties.isDirectory == true, properties.isSymbolicLink != true,
+              (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true else { throw LibraryError.unsafeResource }
+        guard let data = try? Data(contentsOf: url), let metadata = try? JSONDecoder().decode(Metadata.self, from: data),
+              metadata.schema == 1, metadata.id.uuidString == folder.lastPathComponent else { throw LibraryError.invalidMetadata }
+        _ = try sourceURL(metadata, in: folder)
+        return metadata
     }
     private func sourceURL(_ metadata: Metadata, in folder: URL) throws -> URL {
         let components = metadata.sourcePath.split(separator: "/", omittingEmptySubsequences: false)

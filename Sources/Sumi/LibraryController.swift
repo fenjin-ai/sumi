@@ -150,6 +150,36 @@ final class LibraryController: ObservableObject {
         workspace?.recordOperation("library.restore", ["documentID": id.uuidString])
     }
 
+    func confirmEmptyTrash() {
+        guard let owner = workspace?.window ?? workspace?.editor?.window else { return }
+        let window = owner.attachedSheet ?? owner
+        guard window.attachedSheet == nil else { return }
+        perform { [self] in
+            let snapshot = try await self.store.trashSnapshot()
+            guard snapshot.count > 0 else { await self.refresh(); return }
+            let alert = NSAlert()
+            alert.messageText = L10n.text("Empty Trash?")
+            alert.informativeText = L10n.format("Permanently delete %d documents and their attachments? This cannot be undone.", snapshot.count)
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: L10n.text("Cancel"))
+            alert.addButton(withTitle: L10n.text("Empty Trash"))
+            alert.buttons[1].hasDestructiveAction = true
+            alert.beginSheetModal(for: window) { [weak self] response in
+                guard response == .alertSecondButtonReturn, let self else { return }
+                self.perform { try await self.emptyTrash(snapshot) }
+            }
+        }
+    }
+
+    func emptyTrash(_ snapshot: LibraryTrashSnapshot) async throws {
+        let result = try await store.emptyTrash(snapshot)
+        await refresh()
+        workspace?.recordOperation("library.emptyTrash", ["deleted": String(result.deletedCount), "failed": String(result.issues.count)])
+        if let issue = result.issues.first {
+            throw CommandError.invalid(L10n.format("%d documents deleted. Some items could not be removed: %@", result.deletedCount, issue.message))
+        }
+    }
+
     func importDocument(_ url: URL) async throws {
         let document = try await store.importDocument(at: url)
         await refresh()

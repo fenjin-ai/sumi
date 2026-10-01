@@ -6,6 +6,41 @@ import Testing
 import SumiCore
 
 extension WritingFlowTests {
+    @Test func emptyTrashConfirmationCancelsThenDeletesWithoutTouchingOpenWriting() async throws {
+        let app = try WritingFixture(text: "= Current writing\n", startService: false)
+        defer { app.close() }
+        let library = app.workspace.library
+        let old = try await library.store.create(title: "Private title", text: "Private writing")
+        _ = try await library.store.trash(old.id)
+        await library.refresh()
+        let original = app.workspace.text
+        func buttons(_ view: NSView) -> [NSButton] {
+            (view as? NSButton).map { [$0] } ?? view.subviews.flatMap(buttons)
+        }
+        library.confirmEmptyTrash()
+        try await app.wait { app.window.attachedSheet != nil && !library.busy }
+        var sheet = try #require(app.window.attachedSheet?.contentView)
+        let cancel = try #require(buttons(sheet).first { $0.title == L10n.text("Cancel") })
+        cancel.performClick(nil)
+        try await app.wait { app.window.attachedSheet == nil }
+        #expect(try await library.store.trashSnapshot().count == 1)
+        library.confirmEmptyTrash()
+        try await app.wait { app.window.attachedSheet != nil && !library.busy }
+        sheet = try #require(app.window.attachedSheet?.contentView)
+        let confirm = try #require(buttons(sheet).first { $0.title == L10n.text("Empty Trash") })
+        #expect(confirm.hasDestructiveAction)
+        confirm.performClick(nil)
+        try await app.wait { app.window.attachedSheet == nil && !library.busy && library.documents.isEmpty }
+        #expect(!FileManager.default.fileExists(atPath: old.folderURL.path))
+        #expect(app.workspace.text == original)
+        #expect(app.workspace.editor?.string == original)
+        #expect(!app.workspace.isLibraryHome)
+        let log = try String(contentsOf: app.workspace.stateDirectory.appendingPathComponent("Logs/events.jsonl"), encoding: .utf8)
+        #expect(log.contains("library.emptyTrash"))
+        #expect(!log.contains("Private title"))
+        #expect(!log.contains("Private writing"))
+    }
+
     @Test func trashActiveDocumentSelectsRemainingWritingAndEmptyLibrarySurvivesRestart() async throws {
         let app = try WritingFixture(text: "= External\n", startService: false)
         defer { app.close() }

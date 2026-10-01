@@ -59,10 +59,11 @@ def main():
                             except json.JSONDecodeError:
                                 pass  # A live append may not be complete yet.
                     ready = any(event.get('event') == 'service.ready' for event in events)
+                    icon_loaded = any(event.get('event') == 'application.iconLoaded' for event in events)
                     localized = any('给想法一点留白' in source.read_text()
                                     for source in (state / 'Library/Documents').glob('*/main.typ'))
-                    if ready and localized:
-                        print('PASS: relocated app launched, Chinese resources loaded, library created, Tinymist ready.')
+                    if ready and localized and icon_loaded:
+                        print('PASS: relocated app launched, app icon and Chinese resources loaded, library created, Tinymist ready.')
                         return
                     time.sleep(0.1)
                 raise RuntimeError('App did not reach a localized library and ready typesetting service in 30 seconds')

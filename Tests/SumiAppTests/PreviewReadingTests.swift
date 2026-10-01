@@ -7,6 +7,38 @@ import WebKit
 import SumiCore
 
 extension WritingFlowTests {
+    @Test func realSemanticAndCodeHighlightingPreservesTypingUndoAndDocumentSwitches() async throws {
+        let source = "= 中文😀\n\n```python\ntotal = sum(range(1, 11))\nprint(total)\n```\n\n$alpha + beta = gamma$\n"
+        let app = try WritingFixture(text: source)
+        defer { app.close() }
+        try await app.ready()
+        try await app.wait { app.workspace.syntaxSnapshot?.source == source }
+        let editor = try #require(app.workspace.editor)
+        let storage = try #require(editor.textStorage)
+        let sum = (source as NSString).range(of: "sum")
+        let number = (source as NSString).range(of: "11")
+        let code = (source as NSString).range(of: "total")
+        #expect(storage.attribute(.foregroundColor, at: sum.location, effectiveRange: nil) as? NSColor == NSColor(hex: 0x9DBBCD))
+        #expect(storage.attribute(.foregroundColor, at: number.location, effectiveRange: nil) as? NSColor == NSColor(hex: 0xD9B97C))
+        #expect(storage.attribute(.foregroundColor, at: code.location, effectiveRange: nil) as? NSColor != NSColor(hex: 0x9DBBCD))
+        #expect(editor.string == source)
+        #expect(editor.selectedRange().location == source.utf16.count)
+        editor.insertSnippet(Snippet(text: "42"), replacing: number)
+        let edited = editor.string
+        try await app.wait { app.workspace.syntaxSnapshot?.source == edited }
+        editor.undoManager?.undo()
+        try await app.wait { app.workspace.syntaxSnapshot?.source == source }
+        #expect(editor.string == source)
+        #expect(app.workspace.text == source)
+        // Rapid edits and switching documents must never apply old UTF-16 ranges.
+        for _ in 0..<8 { editor.insertSnippet(Snippet(text: "😀"), replacing: NSRange(location: 0, length: 0)) }
+        let next = app.root.appendingPathComponent("next.typ")
+        try Data("= Next\n\n#let value = 7\n".utf8).write(to: next)
+        #expect(app.workspace.open(next))
+        try await app.wait { app.workspace.syntaxSnapshot?.source == "= Next\n\n#let value = 7\n" }
+        #expect(editor.string == app.workspace.text)
+    }
+
     @Test func readingStylesRevealSourceWithoutChangingUndoOrText() async throws {
         let source = "= 中文😀标题\n\n*bold* and _italic_ and `code`.\n\nEnd\n"
         let app = try WritingFixture(text: source, startService: false)

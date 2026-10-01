@@ -31,6 +31,8 @@ public final class TinymistClient {
     private var pending: [Int: CheckedContinuation<JSONValue, Error>] = [:]
     private var timeouts: [Int: Task<Void, Never>] = [:]
     public private(set) var initialized = false
+    public private(set) var semanticTokenTypes: [String] = []
+    public private(set) var semanticTokenModifiers: [String] = []
 
     public static var binaryURL: URL? {
         if let override = ProcessInfo.processInfo.environment["SUMI_TINYMIST"], FileManager.default.isExecutableFile(atPath: override) { return URL(fileURLWithPath: override) }
@@ -79,17 +81,23 @@ public final class TinymistClient {
         try process.run()
         let packageCache = outputDirectory.deletingLastPathComponent().appendingPathComponent("PackageCache")
         try BundledPackages.prepare(in: packageCache)
-        _ = try await request("initialize", [
+        let response = try await request("initialize", [
             "processId": ProcessInfo.processInfo.processIdentifier,
             "rootUri": root.absoluteString,
             "capabilities": [
                 "general": ["positionEncodings": ["utf-16"]],
                 "window": ["showDocument": ["support": true]],
-                "textDocument": ["publishDiagnostics": ["versionSupport": true], "completion": ["completionItem": ["snippetSupport": false]]]
+                "textDocument": ["publishDiagnostics": ["versionSupport": true], "completion": ["completionItem": ["snippetSupport": false]],
+                    "semanticTokens": ["requests": ["full": true], "tokenTypes": SemanticHighlighting.tokenTypes,
+                        "tokenModifiers": SemanticHighlighting.tokenModifiers, "formats": ["relative"],
+                        "multilineTokenSupport": false, "overlappingTokenSupport": false]]
             ],
             "initializationOptions": ["exportPdf": "never", "outputPath": outputDirectory.appendingPathComponent("$name").path, "compileStatus": "enable", "typstExtraArgs": ["--package-cache-path", packageCache.path]]
         ])
         guard generation == session else { throw ServiceError.disconnected }
+        let legend = response["capabilities"]["semanticTokensProvider"]["legend"]
+        semanticTokenTypes = legend["tokenTypes"].array.compactMap(\.string)
+        semanticTokenModifiers = legend["tokenModifiers"].array.compactMap(\.string)
         try notify("initialized", [:])
         initialized = true
     }
@@ -97,6 +105,7 @@ public final class TinymistClient {
     public func stop() {
         generation = UUID()
         initialized = false
+        semanticTokenTypes = []; semanticTokenModifiers = []
         output?.readabilityHandler = nil
         errorOutput?.readabilityHandler = nil
         process?.terminationHandler = nil
