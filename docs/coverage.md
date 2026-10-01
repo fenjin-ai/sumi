@@ -13,4 +13,10 @@
 
 Codecov GitHub App 需要仅授权 `fenjin-ai/sumi`，才能读取提交、更新检查状态并发布 PR 评论。安装应用与报告上传是两个步骤；成功上传后，还应在真实 PR 上核对 Codecov 评论和检查是否出现。首次接入尚无 main 基线时，评论可先展示当前报告；合入 main 并上传基线后，后续 PR 可显示完整覆盖率变化。
 
+## 接入验证
+
+2026-10-01 已将 Codecov GitHub App 的仓库权限限定为 `fenjin-ai/sumi`。[首次接入 PR](https://github.com/fenjin-ai/sumi/pull/1) 的 CI 通过 GitHub OIDC 上传，未配置 Codecov 长期 token。平台报告与从 GitHub artifact 下载的 LCOV 独立核验一致：21 个生产代码文件，2,107 / 2,442 个唯一可执行源码行，覆盖率 86.28%。这次比较验证的是同一次运行的两个输出；后续版本的比例以对应提交的报告为准。
+
+初次 PR 缺少 main 基线时，Codecov 会发接入欢迎评论。合入 main 后的上传建立比较基线，后续 PR 才会显示完整数字报告及状态检查。
+
 参考：[官方 Action 的 OIDC 配置](https://github.com/codecov/codecov-action#using-oidc)、[公开仓库上传](https://docs.codecov.com/docs/codecov-tokens)、[状态检查](https://docs.codecov.com/docs/commit-status)、[PR 评论](https://docs.codecov.com/docs/pull-request-comments)。
