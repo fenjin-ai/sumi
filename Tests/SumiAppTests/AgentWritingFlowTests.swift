@@ -70,18 +70,26 @@ extension WritingFlowTests {
     }
 
     @Test func agentSettingsAreAllowlistedAndValidatedAtomically() async throws {
+        _ = NSApplication.shared
+        let originalAppearance = NSApp.appearance
+        defer { NSApp.appearance = originalAppearance }
         let app = try WritingFixture(text: "= Preferences\n", startService: false)
         defer { app.close() }
         let fixture = try AgentFixture(app.workspace)
         defer { fixture.close() }
         let result = try await fixture.client.send(.init("set_settings", arguments: .object([
-            "layout": .string("split"), "font_size": .number(20), "preview_dark": .bool(true), "styled_source": .bool(false)
+            "layout": .string("split"), "font_size": .number(20), "preview_dark": .bool(true), "styled_source": .bool(false), "appearance": .string("light")
         ])))
         #expect(result["font_size"].int == 20)
+        #expect(result["appearance"].string == "light")
+        #expect(app.workspace.appearance == .light)
+        #expect(NSApp.appearance?.name == .aqua)
         #expect(app.workspace.layout == .split && app.workspace.previewDark && !app.workspace.styledSource)
         for arguments: JSONValue in [
             .object(["layout": .string("writing"), "font_size": .number(200)]),
             .object(["layout": .string("invalid")]), .object(["styled_source": .string("true")]),
+            .object(["layout": .string("writing"), "appearance": .string("invalid")]),
+            .object(["appearance": .bool(false)]),
             .object(["agent_access": .bool(false)]), .object(["iCloud": .bool(true)])
         ] {
             await #expect(throws: AutomationFailure.self) { try await fixture.client.send(.init("set_settings", arguments: arguments)) }

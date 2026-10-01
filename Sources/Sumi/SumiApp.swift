@@ -35,8 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApp.applicationIconImage = icon
             workspace.recordOperation("application.iconLoaded")
         }
+        settingsController = WorkspaceSettings(workspace: workspace)
         installMenu()
-        NSApp.appearance = NSAppearance(named: .darkAqua)
         let writingWindow = WritingWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         writingWindow.workspace = workspace
         workspace.window = writingWindow
@@ -46,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.toolbarStyle = .unifiedCompact
         windowToolbar = WindowToolbar(workspace: workspace)
         window.toolbar = windowToolbar?.makeToolbar()
-        window.backgroundColor = NSColor(hex: 0x171A1D)
+        window.backgroundColor = Theme.nativeBackground
         window.minSize = NSSize(width: 820, height: 580)
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -56,7 +56,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
         workspace.onTitleChange = { [weak self] title in self?.window.title = title + " — " + L10n.text("Sumi") }
         workspace.onShortcutChange = { [weak self] in self?.installMenu() }
-        settingsController = WorkspaceSettings(workspace: workspace)
         languageObserver = NotificationCenter.default.publisher(for: .sumiLanguageChanged).sink { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.installMenu()
@@ -183,7 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if settingsController == nil { settingsController = WorkspaceSettings(workspace: workspace) }
         guard let settingsController else { return }
         if settingsWindow == nil {
-            let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 530, height: 640), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 530, height: 690), styleMask: [.titled, .closable], backing: .buffered, defer: false)
             panel.isReleasedWhenClosed = false
             panel.contentView = NSHostingView(rootView: WritingSettingsView(workspace: workspace, settings: settingsController, library: workspace.library))
             panel.center()

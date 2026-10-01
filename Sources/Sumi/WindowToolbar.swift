@@ -92,7 +92,7 @@ private struct DocumentTitle: View {
             if workspace.text != workspace.savedText, workspace.fileURL != nil {
                 Circle().fill(Theme.accent).frame(width: 5, height: 5).accessibilityLabel(L10n.text("Unsaved"))
             }
-        }.frame(height: 30).foregroundStyle(Theme.text).preferredColorScheme(.dark)
+        }.frame(height: 30).foregroundStyle(Theme.text)
     }
 }
 
@@ -106,6 +106,6 @@ private struct WritingActions: View {
             QuietButton(icon: "eye", help: L10n.text("Read the Preview"), shortcut: WritingCommand.all.first { $0.id == "preview" }?.shortcuts.first?.label, detail: L10n.text("Fill the workspace with your finished pages."), active: workspace.layout == .preview) { workspace.layout = .preview }
             Rectangle().fill(Theme.border).frame(width: 1, height: 14)
             QuietButton(icon: "arrow-square-out", help: L10n.text("Export PDF"), shortcut: WritingCommand.all.first { $0.id == "export" }?.shortcuts.first?.label, detail: L10n.text("Export the current document in its original colors.")) { workspace.exportPDF() }.disabled(workspace.exporting)
-        }.fixedSize().preferredColorScheme(.dark).disabled(workspace.isLibraryHome)
+        }.fixedSize().disabled(workspace.isLibraryHome)
     }
 }

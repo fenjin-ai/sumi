@@ -34,7 +34,6 @@ struct DocumentHistoryView: View {
         }
         .frame(width: 940, height: 600)
         .background(Theme.editor).foregroundStyle(Theme.text)
-        .preferredColorScheme(.dark)
         .task { await history.load() }
         .onDisappear { history.cancelPresentation() }
         .confirmationDialog(L10n.text("Restore this snapshot?"), isPresented: $confirmingRestore) {

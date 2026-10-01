@@ -16,7 +16,6 @@ struct ContentView: View {
         }
         .background(Theme.background)
         .foregroundStyle(Theme.text)
-        .preferredColorScheme(.dark)
         .sheet(isPresented: $workspace.historyOpen) {
             DocumentHistoryView(workspace: workspace, history: workspace.history)
         }

@@ -45,7 +45,7 @@ final class DocumentTitleField: NSTextField, NSTextFieldDelegate {
         isEditable = false
         isSelectable = false
         font = .systemFont(ofSize: 12, weight: .medium)
-        textColor = NSColor(hex: 0xE0E2E5)
+        textColor = Theme.nativeText
         lineBreakMode = .byTruncatingMiddle
         usesSingleLineMode = true
         focusRingType = .none
