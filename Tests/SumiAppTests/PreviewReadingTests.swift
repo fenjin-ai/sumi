@@ -147,7 +147,8 @@ extension WritingFlowTests {
             try await waitForJavaScript(web, condition: "(() => { const page = document.querySelector('.typst-doc > g.typst-page[data-page-number=\"\(page)\"]'); return page && page.querySelectorAll('use').length > 20 && page.getBoundingClientRect().top < innerHeight && page.getBoundingClientRect().bottom > 0; })()")
             let snapshot = try await web.takeSnapshot(configuration: nil)
             #expect(snapshot.size.width >= 1800)
-            let bitmap = try #require(NSBitmapImageRep(data: try #require(snapshot.tiffRepresentation)))
+            let snapshotData = try #require(snapshot.tiffRepresentation)
+            let bitmap = try #require(NSBitmapImageRep(data: snapshotData))
             var darkPixels = 0, lightPixels = 0
             for y in stride(from: 0, to: bitmap.pixelsHigh, by: 16) {
                 for x in stride(from: 0, to: bitmap.pixelsWide, by: 16) {
