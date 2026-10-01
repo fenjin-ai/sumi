@@ -17,6 +17,9 @@ struct ContentView: View {
         .background(Theme.background)
         .foregroundStyle(Theme.text)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $workspace.historyOpen) {
+            DocumentHistoryView(workspace: workspace, history: workspace.history)
+        }
         .sheet(isPresented: $workspace.libraryOpen) {
             LibraryBrowser(workspace: workspace, library: workspace.library)
         }
