@@ -23,7 +23,11 @@ final class Workspace: ObservableObject {
     @Published var saveStatus = "Draft"
     @Published var serviceStatus = "Connecting"
     @Published var serviceReady = false
-    @Published var previewURL: URL?
+    @Published var previewURL: URL? {
+        didSet { if previewURL != oldValue { previewReadyForNavigation = false } }
+    }
+    private var previewReadyForNavigation = false
+    private var pendingPreviewNavigation: (url: URL, position: TextPosition, version: Int, reportFailure: Bool)?
     @Published var diagnostics: [DiagnosticItem] = []
     @Published var layout: EditorLayout = .writing {
         didSet {
@@ -615,7 +619,6 @@ final class Workspace: ObservableObject {
         case "logs": closePalette(); revealLogs()
         case "universe": openDiscovery(.packages)
         case "previewDark": previewDark.toggle(); closePalette()
-        case "styledSource": styledSource.toggle(); closePalette()
         case "format": closePalette(); formatDocument()
         case "indent": closePalette(); editLines(.indent)
         case "outdent": closePalette(); editLines(.outdent)
@@ -709,20 +712,68 @@ final class Workspace: ObservableObject {
         }
     }
 
-    func jump(to offset: Int) {
+    func jump(to offset: Int, synchronizePreview: Bool = true) {
         if layout == .preview { layout = .split }
         selection = NSRange(location: min(max(0, offset), text.utf16.count), length: 0)
         editor?.setSelectedRange(selection)
         editor?.scrollRangeToVisible(selection)
         if let editor { editor.window?.makeFirstResponder(editor) }
+        if synchronizePreview, layout == .split { queuePreviewNavigation(reportFailure: false) }
+        else { pendingPreviewNavigation = nil }
     }
 
     func revealPreview() {
         if layout == .writing { layout = .split }
-        let current = position
+        queuePreviewNavigation(reportFailure: true)
+    }
+
+    func previewDidBecomeReady(at url: URL) {
+        guard previewURL == url else { return }
+        previewReadyForNavigation = true
+        recordOperation("preview.ready")
+        sendPendingPreviewNavigation()
+    }
+
+    func previewWillLoad(at url: URL) {
+        guard previewURL == url else { return }
+        previewReadyForNavigation = false
+        recordOperation("preview.loading")
+    }
+
+    private func queuePreviewNavigation(reportFailure: Bool) {
+        // Tinymist resolves the leaf before an exact token boundary. Step into
+        // the selected character so heading/paragraph starts map to their text,
+        // rather than the preceding newline (which has no rendered position).
+        let source = text as NSString
+        let offset = min(selection.location, source.length)
+        let queryOffset = offset < source.length && source.character(at: offset) != 10 && source.character(at: offset) != 13
+            ? NSMaxRange(source.rangeOfComposedCharacterSequence(at: offset)) : offset
+        let target = metrics.position(at: queryOffset)
+        pendingPreviewNavigation = (documentURL, target, documentVersion, reportFailure)
+        recordOperation("preview.jump.queued", ["line": String(target.line), "version": String(documentVersion)])
+        sendPendingPreviewNavigation()
+    }
+
+    private func sendPendingPreviewNavigation() {
+        guard let pending = pendingPreviewNavigation else { return }
+        guard pending.url == documentURL, pending.version == documentVersion else {
+            pendingPreviewNavigation = nil; return
+        }
+        guard serviceReady, previewReadyForNavigation, !previewStale else { return }
+        pendingPreviewNavigation = nil
+        let generation = serviceGeneration
+        let start = metrics.offset(at: TextPosition(line: pending.position.line, character: 0))
+        let end = metrics.offset(at: pending.position)
+        let column = (text as NSString).substring(with: NSRange(location: start, length: end - start)).utf8.count
         Task {
-            do { _ = try await client.command("tinymist.scrollPreview", arguments: ["sumi", ["event": "panelScrollTo", "filepath": documentURL.path, "line": current.line, "character": current.utf8Column(in: text)]]) }
-            catch { showMessage(error.localizedDescription) }
+            guard generation == serviceGeneration, pending.url == documentURL, pending.version == documentVersion else { return }
+            do {
+                _ = try await client.command("tinymist.scrollPreview", arguments: ["sumi", ["event": "panelScrollTo", "filepath": pending.url.path, "line": pending.position.line, "character": column]])
+                recordOperation("preview.jump.sent", ["line": String(pending.position.line), "version": String(pending.version)])
+            } catch {
+                recordOperation("preview.jump.failed", ["error": error.localizedDescription])
+                if generation == serviceGeneration, pending.reportFailure { showMessage(error.localizedDescription) }
+            }
         }
     }
 
@@ -801,6 +852,7 @@ final class Workspace: ObservableObject {
                     hasSuccessfulPreview = true
                     previewStale = documentVersion != sentVersion
                     serviceStatus = previewStale ? "Typesetting" : "Preview Updated"
+                    sendPendingPreviewNavigation()
                 default: break
                 }
             }
@@ -811,7 +863,7 @@ final class Workspace: ObservableObject {
         guard let uri = params["uri"].string, let url = URL(string: uri), url.isFileURL else { return }
         if url.standardizedFileURL != documentURL.standardizedFileURL, !open(url, preservingMain: true) { return }
         let start = params["selection"]["start"]
-        jump(to: TextPosition(line: start["line"].int ?? 0, character: start["character"].int ?? 0).offset(in: text))
+        jump(to: TextPosition(line: start["line"].int ?? 0, character: start["character"].int ?? 0).offset(in: text), synchronizePreview: false)
     }
 
     func showDiagnostic(_ item: DiagnosticItem) {

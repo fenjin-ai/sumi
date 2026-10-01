@@ -16,6 +16,19 @@ swift test --build-system native --scratch-path .build/native-validation \
 
 Keep the scratch path inside the SSD checkout. The hosted CI toolchain is deliberately older than the development machine, so local success is not a substitute for its result.
 
+## Dependency maintenance
+
+Actions are pinned to full commit SHAs with readable version comments, so a
+moved release tag cannot silently change the code CI runs. Dependabot keeps
+those pins and Swift package dependencies current.
+
+Each ecosystem is checked monthly, on the first day at 09:00 Asia/Singapore.
+All versions, including major upgrades, are grouped into one pull request per
+ecosystem, with at most one open routine update in each ecosystem (two total).
+Security updates have their own groups and can arrive between monthly checks;
+GitHub does not apply the routine-update schedule or PR limit to them. Every
+update still needs the required `build and test` check before merging.
+
 ## Recommended next layer
 
 Use Apple's [XCTest and XCUIAutomation](https://developer.apple.com/documentation/xcuiautomation) for a small set of complete macOS user journeys. Keep Swift Testing for the existing integration suite. UI tests need a dedicated Xcode UI-test target and a logged-in graphical runner; the current Swift package does **not** yet include this target.

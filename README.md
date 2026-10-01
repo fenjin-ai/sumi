@@ -2,7 +2,7 @@
 
 <img src="Brand/logo.svg" alt="Sumi · Σ" width="80">
 
-[![CI](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml/badge.svg)](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/fenjin-ai/sumi/branch/main/graph/badge.svg)](https://app.codecov.io/github/fenjin-ai/sumi)
+[![build and test](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml/badge.svg)](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/fenjin-ai/sumi/branch/main/graph/badge.svg)](https://app.codecov.io/github/fenjin-ai/sumi)
 
 **A quiet space to write.**
 
@@ -89,7 +89,7 @@ The build downloads Tinymist **0.15.8** (Typst 0.15.1), verifies its pinned SHA-
 
 `scripts/test.sh` writes HTML, raw coverage data and `build/coverage/summary.md`. It requires **80% coverage of unique executable lines across production Swift sources**, including the interface. LCOV records are deduplicated by source file and line to avoid counting SwiftUI generic instantiations repeatedly. Plain `swift test` omits explicitly enabled integration scenarios and does not enforce coverage.
 
-GitHub Actions builds PRs and main, checks coverage and uploads reports and development packages. [Codecov](https://app.codecov.io/github/fenjin-ai/sumi) reports project and patch coverage, including PR comments. A version tag matching `Info.plist` triggers testing and a release ZIP with SHA-256. Public releases require Developer ID signing, successful Apple notarization, ticket stapling and Gatekeeper validation. See [release signing](docs/signing.md); ordinary CI packages remain development builds.
+GitHub Actions uses `macos-15` with Xcode 26.3 for both pull requests and signed releases. The `build and test` check must pass on an up-to-date pull request before merging. It checks functional coverage (at least 80%), exercises the agent bridge with a single cooperative worker, runs book benchmarks, and uploads reports and development packages. Swift package sources are cached; application binaries are rebuilt. [Codecov](https://app.codecov.io/github/fenjin-ai/sumi) reports project and patch coverage, including PR comments. A version tag matching `Info.plist` triggers testing and a release ZIP with SHA-256. Public releases require Developer ID signing, successful Apple notarization, ticket stapling and Gatekeeper validation. See [release signing](docs/signing.md); ordinary CI packages remain development builds.
 
 The source is split into the launcher, testable native app, core document logic and local agent integration. Bundled third-party licenses are listed in `Resources/ThirdParty.txt`.
 

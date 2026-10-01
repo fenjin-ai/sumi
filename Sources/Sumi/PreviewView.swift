@@ -6,11 +6,14 @@ struct PreviewView: NSViewRepresentable {
     let url: URL
     let zoom: CGFloat
     var dark = false
+    var onLoading: () -> Void = {}
+    var onReady: () -> Void = {}
     var onError: (String) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(onError: onError) }
+    func makeCoordinator() -> Coordinator { Coordinator(onLoading: onLoading, onReady: onReady, onError: onError) }
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.userContentController.add(context.coordinator, name: "sumiPreviewReady")
         let css = """
         document.documentElement.style.background='#22262b';
         document.body.style.background='#22262b';
@@ -18,14 +21,27 @@ struct PreviewView: NSViewRepresentable {
         // In WebKit these create enormous backing layers for book-length SVGs.
         // Keep its viewport SVG renderer, without the optional canvas fallback.
         const container = document.getElementById('typst-container');
-        const svgOnly = doc => {
-            if (doc?.impl?.renderMode === 'svg' && 'feat$canvas' in doc.impl) doc.impl.feat$canvas = false;
+        const configured = new WeakSet();
+        const configureDocument = doc => {
+            const impl = doc?.impl;
+            if (!impl || configured.has(impl)) return;
+            configured.add(impl);
+            if (impl.renderMode === 'svg' && 'feat$canvas' in impl) impl.feat$canvas = false;
+            // A resize anchor lives across several rendering passes. An explicit
+            // source jump must supersede it, or the next pass restores the old page.
+            if (typeof impl.scrollTo === 'function' && typeof impl.clearSvgResizeAnchor === 'function') {
+                const scrollTo = impl.scrollTo;
+                impl.scrollTo = function(...args) {
+                    this.clearSvgResizeAnchor();
+                    return scrollTo.apply(this, args);
+                };
+            }
         };
         const watchDocuments = documents => {
             if (!Array.isArray(documents)) return documents;
-            documents.forEach(svgOnly);
+            documents.forEach(configureDocument);
             const push = documents.push;
-            documents.push = function(...docs) { docs.forEach(svgOnly); return push.apply(this, docs); };
+            documents.push = function(...docs) { docs.forEach(configureDocument); return push.apply(this, docs); };
             return documents;
         };
         if (container) {
@@ -36,6 +52,15 @@ struct PreviewView: NSViewRepresentable {
                 set: value => { documents = watchDocuments(value); }
             });
         }
+        const checkReady = () => {
+            if (document.querySelector('.typst-doc > g.typst-page')) {
+                readyObserver.disconnect();
+                window.webkit.messageHandlers.sumiPreviewReady.postMessage('ready');
+            }
+        };
+        const readyObserver = new MutationObserver(checkReady);
+        readyObserver.observe(document.body, {childList: true, subtree: true});
+        checkReady();
         window.sumiSetDark = (dark) => {
             window.sumiPreviewDark = dark;
             const root = document.getElementById('typst-app');
@@ -48,7 +73,8 @@ struct PreviewView: NSViewRepresentable {
             .observe(root, {attributes: true, attributeFilter: ['class']});
         """
         config.userContentController.addUserScript(WKUserScript(source: css, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
-        let view = WKWebView(frame: .zero, configuration: config)
+        let view = PreviewWebView(frame: .zero, configuration: config)
+        view.onWillLoad = { [weak coordinator = context.coordinator] in coordinator?.onLoading() }
         view.navigationDelegate = context.coordinator
         view.underPageBackgroundColor = NSColor(hex: 0x22262B)
         view.setAccessibilityLabel(L10n.text("Document Preview"))
@@ -57,13 +83,15 @@ struct PreviewView: NSViewRepresentable {
         return view
     }
     func updateNSView(_ view: WKWebView, context: Context) {
+        context.coordinator.onLoading = onLoading
+        context.coordinator.onReady = onReady
         view.setAccessibilityLabel(L10n.text("Document Preview"))
         context.coordinator.zoom = zoom
         context.coordinator.dark = dark
         if context.coordinator.loadedURL != url { context.coordinator.loadedURL = url; view.load(URLRequest(url: url)) }
         context.coordinator.applyZoom(to: view)
     }
-    @MainActor final class Coordinator: NSObject, WKNavigationDelegate {
+    @MainActor final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var loadedURL: URL? {
             didSet { if loadedURL != oldValue { recoveredTermination = false } }
         }
@@ -73,7 +101,15 @@ struct PreviewView: NSViewRepresentable {
         private var appliedDark: Bool?
         private var recoveredTermination = false
         let onError: (String) -> Void
-        init(onError: @escaping (String) -> Void) { self.onError = onError }
+        var onLoading: () -> Void
+        var onReady: () -> Void
+        init(onLoading: @escaping () -> Void = {}, onReady: @escaping () -> Void = {}, onError: @escaping (String) -> Void) {
+            self.onLoading = onLoading; self.onReady = onReady; self.onError = onError
+        }
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "sumiPreviewReady", message.frameInfo.isMainFrame,
+               message.frameInfo.request.url?.port == loadedURL?.port { onReady() }
+        }
         func applyZoom(to view: WKWebView) {
             guard !view.isLoading, appliedZoom != zoom || appliedDark != dark else { return }
             // Tinymist fits pages to this container; browser pageZoom is cancelled by that fit.
@@ -98,6 +134,7 @@ struct PreviewView: NSViewRepresentable {
             appliedDark = nil
             applyZoom(to: webView)
         }
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { onLoading() }
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
             guard let target = navigationAction.request.url else { decisionHandler(.cancel); return }
             if target.host == "127.0.0.1", target.port == loadedURL?.port { decisionHandler(.allow) }
@@ -118,5 +155,19 @@ struct PreviewView: NSViewRepresentable {
         }
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onError(L10n.format("Preview failed to load: %@", error.localizedDescription)) }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { onError(L10n.format("Preview temporarily unavailable: %@", error.localizedDescription)) }
+    }
+}
+
+/// Invalidate navigation readiness synchronously. WebKit's provisional-load
+/// callback arrives later; a source jump in that gap would reach the old page.
+final class PreviewWebView: WKWebView {
+    var onWillLoad: (() -> Void)?
+    override func load(_ request: URLRequest) -> WKNavigation? {
+        onWillLoad?()
+        return super.load(request)
+    }
+    override func reload() -> WKNavigation? {
+        onWillLoad?()
+        return super.reload()
     }
 }

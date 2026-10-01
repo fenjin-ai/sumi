@@ -94,11 +94,11 @@ extension WritingFlowTests {
         editor.undoManager?.undo()
         #expect(app.workspace.text == "= Formula\n\n$ x + y $\n\n")
         editor.setSelectedRange(NSRange(location: 0, length: 9))
-        for id in ["indent", "outdent", "comment", "comment", "previewDark", "styledSource"] {
+        for id in ["indent", "outdent", "comment", "comment", "previewDark"] {
             app.workspace.execute(try #require(WritingCommand.all.first { $0.id == id }))
         }
         #expect(app.workspace.previewDark)
-        #expect(!app.workspace.styledSource)
+        #expect(!WritingCommand.all.contains { $0.id == "styledSource" })
         #expect(editor.string.hasPrefix("= Formula"))
         editor.insertSnippet(Snippet(text: "#let    a= (1,2,3)\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
         let before = editor.string
@@ -177,6 +177,70 @@ extension WritingFlowTests {
         #expect(errors.count == 1)
     }
 
+    @Test func explicitSourceJumpsFollowInPreviewWithoutFollowingOrdinarySelection() async throws {
+        let source = (1...6).map { "= Chapter \($0)\n\nDistinct page \($0) content. 中文😀\n" }.joined(separator: "\n#pagebreak()\n")
+        let app = try WritingFixture(text: source)
+        defer { app.close() }
+        try await app.ready()
+        app.workspace.layout = .split
+        await app.layout()
+        let web = try #require(findWebView(app.window.contentView))
+        web.configuration.preferences.inactiveSchedulingPolicy = .none
+        // This fixture is intentionally offscreen. macOS 15 WebKit suspends
+        // native smooth-scroll animation there even when JS timers are active.
+        // Keep Tinymist's real destination and native scrolling; skip animation.
+        let scheduling = """
+        window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16);
+        window.cancelAnimationFrame = clearTimeout;
+        const nativeScrollTo = Element.prototype.scrollTo;
+        Element.prototype.scrollTo = function(options, ...rest) {
+            if (options && typeof options === 'object') {
+                const trace = {options, before: this.scrollTop, id: this.id};
+                const result = nativeScrollTo.call(this, {...options, behavior: 'instant'});
+                trace.after = this.scrollTop;
+                window.sumiRequestedScroll = trace;
+                return result;
+            }
+            return nativeScrollTo.call(this, options, ...rest);
+        };
+        """
+        web.configuration.userContentController.addUserScript(WKUserScript(source: scheduling, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        web.reload()
+        // Establish a ready old page first, reproducing reload's asynchronous
+        // provisional-navigation callback on the CI WebKit version.
+        try await waitForJavaScript(web, condition: "document.querySelectorAll('.typst-doc > g.typst-page').length === 6")
+        web.reload()
+        // Queue the jump while the preview is still loading.
+        app.workspace.jump(to: (source as NSString).range(of: "Chapter 6").location)
+        try await waitForJavaScript(web, condition: "(() => { const page = document.querySelector('.typst-doc > g.typst-page[data-page-number=\"5\"]'); return page && page.getBoundingClientRect().top < innerHeight && page.getBoundingClientRect().bottom > 0; })()")
+        let editor = try #require(app.workspace.editor)
+        editor.setSelectedRange(NSRange(location: 0, length: 0))
+        await app.layout()
+        #expect((try await web.evaluateJavaScript("document.getElementById('typst-container-main').scrollTop") as? Double ?? 0) > 1000)
+        // Retain a real viewport anchor as Tinymist does during resize. The
+        // explicit source jump must supersede that position, including when a
+        // later rendering pass runs after the jump.
+        try await web.evaluateJavaScript("""
+        (() => {
+            const impl = document.getElementById('typst-container').documents[0].impl;
+            const svg = impl.hookedElem.firstElementChild;
+            const scroll = impl.hookedElem.parentElement;
+            const fixedTop = svg.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop;
+            impl.svgResizeAnchor = {
+                contentY: (scroll.scrollTop - fixedTop) / impl.lastSvgScale,
+                scaleRatio: impl.currentScaleRatio,
+                viewportAnchor: impl.captureViewportTopResizeAnchor(svg, scroll)
+            };
+            impl.keepSvgResizeAnchorAlive();
+        })()
+        """)
+        app.workspace.jump(to: (source as NSString).range(of: "Chapter 1").location)
+        try await waitForJavaScript(web, condition: "document.getElementById('typst-container-main').scrollTop < innerHeight")
+        try await web.evaluateJavaScript("document.getElementById('typst-container').documents[0].impl.rescale$svg()")
+        #expect((try await web.evaluateJavaScript("document.getElementById('typst-container-main').scrollTop") as? Double ?? .infinity) < 820)
+        #expect(editor.string == source)
+    }
+
     @Test func realPreviewRetainsPagesOnErrorThenRecoversAndTogglesDark() async throws {
         let app = try WritingFixture(text: "= Preview sentinel\n\nA short paragraph.\n")
         defer { app.close() }
@@ -233,6 +297,7 @@ private func waitForJavaScript(_ web: WKWebView, condition: String) async throws
         if (try? await web.evaluateJavaScript(condition)) as? Bool == true { return }
         try await Task.sleep(for: .milliseconds(50))
     }
-    Issue.record("Preview did not reach expected state: \(condition)")
+    let state = try? await web.evaluateJavaScript("JSON.stringify({visibility:document.visibilityState, requestedScroll:window.sumiRequestedScroll, scroll:document.getElementById('typst-container-main')?.scrollTop, height:innerHeight, pages:[...document.querySelectorAll('.typst-doc > g.typst-page')].map(p=>({page:p.dataset.pageNumber,top:p.getBoundingClientRect().top,bottom:p.getBoundingClientRect().bottom})), renderers:document.getElementById('typst-container')?.documents?.map(d=>({rendering:d.impl.isRendering,initialized:d.impl.moduleInitialized,anchor:d.impl.svgResizeAnchor,scale:d.impl.lastSvgScale}))})")
+    Issue.record("Preview did not reach expected state: \(condition); state: \(state ?? "unavailable")")
     throw CommandError.invalid("Preview state timed out")
 }
