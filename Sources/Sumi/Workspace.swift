@@ -619,7 +619,6 @@ final class Workspace: ObservableObject {
         case "logs": closePalette(); revealLogs()
         case "universe": openDiscovery(.packages)
         case "previewDark": previewDark.toggle(); closePalette()
-        case "styledSource": styledSource.toggle(); closePalette()
         case "format": closePalette(); formatDocument()
         case "indent": closePalette(); editLines(.indent)
         case "outdent": closePalette(); editLines(.outdent)

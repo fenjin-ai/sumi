@@ -94,11 +94,11 @@ extension WritingFlowTests {
         editor.undoManager?.undo()
         #expect(app.workspace.text == "= Formula\n\n$ x + y $\n\n")
         editor.setSelectedRange(NSRange(location: 0, length: 9))
-        for id in ["indent", "outdent", "comment", "comment", "previewDark", "styledSource"] {
+        for id in ["indent", "outdent", "comment", "comment", "previewDark"] {
             app.workspace.execute(try #require(WritingCommand.all.first { $0.id == id }))
         }
         #expect(app.workspace.previewDark)
-        #expect(!app.workspace.styledSource)
+        #expect(!WritingCommand.all.contains { $0.id == "styledSource" })
         #expect(editor.string.hasPrefix("= Formula"))
         editor.insertSnippet(Snippet(text: "#let    a= (1,2,3)\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
         let before = editor.string
@@ -187,6 +187,10 @@ extension WritingFlowTests {
         let web = try #require(findWebView(app.window.contentView))
         web.configuration.preferences.inactiveSchedulingPolicy = .none
         web.configuration.userContentController.addUserScript(WKUserScript(source: "window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16); window.cancelAnimationFrame = clearTimeout;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        web.reload()
+        // Establish a ready old page first, reproducing reload's asynchronous
+        // provisional-navigation callback on the CI WebKit version.
+        try await waitForJavaScript(web, condition: "document.querySelectorAll('.typst-doc > g.typst-page').length === 6")
         web.reload()
         // Queue the jump while the preview is still loading.
         app.workspace.jump(to: (source as NSString).range(of: "Chapter 6").location)
