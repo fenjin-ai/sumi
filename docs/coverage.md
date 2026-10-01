@@ -6,6 +6,8 @@
 
 ## GitHub and Codecov
 
+See [the testing strategy](testing-strategy.md) for current integration coverage, proposed XCUITest and screenshot layers, and release acceptance checks.
+
 - PR and main CI upload coverage, including a generated report that fails the local threshold so failures can be investigated.
 - Same-repository builds use GitHub OIDC, without a long-lived `CODECOV_TOKEN`. Public fork PRs use Codecov's supported tokenless upload.
 - `codecov.yml` requires 80% project and patch coverage and updates one PR comment with overall changes, changed-line coverage and file details.
