@@ -1,22 +1,23 @@
 # Sumi
 
-<img src="Resources/AppIcon.svg" alt="Sumi" width="80">
+<img src="Brand/logo.svg" alt="Sumi · Σ" width="80">
 
 [![CI](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml/badge.svg)](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/fenjin-ai/sumi/branch/main/graph/badge.svg)](https://app.codecov.io/github/fenjin-ai/sumi)
 
-Sumi 是一款面向 macOS 的原生 Typst 写作编辑器。它采用 Nano Emacs 启发的安静深色界面，以可发现的键盘命令帮助用户写出 Typst，用 Tinymist 提供语言服务和实时排版预览。
+**给想法一点留白。** A quiet space to write.
 
-文稿始终是普通 `.typ` 文件。Swift 负责应用和编辑交互，Tinymist 作为应用管理的独立进程运行。
+Sumi 是一个安静的写作空间。简洁的界面、随手可发现的工具与实时成稿，让你专注于文字和思考。
 
 - [产品需求](docs/requirements.md)
 - [技术架构与交互规范](docs/architecture.md)
 - [实施与验收记录](docs/progress.md)
 - [0.2 编辑体验与工程化](docs/editor-evolution.md)
 - [0.3 交互与性能](docs/interaction.md)
-
-当前为 **0.3.0** 开发预览版。目标 macOS 14+，本地验证环境为 Apple Silicon / macOS 27；仅支持 Apple Silicon，CI 在 macOS 15 arm64 上构建。
+- [品牌资源与 favicon](Brand/README.md)
 
 ## 使用
+
+当前为 **0.3.0** 开发预览版。支持搭载 Apple M 系列芯片的 Mac，需要 macOS 14 或更新版本。
 
 打开 `build/Sumi.app`。应用自带 Tinymist，无需另外安装 Typst、Rust 或 Homebrew。入门文稿见 [留白.typ](Examples/留白.typ)。
 
@@ -60,6 +61,8 @@ Sumi 是一款面向 macOS 的原生 Typst 写作编辑器。它采用 Nano Emac
 日志包含会话 ID、应用版本、毫秒时间、事件序号、快捷键/导航键、命令 ID、插入开始/完成/失败、选区与文稿版本，以及保存/导出和排版服务异常。普通键入只记录 `text` 事件，不记录正文、剪贴板内容、参数值或搜索词；系统错误描述可能包含文件路径。日志只在本机存储。发生崩溃时保留这些文件和 macOS 的崩溃报告即可，不需要记住最后执行的命令。
 
 ## 构建与测试
+
+文稿始终是普通 `.typ` 文件。Swift 负责应用和编辑交互，Tinymist 作为应用管理的独立进程提供 Typst 语言服务与排版预览。界面设计受 Nano Emacs 启发。
 
 需要 Xcode 的 Swift 6 工具链、macOS SDK，以及已挂载的 `/Volumes/SSD/Developer`。在 SSD 上的仓库或工作树中运行：
 

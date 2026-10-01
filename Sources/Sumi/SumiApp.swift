@@ -143,7 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc private func about() {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: version, .credits: NSAttributedString(string: "一个安静的 Typst 写作空间。\nBuilt with Swift, Tinymist and Phosphor Icons.")])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: version, .credits: NSAttributedString(string: "给想法一点留白。\nA quiet space to write.")])
     }
     @objc private func settings() {
         let alert = NSAlert()

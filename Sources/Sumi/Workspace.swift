@@ -691,7 +691,7 @@ final class Workspace: ObservableObject {
 
     好的文字，始于一个安静的地方。
 
-    Sumi 是你的 Typst 写作空间。在这里，文字保留原本的样子，
+    Sumi 是你的写作空间。在这里，文字保留原本的样子，
     排版自然发生。把注意力交给想法，剩下的慢慢来。
 
     == 从一句话开始

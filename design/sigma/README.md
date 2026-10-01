@@ -1,6 +1,6 @@
-# Sumi · Σ 标志构形探索
+# Sumi · Σ 标志构形
 
-这是可复现的矢量概念稿，尚未替换应用图标。生成器只依赖 Python 标准库，不使用字体轮廓、素材库或图像生成模型。
+2026-10-01 确定采用这版 Σ，统一用于应用、GitHub 和网站资源。字形由 Python 标准库计算，不依赖字体轮廓、素材库或图像生成模型。完整交付文件与网站接入方法见 [Brand](../../Brand/README.md)。
 
 ## 含义
 
@@ -26,7 +26,7 @@ B(u) = (1-u)² A + 2u(1-u) P + u² C,  0 ≤ u ≤ 1
 
 `P` 是原顶点，`A`、`C` 是两条相邻线段上的截取点，保证过渡的切线方向连续。基本笔画宽度 `w₀ = H / φ⁶ ≈ 30.09`。
 
-几何版使用等宽笔画；书写版以**归一化弧长** `t ∈ [0, 1]` 调整笔画宽度：
+以**归一化弧长** `t ∈ [0, 1]` 调整笔画宽度：
 
 ```text
 w(t) = w₀ · (0.78 + 0.22 sin(πt))
@@ -38,10 +38,10 @@ w(t) = w₀ · (0.78 + 0.22 sin(πt))
 
 ```sh
 python3 design/sigma/generate.py
+# macOS，需要 librsvg 的 rsvg-convert；同时生成 PNG、ICO 和 ICNS
+python3 design/sigma/generate.py --raster
 ```
 
-- `geometric.svg`：等宽版。
-- `written.svg`：轻微笔压变化版，当前推荐方向。
-- `comparison.svg`：两版及小尺寸对照。
+生成器将正式资源写入 `Brand/` 和 `Resources/AppIcon.svg`；`--raster` 同时更新 `Resources/AppIcon.icns`。SVG 图标的 1024px 坐标系可无损缩放。16/32px 的应用图标和 favicon 使用同一骨架，笔画宽度乘 1.55、字形尺寸乘 1.12 作小尺寸光学校正。浅色与深色透明字形也共用相同轮廓。
 
-可直接调整 `HEIGHT`、`WIDTH`、`WEIGHT`、`CORNER`，或 `mark()` 中的笔压函数。输出为 1024px 坐标系的 SVG，实际使用时可无损缩放。
+只修改生成器中的 `HEIGHT`、`WIDTH`、`WEIGHT`、`CORNER` 或笔压函数，再执行完整生成；不要分别手改各处图标。生成临时文件位于仓库的 `build/` 中，结束后自动清理。
