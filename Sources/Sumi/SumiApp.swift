@@ -1,0 +1,162 @@
+import AppKit
+import SwiftUI
+
+@main
+enum SumiApplication {
+    @MainActor static func main() {
+        let application = NSApplication.shared
+        let delegate = AppDelegate()
+        application.delegate = delegate
+        application.setActivationPolicy(.regular)
+        application.run()
+        withExtendedLifetime(delegate) {}
+    }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private let workspace = Workspace()
+    private var window: NSWindow!
+    private var keyMonitor: Any?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        installMenu()
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        window.title = workspace.title + " — Sumi"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(hex: 0x171A1D)
+        window.minSize = NSSize(width: 820, height: 580)
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.contentView = NSHostingView(rootView: ContentView(workspace: workspace))
+        window.setFrameAutosaveName("SumiMainWindow")
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        workspace.onTitleChange = { [weak self] title in self?.window.title = title + " — Sumi" }
+        workspace.onShortcutChange = { [weak self] in self?.installMenu() }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let handled = MainActor.assumeIsolated {
+                guard let self, event.window == self.window else { return false }
+                if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == self.workspace.commandKey {
+                    if (event.window?.firstResponder as? NSTextView)?.hasMarkedText() != true { self.workspace.togglePalette() }
+                    return true
+                }
+                return self.workspace.handlePaletteKey(event)
+            }
+            return handled ? nil : event
+        }
+        workspace.startService()
+        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.workspace.paletteOpen, let editor = self.workspace.editor else { return }
+            self.window.makeFirstResponder(editor)
+        }
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        window?.makeFirstResponder(nil)
+        return workspace.prepareToClose() ? .terminateNow : .terminateCancel
+    }
+    func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
+    func applicationWillTerminate(_ notification: Notification) {
+        workspace.shutdown()
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+    }
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        if let path = filenames.first { workspace.open(URL(fileURLWithPath: path)) }
+    }
+
+    private func installMenu() {
+        let menu = NSMenu()
+        func section(_ title: String) -> NSMenu {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            let submenu = NSMenu(title: title)
+            menu.addItem(item); item.submenu = submenu
+            return submenu
+        }
+        func item(_ title: String, _ action: Selector, _ key: String, _ owner: NSMenu, modifiers: NSEvent.ModifierFlags = .command, target: AnyObject? = nil) {
+            let entry = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            entry.keyEquivalentModifierMask = modifiers
+            entry.target = target
+            owner.addItem(entry)
+        }
+        let app = section("Sumi")
+        item("关于 Sumi", #selector(about), "", app, target: self)
+        item("设置…", #selector(settings), ",", app, target: self)
+        app.addItem(.separator())
+        item("隐藏 Sumi", #selector(NSApplication.hide(_:)), "h", app)
+        item("退出 Sumi", #selector(NSApplication.terminate(_:)), "q", app)
+        let file = section("文件")
+        item("新建文稿", #selector(newDocument), "n", file, target: self)
+        item("打开…", #selector(openDocument), "o", file, target: self)
+        file.addItem(.separator())
+        item("保存", #selector(saveDocument), "s", file, target: self)
+        item("另存为…", #selector(saveAs), "s", file, modifiers: [.command, .shift], target: self)
+        item("恢复草稿副本…", #selector(recoverDraft), "", file, target: self)
+        item("导出 PDF…", #selector(exportPDF), "e", file, modifiers: [.command, .shift], target: self)
+        file.addItem(.separator())
+        item("关闭窗口", #selector(NSWindow.performClose(_:)), "w", file)
+        let edit = section("编辑")
+        item("撤销", Selector(("undo:")), "z", edit)
+        item("重做", Selector(("redo:")), "z", edit, modifiers: [.command, .shift])
+        edit.addItem(.separator())
+        item("剪切", #selector(NSText.cut(_:)), "x", edit)
+        item("复制", #selector(NSText.copy(_:)), "c", edit)
+        item("粘贴", #selector(NSText.paste(_:)), "v", edit)
+        item("全选", #selector(NSText.selectAll(_:)), "a", edit)
+        edit.addItem(.separator())
+        item("查找…", #selector(find), "f", edit, target: self)
+        item("补全 Typst", #selector(completion), ".", edit, modifiers: .control, target: self)
+        let view = section("视图")
+        item("发现命令", #selector(palette), workspace.commandKey, view, target: self)
+        item("专注写作", #selector(writing), "1", view, target: self)
+        item("并排预览", #selector(split), "2", view, target: self)
+        item("阅读成稿", #selector(preview), "3", view, target: self)
+        view.addItem(.separator())
+        item("放大文字", #selector(increaseFont), "+", view, target: self)
+        item("缩小文字", #selector(decreaseFont), "-", view, target: self)
+        let windowMenu = section("窗口")
+        item("最小化", #selector(NSWindow.performMiniaturize(_:)), "m", windowMenu)
+        item("缩放", #selector(NSWindow.performZoom(_:)), "", windowMenu)
+        NSApp.windowsMenu = windowMenu
+        NSApp.mainMenu = menu
+    }
+
+    @objc private func about() {
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: "0.1.0", .credits: NSAttributedString(string: "一个安静的 Typst 写作空间。\nBuilt with Swift, Tinymist and Phosphor Icons.")])
+    }
+    @objc private func settings() {
+        let alert = NSAlert()
+        alert.messageText = "写作习惯"
+        alert.informativeText = "选择发现命令的快捷键。正文空格和常规 macOS 编辑快捷键始终保留。"
+        let selector = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 250, height: 28))
+        selector.addItems(withTitles: ["⌘J · 发现命令", "⌘K · 发现命令"])
+        selector.selectItem(at: workspace.commandKey == "k" ? 1 : 0)
+        selector.setAccessibilityLabel("命令入口快捷键")
+        alert.accessoryView = selector
+        alert.addButton(withTitle: "完成")
+        alert.addButton(withTitle: "取消")
+        if alert.runModal() == .alertFirstButtonReturn { workspace.commandKey = selector.indexOfSelectedItem == 1 ? "k" : "j" }
+    }
+    @objc private func newDocument() { workspace.newDocument() }
+    @objc private func openDocument() { workspace.openPanel() }
+    @objc private func recoverDraft() { workspace.openPanel(recovery: true) }
+    @objc private func saveDocument() { workspace.save() }
+    @objc private func saveAs() { workspace.saveAs() }
+    @objc private func exportPDF() { workspace.exportPDF() }
+    @objc private func palette() { workspace.togglePalette() }
+    @objc private func writing() { workspace.layout = .writing }
+    @objc private func split() { workspace.layout = .split }
+    @objc private func preview() { workspace.layout = .preview }
+    @objc private func increaseFont() { workspace.fontSize = min(28, workspace.fontSize + 1) }
+    @objc private func decreaseFont() { workspace.fontSize = max(12, workspace.fontSize - 1) }
+    @objc private func completion() { workspace.requestCompletion() }
+    @objc private func find() {
+        let sender = NSMenuItem()
+        sender.tag = NSTextFinder.Action.showFindInterface.rawValue
+        workspace.editor?.performFindPanelAction(sender)
+    }
+}

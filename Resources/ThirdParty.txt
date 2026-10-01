@@ -1,0 +1,16 @@
+Sumi uses the following bundled components:
+
+Tinymist v0.15.8 (MIT)
+https://github.com/Myriad-Dreamin/tinymist/tree/v0.15.8
+Binary contains Typst 0.15.1 (Apache-2.0), from Tinymist's pinned upstream fork.
+https://github.com/Myriad-Dreamin/typst/tree/tinymist/v0.15.1
+See Tinymist-LICENSE and Typst-LICENSE.
+
+Phosphor Icons Regular (MIT)
+https://github.com/phosphor-icons/core/tree/2b75f3ad12b420c9504ef05df8d2564a28f8500e
+SVG source icons converted to vector PDF using librsvg for AppKit.
+See Phosphor-LICENSE.
+
+App icon is an original Sumi vector mark (AppIcon.svg).
+Nano Emacs and Spacemacs inspired the visual and command-discovery design;
+no source code from either project is bundled.
