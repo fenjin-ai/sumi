@@ -26,8 +26,19 @@ Sumi 仅支持 Apple Silicon，直接分发 `.app` ZIP，不经过 Mac App Store
 3. 更新 `Resources/Info.plist` 的版本号和构建号，将已验证的提交合入 main。
 4. 推送与版本一致的标签，例如 `v0.2.0`。流水线检查标签指向 main 已包含的提交，通过功能测试和 80% 覆盖率门槛，再签名、公证、装订并发布。
 
-任何缺失凭据、无效证书、Team 不匹配、公证未通过或超时都会阻止公开发布，不会降级成临时签名包。临时钥匙串、证书与 API 私钥在脚本退出时清理。GitHub 保留公证提交结果，便于查询 Apple 处理状态；私钥不上传为 artifact。
+任何缺失凭据、无效证书、Team 不匹配、公证未通过或超时都会阻止公开发布，不会降级成临时签名包。签名期间将临时钥匙串加入搜索列表，使 codesign 能找到身份和证书链；脚本退出时恢复原搜索列表并清理临时钥匙串、证书与 API 私钥。GitHub 保留公证提交结果，便于查询 Apple 处理状态；私钥不上传为 artifact。
 
 开发构建：`scripts/build.sh release`。正式发布步骤：`scripts/release.sh`，需要上表环境变量；本机临时材料保存在外置 SSD。
+
+## 已完成的发布验证
+
+2026-10-01 在公开仓库 `fenjin-ai/sumi` 完成全部凭据配置，并通过 [Release 手动验证](https://github.com/fenjin-ai/sumi/actions/runs/36824914236)，提交为 `72f7d8e`、应用版本为 `0.2.0`（构建号 3）。这次只生成 Actions artifact，没有创建公开标签或 Release。
+
+- 36 项功能与集成测试通过；应用和核心源码的行覆盖率为 88.57%，超过 80% 门槛。
+- 应用和 Tinymist helper 均为 arm64，使用 `Developer ID Application: Fenjin Wang (X6BK42MX95)` 签名，启用 hardened runtime 和安全时间戳。证书有效期至 2031-09-17。
+- Apple 公证提交 `ae76e6c3-2354-4259-8e60-7e6411c5271c` 返回 `Accepted`，票据已经装订到应用。
+- 从 GitHub 下载最终 ZIP 后，独立通过 SHA-256 校验、`codesign --verify --deep --strict`、`stapler validate` 和 Gatekeeper 检查（`source=Notarized Developer ID`）；签名后的 Tinymist 能正常运行。
+
+下载本次验证产物时，在上述 workflow 的 Artifacts 中选择 `release-macos-15`，其中包含 `Sumi-0.2.0-macOS-arm64.zip` 和对应的 `.sha256` 文件。Actions artifact 保留 7 天；未来标签触发的公开 Release 使用长期下载附件。
 
 参考：[Apple 公证工作流](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)、[Apple API Key](https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api)、[GitHub 证书安装](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications)。
