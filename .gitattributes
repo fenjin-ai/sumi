@@ -1,2 +1,7 @@
 # Preserve the published package archives byte-for-byte, including upstream whitespace.
 Resources/Packages/preview/** -whitespace linguist-vendored=true
+
+*.pdf binary
+*.zip binary
+# Preserve the exact licensed fixture bytes and upstream line endings/hashes.
+Examples/Books/** -text -whitespace linguist-vendored

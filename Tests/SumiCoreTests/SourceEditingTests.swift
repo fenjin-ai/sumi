@@ -116,3 +116,28 @@ import Testing
     #expect(throws: CommandError.self) { try TextEditing.applying([.init(range: NSRange(location: 99, length: 1), text: "x")], to: "abc") }
     #expect(throws: CommandError.self) { try TextEditing.applying([.init(range: NSRange(location: 0, length: 3), text: "x"), .init(range: NSRange(location: 2, length: 1), text: "y")], to: "abc") }
 }
+
+@Test func nativeEditMetricsPreserveUnicodeAndMixedNewlinesAcrossTransactions() {
+    var text = "Title\r\n中文😀 Café\n👩‍💻 end\rLast\n"
+    var metrics = DocumentMetrics(text)
+    let fragments = ["", "\n", "\r", "\r\n", "e", "\u{301}", "👩", "\u{200D}", "💻", "中文", " ", "a\n\nb"]
+    for step in 0..<240 {
+        let ns = text as NSString
+        let boundaries = text.indices.map { $0.utf16Offset(in: text) } + [ns.length]
+        let index = (step * 17) % boundaries.count
+        let start = boundaries[index]
+        let end = boundaries[min(index + (step % 3), boundaries.count - 1)]
+        let edit = TextReplacement(range: NSRange(location: start, length: end - start), text: fragments[step % fragments.count])
+        let applied = metrics.apply(edit, to: text)
+        #expect(applied)
+        text = ns.replacingCharacters(in: edit.range, with: edit.text)
+        let expected = DocumentMetrics(text)
+        #expect(metrics.wordCount == expected.wordCount, "Transaction \(step), \(text.debugDescription)")
+        for offset in 0...text.utf16.count {
+            #expect(metrics.position(at: offset) == expected.position(at: offset), "Transaction \(step) offset \(offset)")
+        }
+        for line in 0...(text.utf16.count + 1) {
+            #expect(metrics.offset(at: .init(line: line, character: 99)) == expected.offset(at: .init(line: line, character: 99)))
+        }
+    }
+}

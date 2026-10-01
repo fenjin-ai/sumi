@@ -43,6 +43,17 @@ extension WritingFlowTests {
         #expect(editor.string == app.workspace.text)
     }
 
+    @Test func nestedSchemeGrammarKeepsTheSpecificKeywordColor() async throws {
+        let source = "= Scheme\n\n```scheme\n(define (square x) (* x x))\n```\n"
+        let app = try WritingFixture(text: source)
+        defer { app.close() }
+        try await app.ready()
+        try await app.wait { app.workspace.syntaxSnapshot?.source == source }
+        let editor = try #require(app.workspace.editor)
+        let keyword = (source as NSString).range(of: "define").location
+        #expect(editorColor(editor, at: keyword) == NSColor(hex: 0x9DBBCD), "An outer name span must not overwrite its nested built-in token")
+    }
+
     @Test func continuousTypingKeepsSemanticColorsAndDoesNotRestyleTheDocument() async throws {
         let source = "= Stable writing\n\n```python\ntotal = sum(range(1, 11))\nprint(total)\n```\n\nWrite here\n"
         let app = try WritingFixture(text: source)

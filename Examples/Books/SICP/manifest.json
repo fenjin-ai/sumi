@@ -1,0 +1,490 @@
+{
+  "source_repository": "https://github.com/sarabander/sicp",
+  "source_commit": "bda03f79d6e2e8899ac2b5ca6a3732210e290a79",
+  "archive_url": "https://codeload.github.com/sarabander/sicp/zip/bda03f79d6e2e8899ac2b5ca6a3732210e290a79",
+  "archive_sha256": "0cf3220c848fa74b90e3235ef352694df772839f96f459e5fbe8eb6dc78417a9",
+  "license": "CC-BY-SA-4.0",
+  "source_pages": [
+    "Dedication.xhtml",
+    "Foreword.xhtml",
+    "Preface.xhtml",
+    "Preface-1e.xhtml",
+    "Acknowledgments.xhtml",
+    "Chapter-1.xhtml",
+    "1_002e1.xhtml",
+    "1_002e2.xhtml",
+    "1_002e3.xhtml",
+    "Chapter-2.xhtml",
+    "2_002e1.xhtml",
+    "2_002e2.xhtml",
+    "2_002e3.xhtml",
+    "2_002e4.xhtml",
+    "2_002e5.xhtml",
+    "Chapter-3.xhtml",
+    "3_002e1.xhtml",
+    "3_002e2.xhtml",
+    "3_002e3.xhtml",
+    "3_002e4.xhtml",
+    "3_002e5.xhtml",
+    "Chapter-4.xhtml",
+    "4_002e1.xhtml",
+    "4_002e2.xhtml",
+    "4_002e3.xhtml",
+    "4_002e4.xhtml",
+    "Chapter-5.xhtml",
+    "5_002e1.xhtml",
+    "5_002e2.xhtml",
+    "5_002e3.xhtml",
+    "5_002e4.xhtml",
+    "5_002e5.xhtml",
+    "References.xhtml",
+    "Term-Index.xhtml",
+    "Colophon.xhtml"
+  ],
+  "pandoc_version": "pandoc 3.11",
+  "typst_bytes": 1448258,
+  "typst_utf16_units": 1443763,
+  "typst_sha256": "09480b8f8e5dc536bc15ecb19f7988090da9efec49100a357341350299344ed7",
+  "typst_lines": 33908,
+  "source_code_content_verified": true,
+  "upstream_texinfo_sha256": "c070e11c9e5b6d9833c19915d88c8e0e396fa1df3fc7c2d4539057d7c08a2f37",
+  "source_project_bytes": 4588719,
+  "counts": {
+    "source_math_expressions": 1356,
+    "source_code_blocks": 1122,
+    "scheme_blocks": 1098,
+    "source_figures": 84,
+    "normalized_negative_math_kerns": 1,
+    "footnotes": 339,
+    "headings": 282,
+    "math_expressions": 1356,
+    "code_blocks": 1122
+  },
+  "assets": [
+    {
+      "path": "fig/chap1/Fig1.1g.std.svg",
+      "bytes": 18282,
+      "sha256": "e354bbb7f5f3df59d572a02fb13687e138036fa9b9b29ece5d726da692e53fce"
+    },
+    {
+      "path": "fig/chap1/Fig1.2.std.svg",
+      "bytes": 6454,
+      "sha256": "956e2b59d807d7bf24d0145a88e74bf06c0cdb7ecd7df5a0fb85654ddf18af99"
+    },
+    {
+      "path": "fig/chap1/Fig1.3d.std.svg",
+      "bytes": 7767,
+      "sha256": "0f4b4ee324ba2417b5770047e0d8a0459ba6d892c3e6338fb0a6ae0b195ee78f"
+    },
+    {
+      "path": "fig/chap1/Fig1.4d.std.svg",
+      "bytes": 5087,
+      "sha256": "3775aea333fd97f792ff5d841f32c5bc003293dfec4fec9f400c009d048811cc"
+    },
+    {
+      "path": "fig/chap1/Fig1.5d.std.svg",
+      "bytes": 29908,
+      "sha256": "f23a3fa75d76d1ca6badc72625232ec3ffa7d01d2baf89dca23253b5aa006f07"
+    },
+    {
+      "path": "fig/chap2/Fig2.10.std.svg",
+      "bytes": 10740,
+      "sha256": "07b569901da10a848aa9607ac106656c4611c369b544acb60cdc34eb02e8a2f0"
+    },
+    {
+      "path": "fig/chap2/Fig2.11.std.svg",
+      "bytes": 89869,
+      "sha256": "2b6405d986e0ba93b7e7db3a4589e300b21fd029c41fa6042aaaa6f034410dff"
+    },
+    {
+      "path": "fig/chap2/Fig2.12.std.svg",
+      "bytes": 13215,
+      "sha256": "d98978fc5187fefcd5816a153d716044936b68984ad899a51ebacb80d36729a3"
+    },
+    {
+      "path": "fig/chap2/Fig2.13a.std.svg",
+      "bytes": 14989,
+      "sha256": "fa37230e57604e349712ad1253aeb5f3ba0374ac041df8f24d675a3bb4881c9b"
+    },
+    {
+      "path": "fig/chap2/Fig2.14b.std.svg",
+      "bytes": 753385,
+      "sha256": "99bbcac8b52aa15201d5e952ef97d9a260ec66cb23ce5c03a21e94a78ff4dd0b"
+    },
+    {
+      "path": "fig/chap2/Fig2.15a.std.svg",
+      "bytes": 9131,
+      "sha256": "b689792205e55bd8e83d5073674fba4e9e07d9e7c6541cbcff45627b1c5c94bb"
+    },
+    {
+      "path": "fig/chap2/Fig2.16c.std.svg",
+      "bytes": 14466,
+      "sha256": "6f2a19aa91806bf27cc8b960847522a3ef79efb464c4d9faf21a77f6f88499ea"
+    },
+    {
+      "path": "fig/chap2/Fig2.17a.std.svg",
+      "bytes": 7005,
+      "sha256": "aae289fdc4706c3189a4d44acd96f5dc8e78f2f29be50a8219504f61264b8a67"
+    },
+    {
+      "path": "fig/chap2/Fig2.18a.std.svg",
+      "bytes": 14154,
+      "sha256": "d1824570628bc5ae67815642b186f162b0cc0e556ab0c35f79e1e03938567baa"
+    },
+    {
+      "path": "fig/chap2/Fig2.19a.std.svg",
+      "bytes": 8744,
+      "sha256": "568447556928156340ce748e4ab2ccd70039fa1706a2a7fc3733a071cd162d59"
+    },
+    {
+      "path": "fig/chap2/Fig2.1d.std.svg",
+      "bytes": 10888,
+      "sha256": "63667398039196fedb4e26a9d5943ec50059d569735c74576a68975cdb3ff05d"
+    },
+    {
+      "path": "fig/chap2/Fig2.20.std.svg",
+      "bytes": 10328,
+      "sha256": "7b4d412da0c82375c9c19e44f3ca18ad26ed48c3d0a6db28319987991b2c0b49"
+    },
+    {
+      "path": "fig/chap2/Fig2.21a.std.svg",
+      "bytes": 9355,
+      "sha256": "7978185e39daad691ab29540b76ac9787e038d9908ad489aa3a9d90bec58f4fe"
+    },
+    {
+      "path": "fig/chap2/Fig2.22.std.svg",
+      "bytes": 10248,
+      "sha256": "cad67da2533a779caafc4466e233ce0d1a1cfb2550419f5742693a1b47b898fd"
+    },
+    {
+      "path": "fig/chap2/Fig2.23b.std.svg",
+      "bytes": 15165,
+      "sha256": "e4a87a9d405c3c5ddf3ac321058cbdd0eab2733061c1712f71bbe9f1e58e8f6f"
+    },
+    {
+      "path": "fig/chap2/Fig2.24d.std.svg",
+      "bytes": 14660,
+      "sha256": "16abfda3624a087a9f77219ff253af2b21566852af51a894ad8115a739160e7f"
+    },
+    {
+      "path": "fig/chap2/Fig2.25.std.svg",
+      "bytes": 6014,
+      "sha256": "e164abd08d6855e8085421f1291a243d8bde9e1723cd1954cc8bb44639c6b11b"
+    },
+    {
+      "path": "fig/chap2/Fig2.26f.std.svg",
+      "bytes": 12862,
+      "sha256": "1261e4d04853ccb9aef9c2563227d5e62a99725b32cf18c0d7533df816adf0c2"
+    },
+    {
+      "path": "fig/chap2/Fig2.2e.std.svg",
+      "bytes": 7864,
+      "sha256": "829f89089dad0bc894e3706cbe9e6ebf85dc7e497461a09124bb9a87889888e2"
+    },
+    {
+      "path": "fig/chap2/Fig2.3e.std.svg",
+      "bytes": 28448,
+      "sha256": "8ab92be56d5beb62753102bfcaeae545d1952caad6f9feb8b3f2bf5a23501f71"
+    },
+    {
+      "path": "fig/chap2/Fig2.4e.std.svg",
+      "bytes": 20454,
+      "sha256": "5926b91dfab9938bc25f236ff8521115b963e47173bc91ccfc6a1f366ba3a0b2"
+    },
+    {
+      "path": "fig/chap2/Fig2.5e.std.svg",
+      "bytes": 25525,
+      "sha256": "80c1d797ffb0389d52ca85b9257573ee4aaa1b7b3a4689d8c7d2468ab12615dc"
+    },
+    {
+      "path": "fig/chap2/Fig2.6b.std.svg",
+      "bytes": 11682,
+      "sha256": "61f1c999f1984d8ec33b280ea8cc5269565dbc78b9c834e45ccd7b77387379d0"
+    },
+    {
+      "path": "fig/chap2/Fig2.7e.std.svg",
+      "bytes": 13298,
+      "sha256": "0967d47ccf13d620368c19ba24396aaf91cb5b48f4da75b5ee36ca7c99aa0cd9"
+    },
+    {
+      "path": "fig/chap2/Fig2.8c.std.svg",
+      "bytes": 41569,
+      "sha256": "468226f52ae06f445743de95b26eb2291bbc2a0b14de80f0ba1ff1823c70afd0"
+    },
+    {
+      "path": "fig/chap2/Fig2.9.std.svg",
+      "bytes": 704575,
+      "sha256": "6c656a81211ec4684ba9c48d0881975d7bf8a19fa3abf2f523405f117be5fbe5"
+    },
+    {
+      "path": "fig/chap3/Fig3.10b.std.svg",
+      "bytes": 19545,
+      "sha256": "c5368d9d01a4b873897e4b43e1f6dcc994d2e3cf00f202d006eeb09290633b71"
+    },
+    {
+      "path": "fig/chap3/Fig3.11b.std.svg",
+      "bytes": 27367,
+      "sha256": "3634ad1717953bb88ecbf6dcef192c316fb6a3b6f8570434ae6624fa15bd64f4"
+    },
+    {
+      "path": "fig/chap3/Fig3.12b.std.svg",
+      "bytes": 26455,
+      "sha256": "018f51b68b8046ec3fd9eb0baefff8f0d647fa79fed86b25e653398b5355654f"
+    },
+    {
+      "path": "fig/chap3/Fig3.13b.std.svg",
+      "bytes": 26861,
+      "sha256": "bd822812e6ddf25b8ea1c0662cca737939283d8e0ad8cc9d947df2b306c7fc7d"
+    },
+    {
+      "path": "fig/chap3/Fig3.14b.std.svg",
+      "bytes": 30006,
+      "sha256": "5847d36b476177d8187282a0f530805e3d570602798baef8badd863c5bdc47a7"
+    },
+    {
+      "path": "fig/chap3/Fig3.15b.std.svg",
+      "bytes": 27364,
+      "sha256": "8d009a30bbf43bccc46855a4a873e843b5f9d3d82a9d2c465e94e47174f43c12"
+    },
+    {
+      "path": "fig/chap3/Fig3.16b.std.svg",
+      "bytes": 12914,
+      "sha256": "0e3df4b612fb182f1b02c046c14a0df24ca42f20f33ea609f14164a098dc63b7"
+    },
+    {
+      "path": "fig/chap3/Fig3.17b.std.svg",
+      "bytes": 16967,
+      "sha256": "db968e9ee4c02528c42499993d237460964da2b15765d90077e1a368c28e7109"
+    },
+    {
+      "path": "fig/chap3/Fig3.18.std.svg",
+      "bytes": 4431,
+      "sha256": "9812b5c154888c0ad2eeee357c09bbc3cfad0ba79aacdc6631d4aecd059a8e73"
+    },
+    {
+      "path": "fig/chap3/Fig3.19b.std.svg",
+      "bytes": 15898,
+      "sha256": "b6f4e9f5f12d52285c1039e56ee931ac06718ae8b7f6377454054d3dfbcbcf95"
+    },
+    {
+      "path": "fig/chap3/Fig3.1b.std.svg",
+      "bytes": 12363,
+      "sha256": "a633378600486058135b77eb1a3d482bcf065a183b72fd9a8ba242500bd4cd3c"
+    },
+    {
+      "path": "fig/chap3/Fig3.20c.std.svg",
+      "bytes": 19211,
+      "sha256": "037b0badf55a864d430d3a81c0cfaace98e472d02e4035709053436ccda9ee0c"
+    },
+    {
+      "path": "fig/chap3/Fig3.21c.std.svg",
+      "bytes": 19362,
+      "sha256": "5423b6a8c9b6378451d64613a86fc4b24f23b94a39301aca0a1df305e925f5ae"
+    },
+    {
+      "path": "fig/chap3/Fig3.22c.std.svg",
+      "bytes": 27286,
+      "sha256": "e0a02d018be4df08b90fc279c6068bd3e5fe859a1ef9a66301a0858acd190325"
+    },
+    {
+      "path": "fig/chap3/Fig3.23b.std.svg",
+      "bytes": 50564,
+      "sha256": "b3f365f29ab67da03b669352972c04ce06bbfd4d56303f531b04234950ba9387"
+    },
+    {
+      "path": "fig/chap3/Fig3.24a.std.svg",
+      "bytes": 7605,
+      "sha256": "e9cf770bf3056b8b91c86f3ea9f37a799dead2328faac66393f3b3b960ed84dd"
+    },
+    {
+      "path": "fig/chap3/Fig3.25c.std.svg",
+      "bytes": 11591,
+      "sha256": "c6dff52d541766815fc94632bbf208404d3dc4c12c35c85ebc35da6404a3755a"
+    },
+    {
+      "path": "fig/chap3/Fig3.26.std.svg",
+      "bytes": 11236,
+      "sha256": "8220ff78d129b941572661e22c64d632b6752b1fa6877e86615445a25f71129a"
+    },
+    {
+      "path": "fig/chap3/Fig3.27b.std.svg",
+      "bytes": 33283,
+      "sha256": "65b865a2f3408122f6a11d2d18726d183cb2c7effcaf0cf02b6610344c1247c0"
+    },
+    {
+      "path": "fig/chap3/Fig3.28.std.svg",
+      "bytes": 16315,
+      "sha256": "ee5b3478b8640ba88671d79936666c82139f5ae9a85091ecf7b0e00bda25ff93"
+    },
+    {
+      "path": "fig/chap3/Fig3.29b.std.svg",
+      "bytes": 18079,
+      "sha256": "267ff98b2ce12b248a122d1efb9aa54efdc38056116916b5bf4a7166f41b1675"
+    },
+    {
+      "path": "fig/chap3/Fig3.2b.std.svg",
+      "bytes": 10560,
+      "sha256": "9e1d92324adf024b33bfa5b8fdcdf5997861ae38fb004c79ad17607dfd5ed00c"
+    },
+    {
+      "path": "fig/chap3/Fig3.30c.std.svg",
+      "bytes": 33140,
+      "sha256": "be88dbba1a9a5dc281805fb25638759adb2c6254693273d12f6aed6b7ed351b6"
+    },
+    {
+      "path": "fig/chap3/Fig3.31a.std.svg",
+      "bytes": 12792,
+      "sha256": "ca607893a270cb83314062b6a6a5a21d292e428d8c4df0526e4ca79e54a6db42"
+    },
+    {
+      "path": "fig/chap3/Fig3.32a.std.svg",
+      "bytes": 11207,
+      "sha256": "dfffdd1288094f402f3d3ecce514881c1e28f3f21409e145cb11d2c0302e20f2"
+    },
+    {
+      "path": "fig/chap3/Fig3.33a.std.svg",
+      "bytes": 24922,
+      "sha256": "0fdca41f5838be473794c2a977e1de29727768263e3977486f1be0ee10b7e6ca"
+    },
+    {
+      "path": "fig/chap3/Fig3.34.std.svg",
+      "bytes": 9222,
+      "sha256": "49af9d80fbd20ab77b7f767f36ac92f942c22f59231609c31f15143fb68f929f"
+    },
+    {
+      "path": "fig/chap3/Fig3.35b.std.svg",
+      "bytes": 18844,
+      "sha256": "89bf13d9cfa3795429384de15fc31e4a88214fb00ffc328004195edba650e4ef"
+    },
+    {
+      "path": "fig/chap3/Fig3.36.std.svg",
+      "bytes": 17483,
+      "sha256": "c0ae75de99f7e523392a8b3258abe5c87027d736bd798370e323e5952b9c5a2f"
+    },
+    {
+      "path": "fig/chap3/Fig3.37.std.svg",
+      "bytes": 24981,
+      "sha256": "1bb6d21134b6a67517d1fb97df86018a3bb49741f50dafa48b945b9fe1c3c862"
+    },
+    {
+      "path": "fig/chap3/Fig3.38a.std.svg",
+      "bytes": 7721,
+      "sha256": "889177a5bbc8c4c9987a848854ef1145a870ee20b32f57f666f6cee5f0f7b1b8"
+    },
+    {
+      "path": "fig/chap3/Fig3.3b.std.svg",
+      "bytes": 12956,
+      "sha256": "904ec1431899d9e833e79c703a57a03d15dc05935feaad0b7f4bb44aaa9ea04a"
+    },
+    {
+      "path": "fig/chap3/Fig3.4b.std.svg",
+      "bytes": 19828,
+      "sha256": "1a464f320783a34571e62c6c13d1eae10d4ecdf6454986a7e5a4cd67a4b32d6e"
+    },
+    {
+      "path": "fig/chap3/Fig3.5b.std.svg",
+      "bytes": 18273,
+      "sha256": "7f779ad9c6409f3ee7b3c340bbd3c6145c729bb99acf0b416ebba0007b5692af"
+    },
+    {
+      "path": "fig/chap3/Fig3.6c.std.svg",
+      "bytes": 10820,
+      "sha256": "e8dd045b97602def1b6715272bbc65a22333ac0f6091b4e277359e0ad61e1f81"
+    },
+    {
+      "path": "fig/chap3/Fig3.7b.std.svg",
+      "bytes": 17251,
+      "sha256": "42491ad96316d1401e4a0473e4f5493e5accfb97eccf1e69f576b59533358102"
+    },
+    {
+      "path": "fig/chap3/Fig3.8c.std.svg",
+      "bytes": 16300,
+      "sha256": "62e20f7b1ce4f3e98dc9cde6d894fe5a896b11753e61b5a961fd42e876cb5134"
+    },
+    {
+      "path": "fig/chap3/Fig3.9b.std.svg",
+      "bytes": 13236,
+      "sha256": "0e2be6897ab9c4ad7c4d2ca939ba2ae8071e785023ae80329fd709dc8b9eadab"
+    },
+    {
+      "path": "fig/chap4/Fig4.1a.std.svg",
+      "bytes": 8019,
+      "sha256": "6f84cf2164deb7e8e805e60162c6b621d74385316a1d26c3b4ddf0ebcfa65e27"
+    },
+    {
+      "path": "fig/chap4/Fig4.2a.std.svg",
+      "bytes": 17398,
+      "sha256": "a422d8939970997ed3da7f4e0f244ead267ec4e81a2fe671ae999f7601db9812"
+    },
+    {
+      "path": "fig/chap4/Fig4.3.std.svg",
+      "bytes": 11766,
+      "sha256": "4d43000fa26af3e114b7b9a956142763aad56b47ed7a1dd3221149d965740528"
+    },
+    {
+      "path": "fig/chap4/Fig4.4a.std.svg",
+      "bytes": 7213,
+      "sha256": "9d3a574859b474a15bb71a4fce75dab0176a7e6f2da2df8139e1c49b7b233f82"
+    },
+    {
+      "path": "fig/chap4/Fig4.5a.std.svg",
+      "bytes": 13084,
+      "sha256": "d64242818629bd00606a3a6bc3f8dde24485737be0d826e2dd577b61a0094034"
+    },
+    {
+      "path": "fig/chap4/Fig4.6a.std.svg",
+      "bytes": 15097,
+      "sha256": "da307e1b6d19493cce7e0719dbb709d553da4e749b2318ddb78e946029d2db21"
+    },
+    {
+      "path": "fig/chap5/Fig5.11b.std.svg",
+      "bytes": 41647,
+      "sha256": "55ea18970727be5f5a63183b2cbd641516b81f1392ea7ab3da36cb08fc8fac13"
+    },
+    {
+      "path": "fig/chap5/Fig5.14b.std.svg",
+      "bytes": 45020,
+      "sha256": "90c5d520e51312d1703d828444ffa3f59d8832cff4e3c687cd69976924fa6f96"
+    },
+    {
+      "path": "fig/chap5/Fig5.15c.std.svg",
+      "bytes": 15404,
+      "sha256": "b36b1f4fa7a3bd83788b5b4a0bb51916f477fd2ebc99ec4f4ee0bc9850799670"
+    },
+    {
+      "path": "fig/chap5/Fig5.1a.std.svg",
+      "bytes": 16776,
+      "sha256": "e815783d928e9584d982f37f3dd786b7fca8ed1ef1f64cdd53470332d9020eb3"
+    },
+    {
+      "path": "fig/chap5/Fig5.2.std.svg",
+      "bytes": 10952,
+      "sha256": "81c0522829172b89b62808b1619bcadc78fb6a363b7d5689ac841600315c035b"
+    },
+    {
+      "path": "fig/chap5/Fig5.4c.std.svg",
+      "bytes": 30136,
+      "sha256": "55252eae0c0cf5f254148991bab2e7054776778c88be4dda3c83497e57dcc064"
+    },
+    {
+      "path": "fig/chap5/Fig5.5b.std.svg",
+      "bytes": 36052,
+      "sha256": "a9560c1a672f3d12a77ae39e986adc8365c31d604b7f4d7fd459c522fc81e903"
+    },
+    {
+      "path": "fig/chap5/Fig5.7b.std.svg",
+      "bytes": 36588,
+      "sha256": "4b286edb2ee0b908c91351da713c2e9fc322f7ae86e542be2dfd80a813918c66"
+    },
+    {
+      "path": "fig/chap5/chip.std.svg",
+      "bytes": 174149,
+      "sha256": "f92d4a66fa49eb95bb52846afab7c3deb572ff088cbe9033100a02505cef0e7e"
+    }
+  ],
+  "pandoc_warnings": "",
+  "typst_version": "tinymist \nBuild Timestamp:     2026-09-08T10:13:40.300092000Z\nBuild Git Describe:  v0.15.8\nCommit SHA:          32f908199ee17ea295512bbc27166e890c438175\nCommit Date:         None\nCommit Branch:       None\nCargo Target Triple: aarch64-apple-darwin\nTypst Version:       0.15.1\nTypst Source:        git+https://github.com/Myriad-Dreamin/typst.git?tag=tinymist/v0.15.1#59b5999da8e74e74583069408d2564fc1f9bc973",
+  "typst_warnings": "",
+  "pdf_bytes": 8316971,
+  "style_sha256": "70d41473241cfe1b74812ecb5ae87e10429a0cbf28dc0926dcc286c1c14a2c05"
+}

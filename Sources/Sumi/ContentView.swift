@@ -18,7 +18,9 @@ struct ContentView: View {
         .foregroundStyle(Theme.text)
         .preferredColorScheme(.dark)
         .sheet(isPresented: $workspace.universeOpen) {
-            UniverseBrowser(cacheURL: workspace.stateDirectory.appendingPathComponent("universe-index.json"), onImport: workspace.importPackage)
+            UniverseBrowser(cacheURL: workspace.stateDirectory.appendingPathComponent("universe-index.json"),
+                            size: DiscoveryLayout.size(for: workspace.window),
+                            onCreate: workspace.library.create(from:), onAddSample: { try await workspace.library.create(sample: $0) }, onImport: workspace.importPackage)
         }
         .sheet(isPresented: $workspace.libraryOpen) {
             LibraryBrowser(workspace: workspace, library: workspace.library)

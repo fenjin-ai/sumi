@@ -21,6 +21,7 @@ final class ManuscriptStyler {
     private static let readingFont = NSAttributedString.Key("SumiReadingFont")
     static let baseColor = NSColor(hex: 0xD5D9DE)
     private(set) var source: String?
+    private(set) var sourceRevision = -1
     private var decorations: [SourceDecoration] = []
     private var reading: NSAttributedString?
     private var size: CGFloat = 0
@@ -28,11 +29,12 @@ final class ManuscriptStyler {
     private var active: NSRange?
     private var syntaxRevision = -1
     private var hasSemanticColors = false
-    private var fallbackSource: String?
+    private var fallbackRevision = -1
 
-    func prepare(_ source: String, decorations: [SourceDecoration]) {
-        guard self.source != source else { return }
+    func prepare(_ source: String, revision: Int, decorations: [SourceDecoration]) {
+        guard sourceRevision != revision else { return }
         self.source = source
+        sourceRevision = revision
         self.decorations = decorations
         reading = nil
     }
@@ -48,21 +50,21 @@ final class ManuscriptStyler {
     /// Returns whether glyph metrics changed. Color-only changes never require
     /// a synchronous layout pass. TextKit rebases temporary ranges on edits.
     func apply(to editor: ManuscriptTextView, size: CGFloat, styled: Bool,
-               snapshot: (source: String, tokens: [HighlightToken])?, revision: Int) -> Bool {
+               snapshot: (source: String, tokens: [HighlightToken])?, revision: Int, documentRevision: Int, syntaxDocumentRevision: Int) -> Bool {
         guard let storage = editor.textStorage, let manager = editor.layoutManager else { return false }
-        let content = editor.string
+        let content = source ?? ""
         let whole = NSRange(location: 0, length: storage.length)
         var dirty: [NSRange] = []
         var geometryChanged = false
-        if let snapshot, snapshot.source == content, syntaxRevision != revision {
-            let desired = NSMutableAttributedString(string: content)
+        if syntaxRevision != revision, syntaxDocumentRevision == documentRevision, let snapshot {
+            let desired = NSMutableAttributedString(string: snapshot.source)
             for token in snapshot.tokens where token.range.location >= 0 && token.range.length > 0 && NSMaxRange(token.range) <= storage.length {
                 desired.addAttribute(Self.syntaxColor, value: Self.color(for: token), range: token.range)
             }
             dirty += Self.updateTemporary(Self.syntaxColor, from: desired, in: whole, manager: manager)
             syntaxRevision = revision
             hasSemanticColors = true
-        } else if !hasSemanticColors, fallbackSource != content, source == content {
+        } else if !hasSemanticColors, fallbackRevision != documentRevision, sourceRevision == documentRevision {
             let desired = NSMutableAttributedString(string: content)
             for (regex, color) in Self.fallback {
                 for match in regex.matches(in: content, range: whole) {
@@ -70,12 +72,12 @@ final class ManuscriptStyler {
                 }
             }
             dirty += Self.updateTemporary(Self.syntaxColor, from: desired, in: whole, manager: manager)
-            fallbackSource = content
+            fallbackRevision = documentRevision
         }
 
         // A plan is valid only for its exact source. While background analysis
         // catches up, keep the native attributes already shifted by the edit.
-        if source == content {
+        if sourceRevision == documentRevision {
             let nextActive = SourcePresentation.activeParagraph(in: content, selection: editor.selectedRange())
             let resized = self.size != size
             let rebuild = reading == nil || self.size != size || self.styled != styled

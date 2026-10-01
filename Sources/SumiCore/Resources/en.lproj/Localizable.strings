@@ -616,3 +616,60 @@
 "Convert to multiple-line block equation" = "Convert to multiple-line block equation";
 
 "Convert to inline equation" = "Convert to inline equation";
+
+/* Template and package discovery */
+"A starting point for your ideas" = "A starting point for your ideas";
+"More ways to express an idea" = "More ways to express an idea";
+"Start with a complete document, then make it yours." = "Start with a complete document, then make it yours.";
+"Find a tool by what you want to make." = "Find a tool by what you want to make.";
+"Close discovery" = "Close discovery";
+"Templates" = "Templates";
+"Packages" = "Packages";
+"Find a resume, paper, presentation…" = "Find a resume, paper, presentation…";
+"Try diagrams, plots, code blocks…" = "Try diagrams, plots, code blocks…";
+"Clear search" = "Clear search";
+"Finding possibilities…" = "Finding possibilities…";
+"No matches yet" = "No matches yet";
+"Try a shorter phrase or another collection." = "Try a shorter phrase or another collection.";
+"Back to results" = "Back to results";
+"Includes the starter document and its assets. Your new document is an independent copy." = "Includes the starter document and its assets. Your new document is an independent copy.";
+"Preparing your document…" = "Preparing your document…";
+"Create document" = "Create document";
+"Insert import" = "Insert import";
+"Documentation" = "Documentation";
+"Choose something to explore" = "Choose something to explore";
+"Connecting to the catalog…" = "Connecting to the catalog…";
+"Offline · Browsing the saved catalog" = "Offline · Browsing the saved catalog";
+"%d results · Search by name or what you want to make" = "%d results · Search by name or what you want to make";
+"Preview unavailable" = "Preview unavailable";
+"Browse templates" = "Browse templates";
+"Start a document from a template" = "Start a document from a template";
+"Another library operation is in progress. Try again in a moment." = "Another library operation is in progress. Try again in a moment.";
+"All templates" = "All templates";
+"All packages" = "All packages";
+"Research & study" = "Research & study";
+"Work & reports" = "Work & reports";
+"CVs & applications" = "CVs & applications";
+"Slides & posters" = "Slides & posters";
+"Books & writing" = "Books & writing";
+"Diagrams & charts" = "Diagrams & charts";
+"Math & science" = "Math & science";
+"Code & algorithms" = "Code & algorithms";
+"Layout & typography" = "Layout & typography";
+"Tables & data" = "Tables & data";
+"Writing tools" = "Writing tools";
+"This package does not contain a usable document template." = "This package does not contain a usable document template.";
+"This template needs a newer typesetting engine." = "This template needs a newer typesetting engine.";
+"The template contains an invalid file or entry point." = "The template contains an invalid file or entry point.";
+"This template is too large to import." = "This template is too large to import.";
+
+"Adds a pinned import to your document. Open the documentation for examples and setup." = "Adds a pinned import to your document. Open the documentation for examples and setup.";
+"Open a document to add packages." = "Open a document to add packages.";
+
+// Downloadable examples
+"Explore a complete book" = "Explore a complete book";
+"Read, edit and make it yours. Code, equations and illustrations included." = "Read, edit and make it yours. Code, equations and illustrations included.";
+"Adding book…" = "Adding book…";
+"Add to my writing" = "Add to my writing";
+"1.9 MB · downloads once" = "1.9 MB · downloads once";
+"The example could not be downloaded or verified. Please try again." = "The example could not be downloaded or verified. Please try again.";

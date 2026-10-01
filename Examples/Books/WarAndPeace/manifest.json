@@ -1,0 +1,11 @@
+{
+  "source_url": "https://www.gutenberg.org/ebooks/2600.txt.utf-8",
+  "source_sha256": "2d5bb2ad5f422765e714617e21fa31bbaf8958aa79682c86fca6660fcc5d1b2b",
+  "source_bytes": 3359610,
+  "fixture": "war-and-peace-highlighted.typ",
+  "fixture_sha256": "a86dfe5399e660238f21106bfb868bab94385ae01fb899992390498d83fb183b",
+  "fixture_bytes": 3302718,
+  "lines": 67962,
+  "headings": 764,
+  "code_blocks": 39
+}

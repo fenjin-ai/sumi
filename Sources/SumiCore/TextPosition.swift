@@ -4,9 +4,9 @@ import Foundation
 /// offsets only, never another copy of the manuscript. Reuse it for batches of
 /// LSP positions, such as an outline, rather than rescanning for every heading.
 public struct TextLineIndex: Sendable {
-    private let starts: [Int]
-    private let ends: [Int]
-    public let length: Int
+    private var starts: [Int]
+    private var ends: [Int]
+    public private(set) var length: Int
 
     public init(_ text: String) {
         var starts = [0], ends: [Int] = [], offset = 0
@@ -26,6 +26,33 @@ public struct TextLineIndex: Sendable {
         self.starts = starts
         self.ends = ends
         length = offset
+    }
+
+    /// Include neighboring lines so edits that join CRLF or grapheme clusters
+    /// across a boundary can be rescanned locally without special-case guesses.
+    func rescanRange(for edit: NSRange) -> NSRange {
+        let first = max(0, position(at: edit.location).line - 1)
+        let after = min(starts.count, position(at: NSMaxRange(edit)).line + 2)
+        let end = after < starts.count ? starts[after] : length
+        return NSRange(location: starts[first], length: end - starts[first])
+    }
+
+    mutating func replaceLines(in range: NSRange, with text: String) {
+        let first = position(at: range.location).line
+        let hasSuffix = NSMaxRange(range) < length
+        let after = hasSuffix ? position(at: NSMaxRange(range)).line : starts.count
+        let replacement = TextLineIndex(text)
+        let delta = replacement.length - range.length
+        // A complete-line fragment ends at the next retained line's start.
+        // Do not duplicate that boundary in the replacement index.
+        let count = replacement.starts.count - (hasSuffix ? 1 : 0)
+        starts.replaceSubrange(first..<after, with: replacement.starts.prefix(count).map { range.location + $0 })
+        ends.replaceSubrange(first..<after, with: replacement.ends.prefix(count).map { range.location + $0 })
+        for index in (first + count)..<starts.count {
+            starts[index] += delta
+            ends[index] += delta
+        }
+        length += delta
     }
 
     public func position(at offset: Int) -> TextPosition {

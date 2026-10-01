@@ -616,3 +616,60 @@
 "Convert to multiple-line block equation" = "转换为多行独立公式";
 
 "Convert to inline equation" = "转换为行内公式";
+
+/* Template and package discovery */
+"A starting point for your ideas" = "为想法找到一个起点";
+"More ways to express an idea" = "让想法有更多表达方式";
+"Start with a complete document, then make it yours." = "从完整的文稿开始，写成自己的作品。";
+"Find a tool by what you want to make." = "从你想做的事情，找到合适的工具。";
+"Close discovery" = "关闭发现";
+"Templates" = "模板";
+"Packages" = "扩展包";
+"Find a resume, paper, presentation…" = "寻找简历、论文、演示文稿…";
+"Try diagrams, plots, code blocks…" = "试试流程图、图表、代码块…";
+"Clear search" = "清空搜索";
+"Finding possibilities…" = "正在寻找灵感…";
+"No matches yet" = "暂时没有匹配的结果";
+"Try a shorter phrase or another collection." = "试试更简短的词语，或切换分类。";
+"Back to results" = "返回结果";
+"Includes the starter document and its assets. Your new document is an independent copy." = "包含初始文稿及其素材，新文稿是一份独立副本。";
+"Preparing your document…" = "正在准备文稿…";
+"Create document" = "创建文稿";
+"Insert import" = "插入导入语句";
+"Documentation" = "使用文档";
+"Choose something to explore" = "选一个，了解更多";
+"Connecting to the catalog…" = "正在连接目录…";
+"Offline · Browsing the saved catalog" = "离线 · 浏览已保存的目录";
+"%d results · Search by name or what you want to make" = "%d 个结果 · 搜索名称或你想做的事情";
+"Preview unavailable" = "暂无预览";
+"Browse templates" = "浏览模板";
+"Start a document from a template" = "用模板创建文稿";
+"Another library operation is in progress. Try again in a moment." = "文稿库正在处理另一项操作，请稍后重试。";
+"All templates" = "全部模板";
+"All packages" = "全部扩展包";
+"Research & study" = "研究与学习";
+"Work & reports" = "工作与报告";
+"CVs & applications" = "简历与申请";
+"Slides & posters" = "演示与海报";
+"Books & writing" = "书籍与写作";
+"Diagrams & charts" = "绘图与图表";
+"Math & science" = "数学与科学";
+"Code & algorithms" = "代码与算法";
+"Layout & typography" = "布局与排版";
+"Tables & data" = "表格与数据";
+"Writing tools" = "写作工具";
+"This package does not contain a usable document template." = "此扩展包没有可用的文稿模板。";
+"This template needs a newer typesetting engine." = "此模板需要更新版本的排版引擎。";
+"The template contains an invalid file or entry point." = "模板含有无效的文件或主文档。";
+"This template is too large to import." = "此模板过大，无法导入。";
+
+"Adds a pinned import to your document. Open the documentation for examples and setup." = "在文稿中插入指定版本的扩展包。文档中有使用示例和设置方法。";
+"Open a document to add packages." = "打开文稿后即可添加扩展包。";
+
+// Downloadable examples
+"Explore a complete book" = "探索一本完整的书";
+"Read, edit and make it yours. Code, equations and illustrations included." = "从阅读到创作，代码、公式和插图都可以自由编辑。";
+"Adding book…" = "正在添加…";
+"Add to my writing" = "加入我的文稿";
+"1.9 MB · downloads once" = "1.9 MB · 仅首次下载";
+"The example could not be downloaded or verified. Please try again." = "范本下载或校验失败，请重试。";

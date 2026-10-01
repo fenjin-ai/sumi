@@ -15,13 +15,15 @@ public actor CodeBlockHighlighting {
             guard let url = bundle.url(forResource: "highlight.min", withExtension: "js"),
                   let script = try? String(contentsOf: url, encoding: .utf8), let engine = JSContext() else { return [] }
             engine.evaluateScript(script)
+            if let grammar = bundle.url(forResource: "scheme.min", withExtension: "js"),
+               let scheme = try? String(contentsOf: grammar, encoding: .utf8) { engine.evaluateScript(scheme) }
             engine.evaluateScript("function sumiHighlight(code, language) { return hljs.getLanguage(language) ? hljs.highlight(code, {language: language, ignoreIllegals: true}).value : null; }")
             context = engine
         }
         let text = source as NSString
         var result: [HighlightToken] = [], nextCache: [Key: [HighlightToken]] = [:]
-        var budget = 128_000
-        for block in SourcePresentation.codeBlocks(in: source).prefix(80) {
+        var budget = 1_048_576
+        for block in SourcePresentation.codeBlocks(in: source).prefix(2_048) {
             guard !Task.isCancelled else { return [] }
             guard !block.language.isEmpty, block.contentRange.length <= 32_000,
                   block.contentRange.length <= budget else { continue }
@@ -49,8 +51,13 @@ private final class HighlightHTMLReader: NSObject, XMLParserDelegate {
     var text = ""
     private var offset = 0
     private var stack: [(start: Int, kind: String)] = []
-    private var spans: [HighlightToken] = []
-    var tokens: [HighlightToken] { spans.sorted { $0.range.length > $1.range.length } }
+    private var spans: [(token: HighlightToken, depth: Int)] = []
+    var tokens: [HighlightToken] {
+        spans.sorted {
+            if $0.token.range.length == $1.token.range.length { return $0.depth < $1.depth }
+            return $0.token.range.length > $1.token.range.length
+        }.map(\.token)
+    }
 
     func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?, attributes: [String: String]) {
         if name == "span" { stack.append((offset, attributes["class"] ?? "")) }
@@ -60,7 +67,7 @@ private final class HighlightHTMLReader: NSObject, XMLParserDelegate {
     }
     func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
         if name == "span", let start = stack.popLast(), offset > start.start {
-            spans.append(.init(range: NSRange(location: start.start, length: offset - start.start), kind: start.kind))
+            spans.append((.init(range: NSRange(location: start.start, length: offset - start.start), kind: start.kind), stack.count))
         }
     }
 }

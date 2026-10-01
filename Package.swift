@@ -15,8 +15,9 @@ let package = Package(
         .executableTarget(name: "SumiMCP", dependencies: ["SumiMCPServer"]),
         .target(name: "SumiApp", dependencies: ["SumiCore", "SumiAutomation"], path: "Sources/Sumi"),
         .executableTarget(name: "SumiLauncher", dependencies: ["SumiApp"]),
-        .testTarget(name: "SumiCoreTests", dependencies: ["SumiCore"]),
-        .testTarget(name: "SumiAppTests", dependencies: ["SumiApp", "SumiCore", "SumiAutomation"]),
-        .testTarget(name: "SumiAutomationTests", dependencies: ["SumiAutomation", "SumiMCPServer"])
+        .target(name: "SumiTestSupport", path: "Tests/Support"),
+        .testTarget(name: "SumiCoreTests", dependencies: ["SumiCore", "SumiTestSupport"]),
+        .testTarget(name: "SumiAppTests", dependencies: ["SumiApp", "SumiCore", "SumiAutomation", "SumiTestSupport"]),
+        .testTarget(name: "SumiAutomationTests", dependencies: ["SumiAutomation", "SumiMCPServer", "SumiTestSupport"])
     ]
 )

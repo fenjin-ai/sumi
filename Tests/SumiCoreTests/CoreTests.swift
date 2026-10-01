@@ -1,3 +1,4 @@
+import SumiTestSupport
 import Foundation
 import Testing
 @testable import SumiCore
@@ -75,7 +76,7 @@ import Testing
 }
 
 @Test func storageProtectsExternalEditsAndDeletion() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-tests-\(UUID().uuidString)")
+    let root = TestPaths.temporaryDirectory.appendingPathComponent("Sumi-tests-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: root) }
     let file = root.appendingPathComponent("中文 文稿.typ")
@@ -100,7 +101,7 @@ import Testing
 }
 
 @Test func recoveryPreservesDraftAndMainFile() throws {
-    let main = FileManager.default.temporaryDirectory.appendingPathComponent("main.typ")
+    let main = TestPaths.temporaryDirectory.appendingPathComponent("main.typ")
     let child = main.deletingLastPathComponent().appendingPathComponent("章节.typ")
     let snapshot = RecoverySnapshot(fileURL: child, text: "未保存😀", savedText: "旧内容", selection: 5, mainFileURL: main)
     let restored = try JSONDecoder().decode(RecoverySnapshot.self, from: JSONEncoder().encode(snapshot))

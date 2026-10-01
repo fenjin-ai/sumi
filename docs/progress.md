@@ -2,6 +2,15 @@
 
 Date: 2026-10-01. This record preserves evidence from each development iteration. New feature acceptance is recorded separately; historical counts and measurements refer to the stated version.
 
+## 0.5.0 (9) follow-up · Real books and visual discovery
+
+- Reproduced multi-megabyte input stalls and distant pointer errors with real books. Incremental metrics, revision-based reconciliation, off-main token decoding and stable contiguous text layout passed [the book benchmarks](large-document-performance.md). Current War and Peace typing median is 3.38 ms; SICP is 1.96 ms on the measured Mac. CPU draw measurements are explicitly separate from display FPS.
+- The library opens a spacious visual template gallery using official thumbnails and complete project scaffolding. Package discovery has separate writing-intent collections and bilingual search. FM remains optional future work, not a requirement for finding tools.
+- SICP is an on-demand example: a 1.9 MB verified download, independent editable copies, offline reuse, local imported typography and 84 illustrations. The complete books, original sources, PDFs and conversion/packaging code are committed with their own attribution and licenses.
+- 108 enabled Swift tests passed (112 reported including four opt-in skips), plus three profile checks. Overall production line coverage is 86.91% (5440/6259). Both additional real-book benchmark scenarios passed, including a 448-page SICP export. Focused official-registry template/preview scenarios also passed during this iteration.
+- Release-configuration build, strict development-signature verification and relocated cold-launch/resource/icon/Tinymist smoke checks passed. Version remains 0.5.0 (9); no release tag was created. Tests use checkout-local temporary directories because Xcode can override TMPDIR.
+- Source-project migration is tested with an isolated cloud-container fixture. Two-Mac iCloud delivery remains unverified. See [document organization](library-and-sync.md) for entry-point semantics and current cross-file UI/search limits.
+
 ## 0.4.0 (8) · Trash controls, syntax colors and the Dock icon
 
 - Trash has an Empty Trash action with a native confirmation and total document count, independent of search. Permanent removal coordinates the full document folder, including attachments. Confirmed identities and trash timestamps protect restored, newly trashed and re-trashed documents; a changed library location invalidates the confirmation. Partial failures preserve remaining files and report an error after refreshing the list. The operation log records counts without manuscript content.
