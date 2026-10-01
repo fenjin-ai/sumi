@@ -66,6 +66,7 @@ public struct WritingCommand: Identifiable, Sendable {
         .init("diagnostics", "view", "d", "检查文稿", "查看错误和建议，并跳转到对应位置。", "diagnostics errors 错误"),
         .init("revealPreview", "view", "r", "在成稿中定位", "找到光标所在段落的排版位置。", "reveal jump sync 定位"),
         .init("restart", "view", "l", "重新连接排版服务", "重启 Tinymist，并重新同步当前文稿。", "restart language server"),
+        .init("logs", "view", "g", "打开诊断日志", "查看本地操作记录，帮助排查崩溃和异常。", "logs debug diagnostics 日志"),
         .init("new", "file", "n", "新建文稿", "从一张安静的空白页开始。", "new document 新建"),
         .init("open", "file", "o", "打开文稿", "打开一个 .typ 文件。", "open file 打开"),
         .init("save", "file", "s", "保存", "将当前文稿保存到磁盘。", "save 保存"),

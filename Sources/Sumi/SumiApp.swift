@@ -17,15 +17,19 @@ enum SumiApplication {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let workspace = Workspace()
     private var window: NSWindow!
-    private var keyMonitor: Any?
+    private var windowToolbar: WindowToolbar?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMenu()
         NSApp.appearance = NSAppearance(named: .darkAqua)
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        let writingWindow = WritingWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        writingWindow.workspace = workspace
+        window = writingWindow
         window.title = workspace.title + " — Sumi"
         window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
+        window.toolbarStyle = .unifiedCompact
+        windowToolbar = WindowToolbar(workspace: workspace)
+        window.toolbar = windowToolbar?.makeToolbar()
         window.backgroundColor = NSColor(hex: 0x171A1D)
         window.minSize = NSSize(width: 820, height: 580)
         window.isReleasedWhenClosed = false
@@ -36,17 +40,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
         workspace.onTitleChange = { [weak self] title in self?.window.title = title + " — Sumi" }
         workspace.onShortcutChange = { [weak self] in self?.installMenu() }
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            let handled = MainActor.assumeIsolated {
-                guard let self, event.window == self.window else { return false }
-                if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == self.workspace.commandKey {
-                    if (event.window?.firstResponder as? NSTextView)?.hasMarkedText() != true { self.workspace.togglePalette() }
-                    return true
-                }
-                return self.workspace.handlePaletteKey(event)
-            }
-            return handled ? nil : event
-        }
         workspace.startService()
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.async { [weak self] in
@@ -63,7 +56,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
     func applicationWillTerminate(_ notification: Notification) {
         workspace.shutdown()
-        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
     }
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
         if let path = filenames.first { workspace.open(URL(fileURLWithPath: path)) }
@@ -112,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         item("补全 Typst", #selector(completion), ".", edit, modifiers: .control, target: self)
         let view = section("视图")
         item("发现命令", #selector(palette), workspace.commandKey, view, target: self)
+        item("打开诊断日志", #selector(revealLogs), "", view, target: self)
         item("专注写作", #selector(writing), "1", view, target: self)
         item("并排预览", #selector(split), "2", view, target: self)
         item("阅读成稿", #selector(preview), "3", view, target: self)
@@ -126,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func about() {
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: "0.1.0", .credits: NSAttributedString(string: "一个安静的 Typst 写作空间。\nBuilt with Swift, Tinymist and Phosphor Icons.")])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: "0.1.1", .credits: NSAttributedString(string: "一个安静的 Typst 写作空间。\nBuilt with Swift, Tinymist and Phosphor Icons.")])
     }
     @objc private func settings() {
         let alert = NSAlert()
@@ -148,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func saveAs() { workspace.saveAs() }
     @objc private func exportPDF() { workspace.exportPDF() }
     @objc private func palette() { workspace.togglePalette() }
+    @objc private func revealLogs() { workspace.revealLogs() }
     @objc private func writing() { workspace.layout = .writing }
     @objc private func split() { workspace.layout = .split }
     @objc private func preview() { workspace.layout = .preview }

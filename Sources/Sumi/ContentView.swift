@@ -7,8 +7,6 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Rectangle().fill(Theme.border.opacity(0.55)).frame(height: 1)
             HStack(spacing: 0) {
                 if let sidePanel = workspace.sidePanel { sidebar(sidePanel).frame(width: 224); divider }
                 GeometryReader { geometry in
@@ -40,23 +38,6 @@ struct ContentView: View {
     }
 
     private var divider: some View { Rectangle().fill(Theme.border.opacity(0.55)).frame(width: 1) }
-
-    private var header: some View {
-        HStack(spacing: 12) {
-            Text("S U M I").font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundStyle(Theme.accent).padding(.leading, 86)
-            Rectangle().fill(Theme.border).frame(width: 1, height: 14).padding(.horizontal, 5)
-            Text(workspace.title).font(.system(size: 12, weight: .medium)).lineLimit(1)
-            if workspace.text != workspace.savedText, workspace.fileURL != nil { Circle().fill(Theme.accent).frame(width: 5, height: 5).accessibilityLabel("尚未保存") }
-            Spacer(minLength: 20)
-            QuietButton(icon: "list", help: "文稿大纲", active: workspace.sidePanel == .outline) { workspace.sidePanel = workspace.sidePanel == .outline ? nil : .outline }
-            Rectangle().fill(Theme.border).frame(width: 1, height: 14)
-            QuietButton(icon: "pencil-simple", help: "专注写作", active: workspace.layout == .writing) { workspace.layout = .writing }
-            QuietButton(icon: "columns", help: "并排预览", active: workspace.layout == .split) { workspace.layout = .split }
-            QuietButton(icon: "eye", help: "阅读成稿", active: workspace.layout == .preview) { workspace.layout = .preview }
-            Rectangle().fill(Theme.border).frame(width: 1, height: 14)
-            QuietButton(icon: "arrow-square-out", help: "导出 PDF") { workspace.exportPDF() }.disabled(workspace.exporting)
-        }.padding(.trailing, 20).frame(height: 54)
-    }
 
     private var manuscript: some View {
         VStack(spacing: 0) {

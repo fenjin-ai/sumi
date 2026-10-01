@@ -27,13 +27,16 @@ final class Workspace: ObservableObject {
     @Published var diagnostics: [DiagnosticItem] = []
     @Published var layout: EditorLayout = .writing {
         didSet {
+            recordOperation("layout.changed", ["layout": layout.rawValue])
             editor?.isEditable = layout != .preview && !paletteOpen
             if !paletteOpen {
                 editor?.window?.makeFirstResponder(layout == .preview ? nil : editor)
             }
         }
     }
-    @Published var sidePanel: SidePanel?
+    @Published var sidePanel: SidePanel? {
+        didSet { recordOperation("sidebar.changed", ["panel": sidePanel == .outline ? "outline" : (sidePanel == .diagnostics ? "diagnostics" : "closed")]) }
+    }
     @Published var fontSize: CGFloat = 16
     @Published var selection = NSRange(location: 0, length: 0)
     @Published var message: String?
@@ -65,6 +68,7 @@ final class Workspace: ObservableObject {
     private var messageTask: Task<Void, Never>?
     private var sentVersion = 0
     let stateDirectory: URL
+    private let actionLog: ActionLog?
     private var recoveryURL: URL { stateDirectory.appendingPathComponent("recovery.json") }
     var draftURL: URL { stateDirectory.appendingPathComponent("Draft.typ") }
     var documentURL: URL { fileURL ?? draftURL }
@@ -81,6 +85,8 @@ final class Workspace: ObservableObject {
         else { stateDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Sumi") }
         try? FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: stateDirectory.appendingPathComponent("Exports"), withIntermediateDirectories: true)
+        actionLog = try? ActionLog(directory: stateDirectory.appendingPathComponent("Logs"))
+        actionLog?.record("session.start", fields: ["version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development", "pid": String(ProcessInfo.processInfo.processIdentifier)])
         if let data = try? Data(contentsOf: stateDirectory.appendingPathComponent("recovery.json")), let snapshot = try? JSONDecoder().decode(RecoverySnapshot.self, from: data) {
             fileURL = snapshot.fileURL
             mainFileURL = snapshot.mainFileURL
@@ -99,12 +105,14 @@ final class Workspace: ObservableObject {
         saveStatus = fileURL == nil ? "本地草稿" : (text == savedText ? "已保存" : "已恢复未保存内容")
         client.onNotification = { [weak self] method, params in self?.receive(method, params) }
         client.onDisconnect = { [weak self] message in
+            self?.recordOperation("service.disconnected", ["reason": message])
             self?.serviceReady = false; self?.serviceStatus = "连接中断"; self?.message = message
         }
         client.onShowDocument = { [weak self] params in self?.showDocument(params) }
     }
 
     func startService() {
+        recordOperation("service.start")
         let generation = UUID()
         serviceGeneration = generation
         serviceReady = false
@@ -129,11 +137,13 @@ final class Workspace: ObservableObject {
                 let url = try await client.startPreview(compilationURL)
                 guard serviceGeneration == generation else { return }
                 previewURL = url
+                recordOperation("service.ready")
                 try flushChanges()
                 await refreshOutline()
             } catch {
                 guard serviceGeneration == generation else { return }
                 serviceStatus = "暂不可用"
+                recordOperation("service.failed", ["error": error.localizedDescription])
                 showMessage(error.localizedDescription, persistent: true)
             }
         }
@@ -186,7 +196,7 @@ final class Workspace: ObservableObject {
     @discardableResult func saveRecovery() -> Bool {
         let snapshot = RecoverySnapshot(fileURL: fileURL, text: text, savedText: savedText, selection: selection.location, mainFileURL: mainFileURL)
         do { try JSONEncoder().encode(snapshot).write(to: recoveryURL, options: .atomic); return true }
-        catch { showMessage("无法保存恢复副本：\(error.localizedDescription)", persistent: true); return false }
+        catch { recordOperation("recovery.failed", ["error": error.localizedDescription]); showMessage("无法保存恢复副本：\(error.localizedDescription)", persistent: true); return false }
     }
 
     func save() {
@@ -195,10 +205,12 @@ final class Workspace: ObservableObject {
             baseline = try DocumentStorage.write(text, to: fileURL, baseline: baseline)
             savedText = text
             saveStatus = "已保存"
+            recordOperation("save.finished")
             saveRecovery()
             try? client.notify("textDocument/didSave", ["textDocument": ["uri": fileURL.absoluteString]])
         } catch {
             saveStatus = "保存需要处理"
+            recordOperation("save.failed", ["error": error.localizedDescription])
             saveRecovery()
             showMessage(error.localizedDescription, persistent: true)
         }
@@ -212,6 +224,7 @@ final class Workspace: ObservableObject {
     }
 
     func saveAs() {
+        recordOperation("saveAs.dialog")
         let panel = NSSavePanel()
         panel.title = "保存文稿"
         panel.nameFieldStringValue = fileURL?.lastPathComponent ?? "未命名.typ"
@@ -222,12 +235,14 @@ final class Workspace: ObservableObject {
             do {
                 baseline = try DocumentStorage.write(text, to: url, baseline: nil)
                 fileURL = url; mainFileURL = nil; savedText = text; saveStatus = "已保存"
+                recordOperation("saveAs.finished")
                 saveRecovery(); onTitleChange?(title); startService()
-            } catch { showMessage(error.localizedDescription, persistent: true) }
+            } catch { recordOperation("saveAs.failed", ["error": error.localizedDescription]); showMessage(error.localizedDescription, persistent: true) }
         }
     }
 
     func openPanel(recovery: Bool = false) {
+        recordOperation("open.dialog", ["recovery": String(recovery)])
         let panel = NSOpenPanel()
         panel.title = recovery ? "恢复草稿副本" : "打开 Typst 文稿"
         panel.directoryURL = recovery ? stateDirectory : fileURL?.deletingLastPathComponent()
@@ -252,6 +267,7 @@ final class Workspace: ObservableObject {
     }
 
     @discardableResult func open(_ url: URL, preservingMain: Bool = false) -> Bool {
+        recordOperation("document.open", ["preservingMain": String(preservingMain)])
         do {
             guard preserveCurrent() else { return false }
             let (content, disk) = try DocumentStorage.read(url)
@@ -267,6 +283,7 @@ final class Workspace: ObservableObject {
     }
 
     func newDocument() {
+        recordOperation("document.new")
         guard preserveCurrent() else { return }
         fileURL = nil; mainFileURL = nil; baseline = nil; savedText = nil
         text = "#set text(font: (\"New York\", \"PingFang SC\"), size: 11pt)\n#set page(margin: 24mm)\n#set heading(numbering: \"1.\")\n\n= 新的开始\n\n"
@@ -290,6 +307,7 @@ final class Workspace: ObservableObject {
     }
 
     func togglePalette() {
+        recordOperation("palette.toggle")
         if paletteOpen { closePalette() } else {
             guard editor?.hasMarkedText() != true else { return }
             editor?.isEditable = false
@@ -298,6 +316,7 @@ final class Workspace: ObservableObject {
         }
     }
     func closePalette() {
+        recordOperation("palette.close")
         paletteOpen = false; activeCommand = nil; commandError = nil
         editor?.isEditable = layout != .preview
         if layout != .preview, let editor { editor.window?.makeFirstResponder(editor) }
@@ -311,6 +330,7 @@ final class Workspace: ObservableObject {
     }
     func enterGroup(_ id: String) { paletteGroup = id; searchMode = false; activeCommand = nil; selectedCommandIndex = 0 }
     func selectCommand(_ command: WritingCommand) {
+        recordOperation("command.selected", ["command": command.id, "source": searchMode ? "search" : "group"])
         commandError = nil
         if command.fields.isEmpty { execute(command) }
         else { activeCommand = command; fieldValues = Dictionary(uniqueKeysWithValues: command.fields.map { ($0.id, $0.initial) }) }
@@ -334,6 +354,7 @@ final class Workspace: ObservableObject {
     }
 
     func execute(_ command: WritingCommand) {
+        recordOperation("command.execute", ["command": command.id])
         switch command.id {
         case "new": closePalette(); newDocument()
         case "open": closePalette(); openPanel()
@@ -349,6 +370,7 @@ final class Workspace: ObservableObject {
         case "diagnostics": sidePanel = sidePanel == .diagnostics ? nil : .diagnostics; closePalette()
         case "restart": closePalette(); startService()
         case "revealPreview": closePalette(); revealPreview()
+        case "logs": closePalette(); revealLogs()
         default: insert(command)
         }
     }
@@ -360,6 +382,7 @@ final class Workspace: ObservableObject {
         let version = documentVersion, generation = serviceGeneration
         let values = fieldValues
         applyingCommand = true
+        recordOperation("insertion.begin", ["command": command.id])
         Task {
             defer { applyingCommand = false }
             do {
@@ -374,14 +397,18 @@ final class Workspace: ObservableObject {
                         throw CommandError.invalid("这个命令用于正文。当前位置属于公式、代码或注释，请回到正文后插入；现有内容未被修改。")
                     }
                 }
-                guard version == documentVersion, generation == serviceGeneration, paletteOpen, editor.selectedRange() == range else { return }
+                guard version == documentVersion, generation == serviceGeneration, paletteOpen, editor.selectedRange() == range else {
+                    recordOperation("insertion.cancelled", ["command": command.id, "reason": "document, selection or panel changed"])
+                    return
+                }
                 let selected = (text as NSString).substring(with: range)
                 let snippet = try TypstInsertion.make(command.id, values: values, selection: selected)
                 let plan = InsertionPlan(command: command, snippet: snippet, text: text, selection: range)
                 closePalette()
                 if layout == .preview { layout = .split }
                 editor.insertSnippet(plan.snippet, replacing: plan.range)
-            } catch { commandError = error.localizedDescription }
+                recordOperation("insertion.finished", ["command": command.id, "insertedUTF16": String(plan.snippet.text.utf16.count)])
+            } catch { recordOperation("insertion.failed", ["command": command.id, "error": error.localizedDescription]); commandError = error.localizedDescription }
         }
     }
 
@@ -403,6 +430,7 @@ final class Workspace: ObservableObject {
     }
 
     func exportPDF() {
+        recordOperation("export.dialog")
         guard serviceReady, !exporting else { showMessage("请等待排版服务准备就绪。"); return }
         let panel = NSSavePanel()
         panel.title = "导出 PDF"
@@ -412,6 +440,7 @@ final class Workspace: ObservableObject {
     }
 
     private func exportPDF(to destination: URL) {
+        recordOperation("export.begin")
         exporting = true
         Task {
             defer { exporting = false }
@@ -423,8 +452,9 @@ final class Workspace: ObservableObject {
                 let data = try Data(contentsOf: URL(fileURLWithPath: path))
                 guard data.starts(with: Data("%PDF".utf8)) else { throw ServiceError.remote("排版服务未生成有效 PDF。") }
                 try data.write(to: destination, options: .atomic)
+                recordOperation("export.finished", ["exportedVersion": String(version)])
                 showMessage(version == documentVersion ? "PDF 已导出：\(destination.lastPathComponent)" : "PDF 已导出（导出开始时的文稿版本）。")
-            } catch { showMessage(error.localizedDescription, persistent: true) }
+            } catch { recordOperation("export.failed", ["error": error.localizedDescription]); showMessage(error.localizedDescription, persistent: true) }
         }
     }
 
@@ -451,8 +481,10 @@ final class Workspace: ObservableObject {
                     position: TextPosition(line: item["range"]["start"]["line"].int ?? 0, character: item["range"]["start"]["character"].int ?? 0), url: url)
             }
             diagnostics = diagnosticsByURI.keys.sorted().flatMap { diagnosticsByURI[$0] ?? [] }
+            recordOperation("diagnostics.updated", ["count": String(diagnostics.count)])
             serviceStatus = diagnostics.contains { $0.severity == 1 } ? "文稿需要检查" : "排版已更新"
         } else if method == "tinymist/compileStatus" || method == "tinymist/status" {
+            recordOperation("compile.status", ["status": params["status"].string ?? "unknown"])
             if let status = params["status"].string { serviceStatus = status == "compiling" ? "正在排版" : (status == "compileError" ? "文稿需要检查" : "排版已更新") }
         }
     }
@@ -492,7 +524,31 @@ final class Workspace: ObservableObject {
         return false
     }
 
-    func shutdown() { saveTask?.cancel(); syncTask?.cancel(); client.stop() }
+    func shutdown() { recordOperation("session.end"); saveTask?.cancel(); syncTask?.cancel(); client.stop() }
+
+    func recordOperation(_ event: String, _ fields: [String: String] = [:]) {
+        var context = fields
+        context["documentVersion"] = String(documentVersion)
+        context["selection"] = "\(selection.location):\(selection.length)"
+        actionLog?.record(event, fields: context)
+    }
+
+    func recordKeyEvent(_ event: NSEvent, stage: String) {
+        let special: [UInt16: String] = [36: "Return", 48: "Tab", 51: "Delete", 53: "Escape", 76: "Enter", 115: "Home", 116: "PageUp", 117: "ForwardDelete", 119: "End", 121: "PageDown", 123: "Left", 124: "Right", 125: "Down", 126: "Up"]
+        let flags = event.modifierFlags
+        let modifiers = [(NSEvent.ModifierFlags.command, "cmd"), (.control, "ctrl"), (.option, "option"), (.shift, "shift")].filter { flags.contains($0.0) }.map(\.1).joined(separator: "+")
+        // Never retain printable input or search terms. Only shortcut chords and
+        // navigation keys need their actual key identity for diagnosing routing.
+        let shortcut = event.charactersIgnoringModifiers?.uppercased() ?? "keyCode:\(event.keyCode)"
+        let key = special[event.keyCode] ?? (flags.intersection([.command, .control]).isEmpty ? "text" : shortcut)
+        recordOperation("key.down", ["key": key, "modifiers": modifiers, "stage": stage, "panel": activeCommand != nil ? "parameters" : (searchMode && paletteOpen ? "search" : (paletteOpen ? "groups" : "editor")), "markedText": String((event.window?.firstResponder as? NSTextView)?.hasMarkedText() == true)])
+    }
+
+    func revealLogs() {
+        guard let actionLog else { showMessage("诊断日志目录暂时不可写。", persistent: true); return }
+        recordOperation("logs.reveal")
+        NSWorkspace.shared.activateFileViewerSelecting([actionLog.fileURL])
+    }
 
     static let welcome = """
     #set page(paper: "a4", margin: 24mm)
