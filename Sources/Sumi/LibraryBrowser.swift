@@ -99,7 +99,7 @@ struct LibraryBrowser: View {
             }.padding(.horizontal, 30).padding(.vertical, 15)
         }
         .frame(width: browserSize.width, height: browserSize.height)
-        .background(Theme.editor).foregroundStyle(Theme.text).preferredColorScheme(.dark)
+        .background(Theme.editor).foregroundStyle(Theme.text)
         .disabled(library.busy)
         .task { await library.start(); await search() }
         .task(id: query + String(showingTrash)) {

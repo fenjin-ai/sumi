@@ -16,7 +16,7 @@ struct PaletteTextField: NSViewRepresentable {
         field.placeholderString = placeholder
         field.isBezeled = false
         field.drawsBackground = false
-        field.textColor = NSColor(hex: 0xE0E2E5)
+        field.textColor = Theme.nativeText
         field.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         field.focusRingType = .none
         field.setAccessibilityLabel(label)

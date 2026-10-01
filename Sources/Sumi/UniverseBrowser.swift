@@ -124,7 +124,7 @@ struct UniverseBrowser: View {
             footer
         }
         .frame(width: size.width, height: size.height)
-        .background(Theme.background).foregroundStyle(Theme.text).preferredColorScheme(.dark)
+        .background(Theme.background).foregroundStyle(Theme.text)
         .interactiveDismissDisabled(isApplying)
         .task { searchFocused = true; await model.load() }
         .onChange(of: model.mode) { _, mode in onModeChange?(mode) }

@@ -27,7 +27,7 @@ private final class PreferenceFixtureCloud: PreferenceCloudStore {
     #expect(cloud.writes == 0)
     #expect(preferences.syncState == .local)
     #expect(LibraryPreferences(defaults: defaults, cloud: cloud).values.fontSize == 19)
-    let remote = SyncedPreferences(language: "zh-Hans", commandKey: "k", fontSize: 22, previewDark: true)
+    let remote = SyncedPreferences(language: "zh-Hans", commandKey: "k", fontSize: 22, previewDark: true, appearance: "dark")
     cloud.values[LibraryPreferences.storageKey] = try JSONEncoder().encode(remote)
     preferences.setSyncEnabled(true)
     #expect(preferences.values == remote)
@@ -35,9 +35,11 @@ private final class PreferenceFixtureCloud: PreferenceCloudStore {
     #expect(cloud.writes == 0)
     var changed = remote
     changed.styledSource = false
+    changed.appearance = "light"
     preferences.update(changed)
     #expect(cloud.writes == 1)
     #expect(changes.last == changed)
+    #expect(LibraryPreferences(defaults: defaults, cloud: cloud).values.appearance == "light")
     preferences.setSyncEnabled(false)
     preferences.update(local)
     #expect(cloud.writes == 1)
@@ -82,6 +84,9 @@ private final class PreferenceFixtureCloud: PreferenceCloudStore {
     #expect(SyncedPreferences(documentTemplate: "unknown").validated.documentTemplate == nil)
     let legacy = Data(#"{"language":"en","commandKey":"j","fontSize":16,"previewDark":false,"styledSource":true}"#.utf8)
     #expect(try JSONDecoder().decode(SyncedPreferences.self, from: legacy).documentTemplate == nil)
+    #expect(try JSONDecoder().decode(SyncedPreferences.self, from: legacy).appearance == nil)
+    #expect(SyncedPreferences(appearance: "unknown").validated.appearance == nil)
+    #expect(SyncedPreferences(appearance: "system").validated.appearance == "system")
 }
 
 @MainActor
@@ -94,17 +99,20 @@ private final class PreferenceFixtureCloud: PreferenceCloudStore {
     preferences.setSyncEnabled(true)
     var local = preferences.values
     local.fontSize = 20
+    local.appearance = "light"
     preferences.update(local)
     #expect(cloud.writes == 0, "Do not upload defaults before initial cloud reconciliation")
-    var remote = SyncedPreferences(previewDark: true)
+    var remote = SyncedPreferences(previewDark: true, appearance: "dark")
     cloud.values[LibraryPreferences.storageKey] = try JSONEncoder().encode(remote)
     preferences.receiveCloudChange(reason: NSUbiquitousKeyValueStoreInitialSyncChange)
     #expect(preferences.values.fontSize == 20)
+    #expect(preferences.values.appearance == "light")
     #expect(preferences.values.previewDark)
     remote.styledSource = false
     cloud.values[LibraryPreferences.storageKey] = try JSONEncoder().encode(remote)
     preferences.receiveCloudChange(reason: NSUbiquitousKeyValueStoreServerChange)
     #expect(preferences.values.fontSize == 20)
+    #expect(preferences.values.appearance == "light")
     #expect(!preferences.values.styledSource)
     #expect(preferences.values.previewDark)
 }

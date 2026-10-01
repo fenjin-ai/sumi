@@ -46,7 +46,7 @@ extension WritingFlowTests {
         let codeWord = ProcessInfo.processInfo.environment["SUMI_CODE_WORD"] ?? "sum(range"
         let sum = (source as NSString).range(of: codeWord)
         #expect(sum.location != NSNotFound)
-        if sum.location != NSNotFound { #expect(editorColor(editor, at: sum.location) == NSColor(hex: 0x9DBBCD)) }
+        if sum.location != NSNotFound { #expect(editorColor(editor, at: sum.location) == Theme.sourceFunction) }
         // Publishing semantic tokens precedes SwiftUI's next native layout.
         // Finish and report that initial presentation before timing navigation,
         // just as we settle the window between every subsequent jump below.

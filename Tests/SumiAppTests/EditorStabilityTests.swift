@@ -51,7 +51,7 @@ extension WritingFlowTests {
         try await app.wait { app.workspace.syntaxSnapshot?.source == source }
         let editor = try #require(app.workspace.editor)
         let keyword = (source as NSString).range(of: "define").location
-        #expect(editorColor(editor, at: keyword) == NSColor(hex: 0x9DBBCD), "An outer name span must not overwrite its nested built-in token")
+        #expect(editorColor(editor, at: keyword) == Theme.sourceFunction, "An outer name span must not overwrite its nested built-in token")
     }
 
     @Test func continuousTypingKeepsSemanticColorsAndDoesNotRestyleTheDocument() async throws {
@@ -64,7 +64,7 @@ extension WritingFlowTests {
         let storage = try #require(editor.textStorage)
         let sum = (source as NSString).range(of: "sum").location
         let expected = editorColor(editor, at: sum)
-        #expect(expected == NSColor(hex: 0x9DBBCD))
+        #expect(expected == Theme.sourceFunction)
         let edits = StorageEditRecorder(storage)
         editor.setSelectedRange(NSRange(location: source.utf16.count - 1, length: 0))
         editor.highlight()

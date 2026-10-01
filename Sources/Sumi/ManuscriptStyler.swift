@@ -19,7 +19,7 @@ final class ManuscriptStyler {
     private static let syntaxColor = NSAttributedString.Key("SumiSyntaxColor")
     private static let readingColor = NSAttributedString.Key("SumiReadingColor")
     private static let readingFont = NSAttributedString.Key("SumiReadingFont")
-    static let baseColor = NSColor(hex: 0xD5D9DE)
+    static let baseColor = Theme.sourceText
     private(set) var source: String?
     private(set) var sourceRevision = -1
     private var decorations: [SourceDecoration] = []
@@ -68,7 +68,7 @@ final class ManuscriptStyler {
             let desired = NSMutableAttributedString(string: content)
             for (regex, color) in Self.fallback {
                 for match in regex.matches(in: content, range: whole) {
-                    desired.addAttribute(Self.syntaxColor, value: NSColor(hex: color), range: match.range)
+                    desired.addAttribute(Self.syntaxColor, value: color, range: match.range)
                 }
             }
             dirty += Self.updateTemporary(Self.syntaxColor, from: desired, in: whole, manager: manager)
@@ -88,13 +88,13 @@ final class ManuscriptStyler {
                     for decoration in decorations {
                         switch decoration.kind {
                         case .heading(let level):
-                            plan.addAttributes([.font: NSFont.systemFont(ofSize: size + CGFloat(max(2, 8 - level * 2)), weight: .semibold), Self.readingColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
+                            plan.addAttributes([.font: NSFont.systemFont(ofSize: size + CGFloat(max(2, 8 - level * 2)), weight: .semibold), Self.readingColor: Theme.sourceStrong], range: decoration.range)
                         case .strong:
-                            plan.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold), Self.readingColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
+                            plan.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold), Self.readingColor: Theme.sourceStrong], range: decoration.range)
                         case .emphasis:
                             plan.addAttribute(.font, value: NSFontManager.shared.convert(base[.font] as! NSFont, toHaveTrait: .italicFontMask), range: decoration.range)
                         case .code:
-                            plan.addAttributes([Self.readingColor: NSColor(hex: 0xA8B89A), .backgroundColor: NSColor(hex: 0x272D32)], range: decoration.range)
+                            plan.addAttributes([Self.readingColor: Theme.sourceString, .backgroundColor: Theme.codeBackground], range: decoration.range)
                         }
                         for marker in decoration.markers {
                             plan.addAttributes([.font: NSFont.systemFont(ofSize: 0.1), Self.readingColor: NSColor.clear], range: marker)
@@ -220,25 +220,25 @@ final class ManuscriptStyler {
         return result
     }
 
-    private static let fallback: [(NSRegularExpression, UInt32)] = [
-        ("(?m)^={1,6}[ \t]+.*$", 0xEEE8DA), ("#[A-Za-z][A-Za-z0-9_.-]*", 0xA5B8C8),
-        (#""(?:[^"\\]|\\.)*""#, 0xA8B89A), (#"\$[^$]*\$"#, 0xD9B97C),
-        (#"\*[^*\n]+\*"#, 0xEEE8DA), ("(?m)^//.*$", 0x7C8793)
+    private static let fallback: [(NSRegularExpression, NSColor)] = [
+        ("(?m)^={1,6}[ \t]+.*$", Theme.sourceStrong), ("#[A-Za-z][A-Za-z0-9_.-]*", Theme.sourceIdentifier),
+        (#""(?:[^"\\]|\\.)*""#, Theme.sourceString), (#"\$[^$]*\$"#, Theme.sourceNumber),
+        (#"\*[^*\n]+\*"#, Theme.sourceStrong), ("(?m)^//.*$", Theme.sourceComment)
     ].map { (try! NSRegularExpression(pattern: $0.0), $0.1) }
 
     private static func color(for token: HighlightToken) -> NSColor {
         let kind = token.kind.replacingOccurrences(of: "hljs-", with: "").components(separatedBy: " ").first ?? token.kind
-        let color: UInt32
+        let color: NSColor
         switch kind {
-        case "comment", "punct", "delim", "meta": color = 0x7C8793
-        case "string", "regexp", "escape": color = 0xA8B89A
-        case "keyword", "operator", "selector-tag": color = 0xBEA4C9
-        case "number", "bool", "literal", "symbol", "bullet": color = 0xD9B97C
-        case "function", "title", "built_in", "type", "namespace", "link", "ref", "label": color = 0x9DBBCD
-        case "heading", "strong": color = 0xEEE8DA
-        case "raw", "code": color = 0xBAC4CF
-        default: color = token.modifiers.contains("math") ? 0xD9B97C : 0xD5D9DE
+        case "comment", "punct", "delim", "meta": color = Theme.sourceComment
+        case "string", "regexp", "escape": color = Theme.sourceString
+        case "keyword", "operator", "selector-tag": color = Theme.sourceKeyword
+        case "number", "bool", "literal", "symbol", "bullet": color = Theme.sourceNumber
+        case "function", "title", "built_in", "type", "namespace", "link", "ref", "label": color = Theme.sourceFunction
+        case "heading", "strong": color = Theme.sourceStrong
+        case "raw", "code": color = Theme.sourceCode
+        default: color = token.modifiers.contains("math") ? Theme.sourceNumber : Theme.sourceText
         }
-        return NSColor(hex: color)
+        return color
     }
 }

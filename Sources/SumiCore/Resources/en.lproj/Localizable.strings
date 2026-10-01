@@ -9,7 +9,6 @@
 "// Write code here" = "// Write code here";
 "A place for your next idea" = "A place for your next idea";
 "A quiet space for your words." = "A quiet space for your words.";
-"A quiet space to write." = "A quiet space to write.";
 "About Sumi" = "About Sumi";
 "Add a copy of a source document to your library." = "Add a copy of a source document to your library.";
 "Add a heading level to the current paragraph." = "Add a heading level to the current paragraph.";
@@ -673,7 +672,6 @@
 
 // Template-first creation
 "Choose a blank page or a template for your next idea." = "Choose a blank page or a template for your next idea.";
-"A quiet space to write" = "A quiet space to write";
 "Start here" = "Start here";
 "A small guide to Sumi, with equations, a diagram and code. Make it your own." = "A small guide to Sumi, with equations, a diagram and code. Make it your own.";
 "Just a page and your next thought." = "Just a page and your next thought.";
@@ -723,3 +721,10 @@
 "Offline · Browsing the included catalog" = "Offline · Browsing the included catalog";
 "Removed" = "Removed";
 "Added" = "Added";
+
+/* Brand names and taglines follow the interface language. */
+"Sumi" = "Sumi";
+"Ink for your thoughts" = "Ink for your thoughts";
+
+"Appearance" = "Appearance";
+"Match System" = "Match System";

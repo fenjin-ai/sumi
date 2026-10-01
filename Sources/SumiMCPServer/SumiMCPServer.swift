@@ -87,7 +87,7 @@ public enum SumiMCPServer {
             tool("get_preview", "Read live compilation state and diagnostics. stale=true means the preview may show an older successful document.", ["document_id": string], required: ["document_id"], readOnly: true),
             tool("export_pdf", "Compile the current unsaved revision to a PDF and return a preview image of one page (default page 1). Exports only to Sumi's private export folder; the result gives its path.", identity.merging(["page": ["type": "integer", "minimum": 1]], uniquingKeysWith: { _, new in new }), required: ["document_id", "expected_revision"]),
             tool("get_settings", "Read writing and preview preferences.", readOnly: true),
-            tool("set_settings", "Change safe display preferences. Cannot change agent permissions, iCloud, paths or execute commands.", ["layout": ["type": "string", "enum": ["writing", "split", "preview"]], "font_size": ["type": "integer", "minimum": 12, "maximum": 28], "preview_dark": ["type": "boolean"], "styled_source": ["type": "boolean"]], idempotent: true)
+            tool("set_settings", "Change safe display preferences. Cannot change agent permissions, iCloud, paths or execute commands.", ["layout": ["type": "string", "enum": ["writing", "split", "preview"]], "font_size": ["type": "integer", "minimum": 12, "maximum": 28], "preview_dark": ["type": "boolean"], "styled_source": ["type": "boolean"], "appearance": ["type": "string", "enum": ["system", "light", "dark"]]], idempotent: true)
         ]
     }
 }

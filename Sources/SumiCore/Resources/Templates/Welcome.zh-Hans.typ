@@ -6,7 +6,7 @@
 #let ink = rgb("253238")
 #let muted = rgb("66736d")
 #let sage = rgb("dbe6df")
-#set document(title: "给想法一点留白", author: "Sumi")
+#set document(title: "留白", author: "留白")
 #set page(paper: "a4", margin: (x: 25mm, y: 22mm), numbering: "01", number-align: center)
 #set text(font: ("Libertinus Serif", "PingFang SC"), size: 11pt, fill: ink)
 #set par(leading: 0.85em)
@@ -19,15 +19,15 @@
 
 #grid(columns: (10mm, 1fr), align: (left, horizon),
   image("sumi-mark.svg", width: 9mm),
-  text(size: 9pt, tracking: 3pt, fill: muted)[S U M I   /   写作手记],
+  text(size: 9pt, tracking: 3pt, fill: muted)[留 白   /   写作手记],
 )
 #v(9mm)
-= 给想法一点留白
+= 留白
 
-#text(size: 15pt, fill: muted)[从一个想法开始，让它慢慢生长。]
+#text(size: 15pt, fill: muted)[此中有真意，欲辨已忘言]
 #v(7mm)
 
-一句话、一张草图、一种暂时说不清的联系。Sumi 让文字留在眼前，让工具触手可及，给尚未成形的想法一个落脚的地方。
+一句话、一张草图、一种暂时说不清的联系。留白让文字留在眼前，让工具触手可及，给尚未成形的想法一个落脚的地方。
 
 这份文稿属于你。改一个词，看看页面如何回应。留下喜欢的段落，替换一个示例，或者从空白页重新开始。
 
@@ -59,7 +59,7 @@
 ]
 
 #pagebreak()
-#text(size: 9pt, tracking: 3pt, fill: muted)[S U M I   /   想法的不同形状]
+#text(size: 9pt, tracking: 3pt, fill: muted)[留 白   /   想法的不同形状]
 #v(7mm)
 == 让关系有形可见
 
@@ -98,7 +98,7 @@ print(connections)
 #v(2mm)
 == 写成你自己的样子
 
-Sumi 会自动保存你的文字。放心修改，随时撤销，也可以导出源文件，把作品带到别处。一篇文稿可以包含本地样式和插图，在文稿库里仍然是完整的一篇作品。
+留白会自动保存你的文字。放心修改，随时撤销，也可以导出源文件，把作品带到别处。一篇文稿可以包含本地样式和插图，在文稿库里仍然是完整的一篇作品。
 
 想进一步了解页面背后的写法，可以阅读 #link("https://typst.app/docs/tutorial/")[Typst 教程]。想看看社区的创意，可以探索 #link("https://typst.app/universe/package/cetz/")[CeTZ] 和 #link("https://typst.app/universe/package/codly/")[Codly].
 

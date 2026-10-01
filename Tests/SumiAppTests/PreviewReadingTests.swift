@@ -17,9 +17,9 @@ extension WritingFlowTests {
         let sum = (source as NSString).range(of: "sum")
         let number = (source as NSString).range(of: "11")
         let code = (source as NSString).range(of: "total")
-        #expect(editorColor(editor, at: sum.location) == NSColor(hex: 0x9DBBCD))
-        #expect(editorColor(editor, at: number.location) == NSColor(hex: 0xD9B97C))
-        #expect(editorColor(editor, at: code.location) != NSColor(hex: 0x9DBBCD))
+        #expect(editorColor(editor, at: sum.location) == Theme.sourceFunction)
+        #expect(editorColor(editor, at: number.location) == Theme.sourceNumber)
+        #expect(editorColor(editor, at: code.location) != Theme.sourceFunction)
         #expect(editor.string == source)
         #expect(editor.selectedRange().location == source.utf16.count)
         editor.insertSnippet(Snippet(text: "42"), replacing: number)
@@ -242,6 +242,9 @@ extension WritingFlowTests {
     }
 
     @Test func realPreviewRetainsPagesOnErrorThenRecoversAndTogglesDark() async throws {
+        _ = NSApplication.shared
+        let originalAppearance = NSApp.appearance
+        defer { NSApp.appearance = originalAppearance }
         let app = try WritingFixture(text: "= Preview sentinel\n\nA short paragraph.\n")
         defer { app.close() }
         try await app.ready()
@@ -261,6 +264,16 @@ extension WritingFlowTests {
         app.workspace.previewDark = true
         await app.layout()
         try await waitForJavaScript(web, condition: "document.getElementById('typst-app').classList.contains('invert-colors') && document.getElementById('typst-app').classList.contains('normal-image')")
+        // App appearance changes only the canvas, never the page color setting
+        // or live renderer. Switching system appearance uses the same callback.
+        for (appearance, canvas) in [(AppAppearance.light, "rgb(250, 250, 250)"), (.dark, "rgb(34, 38, 43)")] {
+            app.workspace.appearance = appearance
+            await app.layout()
+            try await waitForJavaScript(web, condition: "document.body.style.backgroundColor === '\(canvas)'")
+            #expect(try await web.evaluateJavaScript("document.getElementById('typst-app').classList.contains('invert-colors')") as? Bool == true)
+            #expect(try await web.evaluateJavaScript("document.querySelectorAll('#typst-app .typst-doc > g').length") as? Int == before)
+            #expect(app.workspace.previewURL == initialURL)
+        }
         app.workspace.previewZoom = 1.4
         await app.layout()
         try await waitForJavaScript(web, condition: "document.getElementById('typst-container').style.width === '140%'")

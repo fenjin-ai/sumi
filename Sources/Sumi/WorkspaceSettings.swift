@@ -40,6 +40,7 @@ final class WorkspaceSettings: ObservableObject {
             create: { [weak workspace] title, text in try await workspace?.library.create(title: title, text: text) }
         )
         apply(preferences.values)
+        Theme.apply(workspace.appearance)
         preferences.onChange = { [weak self] in self?.apply($0) }
         workspace.library.onSyncChange = { [weak self] in self?.preferences.setSyncEnabled($0) }
         Publishers.CombineLatest4(workspace.$fontSize, workspace.$previewDark, workspace.$styledSource, workspace.$commandKey)
@@ -48,6 +49,9 @@ final class WorkspaceSettings: ObservableObject {
                 Task { @MainActor [weak self] in self?.persist() }
             }.store(in: &subscriptions)
         NotificationCenter.default.publisher(for: .sumiLanguageChanged).sink { [weak self] _ in
+            Task { @MainActor [weak self] in self?.persist() }
+        }.store(in: &subscriptions)
+        workspace.$appearance.dropFirst().sink { [weak self] _ in
             Task { @MainActor [weak self] in self?.persist() }
         }.store(in: &subscriptions)
         workspace.$historyInterval.dropFirst().sink { [weak self] _ in
@@ -67,6 +71,8 @@ final class WorkspaceSettings: ObservableObject {
         if workspace.previewDark != value.previewDark { workspace.previewDark = value.previewDark }
         if workspace.styledSource != value.styledSource { workspace.styledSource = value.styledSource }
         if workspace.commandKey != value.commandKey { workspace.commandKey = value.commandKey }
+        let appearance = AppAppearance(rawValue: value.appearance ?? "system") ?? .system
+        if workspace.appearance != appearance { workspace.appearance = appearance }
         let historyInterval = HistoryInterval(rawValue: value.historyInterval ?? "hourly") ?? .hourly
         if workspace.historyInterval != historyInterval { workspace.historyInterval = historyInterval }
         let template = DocumentTemplate(rawValue: value.documentTemplate ?? "blank") ?? .blank
@@ -76,7 +82,7 @@ final class WorkspaceSettings: ObservableObject {
 
     private func persist() {
         guard !applying, let workspace else { return }
-        let next = SyncedPreferences(language: L10n.language.rawValue, commandKey: workspace.commandKey, fontSize: workspace.fontSize, previewDark: workspace.previewDark, styledSource: workspace.styledSource, documentTemplate: workspace.documentTemplate.rawValue, historyInterval: workspace.historyInterval.rawValue)
+        let next = SyncedPreferences(language: L10n.language.rawValue, commandKey: workspace.commandKey, fontSize: workspace.fontSize, previewDark: workspace.previewDark, styledSource: workspace.styledSource, documentTemplate: workspace.documentTemplate.rawValue, historyInterval: workspace.historyInterval.rawValue, appearance: workspace.appearance.rawValue)
         if next != preferences.values { preferences.update(next) }
     }
 
@@ -106,6 +112,14 @@ struct WritingSettingsView: View {
     var body: some View {
         Form {
             LanguageSettingsSection()
+            Section {
+                Picker(L10n.text("Appearance"), selection: $workspace.appearance) {
+                    Text(L10n.text("Match System")).tag(AppAppearance.system)
+                    Text(L10n.text("Light")).tag(AppAppearance.light)
+                    Text(L10n.text("Dark")).tag(AppAppearance.dark)
+                }.accessibilityIdentifier("settings.appearance")
+            }
+
             Section {
                 Picker(L10n.text("Discover commands"), selection: $workspace.commandKey) {
                     Text("⌘J").tag("j"); Text("⌘K").tag("k")
@@ -145,9 +159,8 @@ struct WritingSettingsView: View {
                 }
                 if let error = settings.agentError { Text(error).font(.footnote).foregroundStyle(Theme.red) }
             } header: { Text(L10n.text("Agent Access")) }
-        }.formStyle(.grouped).frame(width: 530, height: 640)
+        }.formStyle(.grouped).frame(width: 530, height: 690)
             .environment(\.locale, L10n.locale)
-            .preferredColorScheme(.dark)
             .onChange(of: localization.generation) { _, _ in /* Re-evaluate localized labels without replacing the editor. */ }
     }
 }

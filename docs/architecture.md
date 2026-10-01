@@ -101,7 +101,11 @@ Export flushes the latest main-document buffer, waits for a valid result and cop
 
 ## Visual and performance conventions
 
-Charcoal surfaces, warm white text and a low-saturation warm accent keep the writing central. Initial colors are background `#171A1D`, editor `#1C1F23`, panel `#22262B`, border `#343A41`, text `#E0E2E5`, secondary `#9DA6B2`, accent `#D9B97C`, success `#A3BE8C` and error `#E29A9A`.
+Appearance defaults to **Match System**, with persistent **Light** and **Dark** choices in Settings. Light uses Nano-inspired white paper (`#FFFFFF`), blue-grey ink (`#37474F`), pale surfaces (`#FAFAFA`, `#ECEFF1`) and a restrained violet accent (`#673AB7`). Secondary and muted text use darker blue-greys for readable small labels; decorative greys do not carry essential text. The palette references [Nano's light theme](https://github.com/rougier/nano-emacs/blob/master/nano-theme-light.el) without importing its implementation.
+
+Native dynamic `NSColor` values serve SwiftUI surfaces, AppKit controls and TextKit's existing syntax runs. System appearance changes repaint in place; no text replacement, syntax rescan, layout rebuild or undo entry is needed. The app-level choice also covers settings, toolbar, popovers and the preview canvas. The preview document's independent Light/Dark control still leaves PDF output unchanged. The small preference joins existing iCloud reconciliation and MCP's validated display settings.
+
+Dark retains charcoal surfaces, warm white text and a low-saturation warm accent. Its colors are background `#171A1D`, editor `#1C1F23`, panel `#22262B`, border `#343A41`, text `#E0E2E5`, secondary `#9DA6B2`, accent `#D9B97C`, success `#A3BE8C` and error `#E29A9A`.
 
 Use system interface fonts, monospaced shortcuts and source, and system CJK fallback. Text begins at 16 pt with adjustable size and a comfortable centered line width. Native `NSToolbar.unifiedCompact` keeps system traffic lights, document title and actions in one row. The status bar is about 30 pt high; command discovery uses a fixed 320 pt bottom panel. Compact hover hints size to their content. Phosphor Regular actions use consistent 16–18 pt icons.
 

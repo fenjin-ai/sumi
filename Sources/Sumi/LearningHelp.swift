@@ -52,14 +52,13 @@ final class HelpAnchor: NSView {
         let popover = NSPopover()
         popover.animates = false
         popover.behavior = .transient
-        popover.appearance = NSAppearance(named: .darkAqua)
         let controller = NSHostingController(rootView:
             HStack(spacing: 12) {
                 Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.text)
                 if let shortcut { Keycap(value: shortcut) }
             }.padding(.horizontal, 12).padding(.vertical, 8)
                 .fixedSize(horizontal: true, vertical: true)
-                .background(Theme.panel).preferredColorScheme(.dark)
+                .background(Theme.panel)
         )
         popover.contentViewController = controller
         popover.contentSize = controller.view.fittingSize

@@ -48,6 +48,9 @@ final class Workspace: ObservableObject {
     @Published var checksOpen = false {
         didSet { recordOperation("checks.visibility", ["open": String(checksOpen)]) }
     }
+    @Published var appearance: AppAppearance = .system {
+        didSet { Theme.apply(appearance) }
+    }
     @Published var fontSize: CGFloat = 16
     @Published var selection = NSRange(location: 0, length: 0) {
         didSet { if selection != oldValue { dismissAssistance(); trackOutline(at: selection.location) } }

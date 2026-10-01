@@ -169,14 +169,17 @@ final class WorkspaceAutomation {
         case "set_settings":
             try requireEditable(workspace)
             guard case .object(let values) = args,
-                  Set(values.keys).isSubset(of: ["layout", "font_size", "preview_dark", "styled_source"]) else {
-                throw AutomationFailure("invalid_settings", "Only layout, font_size, preview_dark and styled_source can be changed by an agent.")
+                  Set(values.keys).isSubset(of: ["layout", "font_size", "preview_dark", "styled_source", "appearance"]) else {
+                throw AutomationFailure("invalid_settings", "Only layout, font_size, preview_dark, styled_source and appearance can be changed by an agent.")
             }
             if let value = values["layout"], value.string.flatMap(EditorLayout.init(rawValue:)) == nil {
                 throw AutomationFailure("invalid_settings", "layout must be writing, split or preview.")
             }
             if let value = values["font_size"], value.int == nil || !(12...28).contains(value.int ?? 0) {
                 throw AutomationFailure("invalid_settings", "font_size must be an integer from 12 to 28.")
+            }
+            if let value = values["appearance"], value.string.flatMap(AppAppearance.init(rawValue:)) == nil {
+                throw AutomationFailure("invalid_settings", "appearance must be system, light or dark.")
             }
             for key in ["preview_dark", "styled_source"] {
                 if let value = values[key], case .bool = value {} else if values[key] != nil {
@@ -187,6 +190,7 @@ final class WorkspaceAutomation {
             if let value = values["font_size"]?.int { workspace.fontSize = CGFloat(value) }
             if case .bool(let value) = values["preview_dark"] { workspace.previewDark = value }
             if case .bool(let value) = values["styled_source"] { workspace.styledSource = value }
+            if let value = values["appearance"]?.string, let appearance = AppAppearance(rawValue: value) { workspace.appearance = appearance }
             return settings(workspace)
         default: throw AutomationFailure("unknown_operation", "This operation is not available in Sumi.")
         }
@@ -194,6 +198,7 @@ final class WorkspaceAutomation {
 
     private func settings(_ workspace: Workspace) -> JSONValue {
         .object(["layout": .string(workspace.layout.rawValue), "font_size": .number(Double(workspace.fontSize)),
-                 "preview_dark": .bool(workspace.previewDark), "styled_source": .bool(workspace.styledSource)])
+                 "preview_dark": .bool(workspace.previewDark), "styled_source": .bool(workspace.styledSource),
+                 "appearance": .string(workspace.appearance.rawValue)])
     }
 }

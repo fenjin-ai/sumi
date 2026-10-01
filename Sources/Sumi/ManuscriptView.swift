@@ -10,7 +10,7 @@ struct ManuscriptView: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         scroll.borderType = .noBorder
-        scroll.backgroundColor = NSColor(hex: 0x1C1F23)
+        scroll.backgroundColor = Theme.nativeEditor
         // Explicit TextKit 1: native selection/IME plus NSLayoutManager's
         // drawing-only syntax attributes, with no implicit engine fallback.
         let storage = NSTextStorage()
@@ -39,10 +39,10 @@ struct ManuscriptView: NSViewRepresentable {
         editor.isAutomaticLinkDetectionEnabled = false
         editor.usesFindBar = true
         editor.isIncrementalSearchingEnabled = true
-        editor.backgroundColor = NSColor(hex: 0x1C1F23)
-        editor.textColor = NSColor(hex: 0xE0E2E5)
-        editor.insertionPointColor = NSColor(hex: 0xD9B97C)
-        editor.selectedTextAttributes = [.backgroundColor: NSColor(hex: 0x3B4651), .foregroundColor: NSColor(hex: 0xF2F3F4)]
+        editor.backgroundColor = Theme.nativeEditor
+        editor.textColor = Theme.nativeText
+        editor.insertionPointColor = Theme.nativeAccent
+        editor.selectedTextAttributes = [.backgroundColor: Theme.selection, .foregroundColor: Theme.selectedText]
         editor.isVerticallyResizable = true
         editor.isHorizontallyResizable = false
         editor.autoresizingMask = [.width]
@@ -92,6 +92,14 @@ struct ManuscriptView: NSViewRepresentable {
 
 @MainActor
 final class ManuscriptTextView: NSTextView {
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        // Dynamic colors already live in storage and TextKit's temporary runs.
+        // Repaint only: changing appearance must not reflow or touch source text.
+        needsDisplay = true
+        enclosingScrollView?.needsDisplay = true
+    }
+
     weak var workspace: Workspace?
     var assistancePopover: NSPopover?
     private var selectingWithMouse = false

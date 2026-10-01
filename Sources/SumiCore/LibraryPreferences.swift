@@ -1,5 +1,7 @@
 import Foundation
 
+public enum AppAppearance: String, Codable, CaseIterable, Sendable { case system, light, dark }
+
 /// Only these small UI preferences may leave the device. Paths, document text and logs never enter KVS.
 public struct SyncedPreferences: Codable, Equatable, Sendable {
     public var language: String
@@ -9,8 +11,9 @@ public struct SyncedPreferences: Codable, Equatable, Sendable {
     public var styledSource: Bool
     public var documentTemplate: String?
     public var historyInterval: String?
+    public var appearance: String?
 
-    public init(language: String = "system", commandKey: String = "j", fontSize: Double = 16, previewDark: Bool = false, styledSource: Bool = true, documentTemplate: String? = nil, historyInterval: String? = nil) {
+    public init(language: String = "system", commandKey: String = "j", fontSize: Double = 16, previewDark: Bool = false, styledSource: Bool = true, documentTemplate: String? = nil, historyInterval: String? = nil, appearance: String? = nil) {
         self.language = language
         self.commandKey = commandKey
         self.fontSize = fontSize
@@ -18,6 +21,7 @@ public struct SyncedPreferences: Codable, Equatable, Sendable {
         self.styledSource = styledSource
         self.documentTemplate = documentTemplate
         self.historyInterval = historyInterval
+        self.appearance = appearance
     }
     public var validated: Self {
         Self(language: ["system", "en", "zh-Hans"].contains(language) ? language : "system",
@@ -25,7 +29,8 @@ public struct SyncedPreferences: Codable, Equatable, Sendable {
             fontSize: fontSize.isFinite ? min(32, max(10, fontSize)) : 16,
             previewDark: previewDark, styledSource: styledSource,
             documentTemplate: ["blank", "codeNotes"].contains(documentTemplate ?? "blank") ? documentTemplate : nil,
-            historyInterval: historyInterval.flatMap { HistoryInterval(rawValue: $0)?.rawValue })
+            historyInterval: historyInterval.flatMap { HistoryInterval(rawValue: $0)?.rawValue },
+            appearance: appearance.flatMap { AppAppearance(rawValue: $0)?.rawValue })
     }
 }
 
@@ -125,7 +130,7 @@ public final class LibraryPreferences {
         }
         values = SyncedPreferences(language: merge(\.language), commandKey: merge(\.commandKey),
             fontSize: merge(\.fontSize), previewDark: merge(\.previewDark), styledSource: merge(\.styledSource),
-            documentTemplate: merge(\.documentTemplate), historyInterval: merge(\.historyInterval))
+            documentTemplate: merge(\.documentTemplate), historyInterval: merge(\.historyInterval), appearance: merge(\.appearance))
         cloudBase = remote
         persist()
         onChange?(values)

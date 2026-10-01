@@ -62,7 +62,7 @@ struct WritingAssistanceCard: View {
                 }.frame(height: min(280, CGFloat(context.actions.count) * 40))
             }
         }.padding(16).frame(width: 396).fixedSize(horizontal: true, vertical: true)
-            .foregroundStyle(Theme.text).background(Theme.panel).preferredColorScheme(.dark)
+            .foregroundStyle(Theme.text).background(Theme.panel)
     }
 
     private var helpHeight: CGFloat {
@@ -87,7 +87,6 @@ extension ManuscriptTextView {
         let popover = NSPopover()
         popover.animates = false
         popover.behavior = .transient
-        popover.appearance = NSAppearance(named: .darkAqua)
         let controller = NSHostingController(rootView: WritingAssistanceCard(context: context) { [weak self] in
             self?.workspace?.applyContextAction($0)
         })

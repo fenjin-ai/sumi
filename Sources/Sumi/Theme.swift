@@ -1,17 +1,61 @@
 import AppKit
 import SwiftUI
+import SumiCore
 
+/// Native dynamic colors resolve in each view's effective appearance. Keeping
+/// them in attributed text lets a theme change repaint without re-highlighting,
+/// replacing text, moving the caret, or creating undo operations.
 enum Theme {
-    static let background = Color(hex: 0x171A1D)
-    static let editor = Color(hex: 0x1C1F23)
-    static let panel = Color(hex: 0x22262B)
-    static let border = Color(hex: 0x343A41)
-    static let text = Color(hex: 0xE0E2E5)
-    static let secondary = Color(hex: 0x9DA6B2)
-    static let muted = Color(hex: 0x737D89)
-    static let accent = Color(hex: 0xD9B97C)
-    static let green = Color(hex: 0xA3BE8C)
-    static let red = Color(hex: 0xE29A9A)
+    static func adaptive(_ name: String, light: UInt32, dark: UInt32) -> NSColor {
+        NSColor(name: NSColor.Name("Sumi." + name)) { appearance in
+            NSColor(hex: appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light)
+        }
+    }
+
+    // Nano-inspired paper, blue-grey ink and a restrained violet accent. Faded
+    // text is darker than Nano's decorative grey so small labels stay legible.
+    static let nativeBackground = adaptive("background", light: 0xFAFAFA, dark: 0x171A1D)
+    static let nativeEditor = adaptive("editor", light: 0xFFFFFF, dark: 0x1C1F23)
+    static let nativePanel = adaptive("panel", light: 0xFAFAFA, dark: 0x22262B)
+    static let nativeBorder = adaptive("border", light: 0xDFE5E8, dark: 0x343A41)
+    static let nativeText = adaptive("text", light: 0x37474F, dark: 0xE0E2E5)
+    static let nativeSecondary = adaptive("secondary", light: 0x586B75, dark: 0x9DA6B2)
+    static let nativeMuted = adaptive("muted", light: 0x64757F, dark: 0x737D89)
+    static let nativeAccent = adaptive("accent", light: 0x673AB7, dark: 0xD9B97C)
+    static let nativeGreen = adaptive("green", light: 0x426648, dark: 0xA3BE8C)
+    static let nativeRed = adaptive("red", light: 0xB34242, dark: 0xE29A9A)
+    static let selection = adaptive("selection", light: 0xE5DCF3, dark: 0x3B4651)
+    static let selectedText = adaptive("selectedText", light: 0x302742, dark: 0xF2F3F4)
+
+    static let sourceText = adaptive("sourceText", light: 0x37474F, dark: 0xD5D9DE)
+    static let sourceStrong = adaptive("sourceStrong", light: 0x263238, dark: 0xEEE8DA)
+    static let sourceComment = adaptive("sourceComment", light: 0x637681, dark: 0x7C8793)
+    static let sourceString = adaptive("sourceString", light: 0x526D42, dark: 0xA8B89A)
+    static let sourceKeyword = adaptive("sourceKeyword", light: 0x673AB7, dark: 0xBEA4C9)
+    static let sourceNumber = adaptive("sourceNumber", light: 0x9C5700, dark: 0xD9B97C)
+    static let sourceFunction = adaptive("sourceFunction", light: 0x326A83, dark: 0x9DBBCD)
+    static let sourceIdentifier = adaptive("sourceIdentifier", light: 0x496B7D, dark: 0xA5B8C8)
+    static let sourceCode = adaptive("sourceCode", light: 0x455A64, dark: 0xBAC4CF)
+    static let codeBackground = adaptive("codeBackground", light: 0xECEFF1, dark: 0x272D32)
+
+    static let background = Color(nsColor: nativeBackground)
+    static let editor = Color(nsColor: nativeEditor)
+    static let panel = Color(nsColor: nativePanel)
+    static let border = Color(nsColor: nativeBorder)
+    static let text = Color(nsColor: nativeText)
+    static let secondary = Color(nsColor: nativeSecondary)
+    static let muted = Color(nsColor: nativeMuted)
+    static let accent = Color(nsColor: nativeAccent)
+    static let green = Color(nsColor: nativeGreen)
+    static let red = Color(nsColor: nativeRed)
+
+    @MainActor static func apply(_ preference: AppAppearance) {
+        switch preference {
+        case .system: NSApp.appearance = nil
+        case .light: NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
 }
 
 extension Color {

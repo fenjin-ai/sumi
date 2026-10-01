@@ -15,8 +15,12 @@ struct PreviewView: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         config.userContentController.add(context.coordinator, name: "sumiPreviewReady")
         let css = """
-        document.documentElement.style.background='#22262b';
-        document.body.style.background='#22262b';
+        window.sumiSetChrome = (background, scheme) => {
+            document.documentElement.style.background = background;
+            document.body.style.background = background;
+            document.documentElement.style.colorScheme = scheme;
+        };
+        window.sumiSetChrome('\(PreviewWebView.chromeColor(for: NSApp.effectiveAppearance))', '\(PreviewWebView.chromeScheme(for: NSApp.effectiveAppearance))');
         // Tinymist 0.15.8 mixes off-screen canvas pages into SVG foreignObjects.
         // In WebKit these create enormous backing layers for book-length SVGs.
         // Keep its viewport SVG renderer, without the optional canvas fallback.
@@ -76,9 +80,9 @@ struct PreviewView: NSViewRepresentable {
         let view = PreviewWebView(frame: .zero, configuration: config)
         view.onWillLoad = { [weak coordinator = context.coordinator] in coordinator?.onLoading() }
         view.navigationDelegate = context.coordinator
-        view.underPageBackgroundColor = NSColor(hex: 0x22262B)
+        view.underPageBackgroundColor = Theme.nativePanel
         view.setAccessibilityLabel(L10n.text("Document Preview"))
-        view.load(URLRequest(url: url))
+        _ = view.load(URLRequest(url: url))
         context.coordinator.loadedURL = url
         return view
     }
@@ -132,6 +136,7 @@ struct PreviewView: NSViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             appliedZoom = nil
             appliedDark = nil
+            (webView as? PreviewWebView)?.applyChromeAppearance()
             applyZoom(to: webView)
         }
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { onLoading() }
@@ -161,6 +166,26 @@ struct PreviewView: NSViewRepresentable {
 /// Invalidate navigation readiness synchronously. WebKit's provisional-load
 /// callback arrives later; a source jump in that gap would reach the old page.
 final class PreviewWebView: WKWebView {
+    static func chromeScheme(for appearance: NSAppearance) -> String {
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? "dark" : "light"
+    }
+    static func chromeColor(for appearance: NSAppearance) -> String {
+        chromeScheme(for: appearance) == "dark" ? "#22262b" : "#fafafa"
+    }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyChromeAppearance()
+    }
+    func applyChromeAppearance() {
+        // Recolor the surrounding canvas without touching the document's own
+        // Light/Dark choice, scroll position, zoom or Tinymist render state.
+        underPageBackgroundColor = Theme.nativePanel
+        guard !isLoading else { return }
+        let background = Self.chromeColor(for: effectiveAppearance)
+        let scheme = Self.chromeScheme(for: effectiveAppearance)
+        evaluateJavaScript("window.sumiSetChrome?.('\(background)', '\(scheme)')", completionHandler: nil)
+    }
+
     var onWillLoad: (() -> Void)?
     override func load(_ request: URLRequest) -> WKNavigation? {
         onWillLoad?()

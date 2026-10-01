@@ -31,8 +31,8 @@ If you prefer a file workflow, let the agent write a `.typ` document and import 
 | `sumi_apply_edits` | Apply a batch of source edits as one native undo action. |
 | `sumi_get_preview` | Read compilation state and diagnostics, including whether the preview is stale. |
 | `sumi_export_pdf` | Compile the unsaved document and return a PDF path plus a PNG of the requested page. |
-| `sumi_get_settings` | Read layout, editor font size, preview appearance, and source styling. |
-| `sumi_set_settings` | Change those four display settings. |
+| `sumi_get_settings` | Read layout, app appearance, editor font size, preview appearance, and source styling. |
+| `sumi_set_settings` | Change those five display settings. App appearance accepts `system`, `light`, or `dark`. |
 
 Resources `sumi://document/current` and `sumi://settings` provide the same live read access. The `write_in_sumi` prompt explains the read–edit–review workflow to clients that support MCP prompts.
 
