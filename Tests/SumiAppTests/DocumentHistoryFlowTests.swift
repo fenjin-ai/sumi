@@ -1,10 +1,47 @@
 import AppKit
 import Foundation
+import SwiftUI
 import Testing
 import SumiCore
 @testable import SumiApp
 
 extension WritingFlowTests {
+    @Test func historyPresentationRendersEmptyChangesAndMatchingSnapshot() async throws {
+        let app = try WritingFixture(text: "= Draft\n\nA quiet place. 中文 😀\n", startService: false)
+        defer { app.close() }
+        let workspace = app.workspace, history = workspace.history
+        let host = NSHostingView(rootView: DocumentHistoryView(workspace: workspace, history: history))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 940, height: 600),
+                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        defer { window.close() }
+        func draw() async throws -> Data {
+            host.layoutSubtreeIfNeeded()
+            await app.layout()
+            host.layoutSubtreeIfNeeded()
+            #expect(host.fittingSize == NSSize(width: 940, height: 600))
+            let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            return try #require(bitmap.representation(using: .png, properties: [:]))
+        }
+        let empty = try await draw()
+        #expect(history.revisions.isEmpty)
+        let original = try await history.store.preserveBeforeRestore("= Draft\n\nA busy place. 中文 😀\n", key: workspace.historyKey, at: Date())
+        await history.load()
+        await history.select(original)
+        let changes = try await draw()
+        #expect(changes != empty, "The history window must render its comparison, even without a visible sheet")
+        let comparison = try #require(history.comparison)
+        #expect(!comparison.addedRanges.isEmpty && !comparison.removedRanges.isEmpty)
+        #expect(await history.restore(original))
+        await history.load()
+        await history.select(original)
+        let matching = try await draw()
+        #expect(history.comparison?.identical == true)
+        #expect(matching != changes, "Restoration must replace the comparison with the matching-snapshot state")
+    }
+
     @Test func editedHistorySurvivesAutosaveSwitchAndRestoresWithUndo() async throws {
         let app = try WritingFixture(text: "= Original\n\nFirst words.\n", startService: false)
         defer { app.close() }

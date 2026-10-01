@@ -49,6 +49,7 @@ extension WritingFlowTests {
         if sum.location != NSNotFound { #expect(editorColor(editor, at: sum.location) == NSColor(hex: 0x9DBBCD)) }
         var navigation: [Double] = [], hitTesting: [Double] = [], search: [Double] = []
         var jumpTimes: [Double] = [], highlightTimes: [Double] = [], layoutTimes: [Double] = []
+        var navigationSamples: [[String: Double]] = []
         let ns = source as NSString
         let offsets = [0.1, 0.9, 0.5, 0.99, 0.01, 0.75].map { fraction in
             let start = Int(Double(ns.length) * fraction)
@@ -67,6 +68,9 @@ extension WritingFlowTests {
             editor.cacheDisplay(in: editor.visibleRect, to: bitmap)
             layoutTimes.append(seconds(layoutStart.duration(to: .now)))
             navigation.append(seconds(start.duration(to: .now)))
+            navigationSamples.append(["offset": Double(offset), "total_ms": navigation.last! * 1000,
+                                      "jump_ms": jumpTimes.last! * 1000, "highlight_ms": highlightTimes.last! * 1000,
+                                      "draw_ms": layoutTimes.last! * 1000])
             #expect(editor.selectedRange().location == offset)
             await app.layout()
             let hitStart = ContinuousClock.now
@@ -83,6 +87,7 @@ extension WritingFlowTests {
             search.append(seconds(searchStart.duration(to: .now)))
         }
         report["navigation_ms"] = milliseconds(navigation)
+        report["navigation_samples"] = navigationSamples
         report["jump_ms"] = milliseconds(jumpTimes)
         report["highlight_ms"] = milliseconds(highlightTimes)
         report["layout_ms"] = milliseconds(layoutTimes)
