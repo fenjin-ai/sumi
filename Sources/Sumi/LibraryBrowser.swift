@@ -6,13 +6,27 @@ struct LibraryBrowser: View {
     @ObservedObject private var localization = AppLocalization.shared
     @ObservedObject var library: LibraryController
     @State private var query = ""
+    @State private var showingTemplates = false
     @State private var showingTrash = false
+    @State private var addingSample = false
     @State private var results: [LibraryDocument] = []
     @State private var renaming: LibraryDocument?
     @State private var newTitle = ""
     @State private var searchError: String?
 
+    private var browserSize: CGSize { DiscoveryLayout.size(for: workspace.window, gallery: false) }
+
     var body: some View {
+        Group {
+            if showingTemplates {
+                UniverseBrowser(cacheURL: workspace.stateDirectory.appendingPathComponent("universe-index.json"),
+                                mode: .templates, size: browserSize, canImport: !workspace.isLibraryHome, onBack: { showingTemplates = false },
+                                onCreate: library.create(from:), onAddSample: { try await library.create(sample: $0) }, onImport: workspace.importPackage)
+            } else { documents }
+        }
+    }
+
+    private var documents: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 5) {
@@ -28,6 +42,13 @@ struct LibraryBrowser: View {
                     Button(L10n.text(showingTrash ? "Show documents" : "Show Trash")) { showingTrash.toggle() }
                 } label: { PhosphorIcon(name: "dots-three-vertical", size: 18).frame(width: 28, height: 28) }
                     .menuStyle(.borderlessButton).fixedSize().accessibilityLabel(L10n.text("Library actions"))
+                Button { showingTemplates = true } label: {
+                    HStack(spacing: 6) {
+                        PhosphorIcon(name: "grid-four", size: 15)
+                        Text(L10n.text("Browse templates")).font(.system(size: 12))
+                    }.foregroundStyle(Theme.secondary).padding(.horizontal, 5).frame(height: 32)
+                }.buttonStyle(.plain).accessibilityIdentifier("library-browse-templates")
+                    .learningHelp(L10n.text("Start a document from a template"))
                 Menu {
                     ForEach(DocumentTemplate.allCases) { template in
                         Button(template.title) { library.perform { try await library.create(template: template) } }
@@ -60,7 +81,19 @@ struct LibraryBrowser: View {
             }
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if results.isEmpty {
+                    if !showingTrash && SampleBook.sicp.matches(query) {
+                        SampleBookCard(isAdding: addingSample) {
+                            guard !addingSample else { return }
+                            addingSample = true
+                            searchError = nil
+                            Task {
+                                defer { addingSample = false }
+                                do { try await library.create(sample: .sicp) }
+                                catch { searchError = error.localizedDescription }
+                            }
+                        }.padding(.horizontal, 10).padding(.bottom, 12)
+                    }
+                    if results.isEmpty && (showingTrash || !SampleBook.sicp.matches(query)) {
                         VStack(spacing: 10) {
                             PhosphorIcon(name: showingTrash ? "clock-counter-clockwise" : "book-open-text", size: 28).foregroundStyle(Theme.muted)
                             Text(L10n.text(query.isEmpty ? (showingTrash ? "Trash is empty" : "A place for your next idea") : "No matching documents"))
@@ -89,7 +122,7 @@ struct LibraryBrowser: View {
                 }
             }.padding(.horizontal, 30).padding(.vertical, 15)
         }
-        .frame(width: 650, height: 570)
+        .frame(width: browserSize.width, height: browserSize.height)
         .background(Theme.editor).foregroundStyle(Theme.text).preferredColorScheme(.dark)
         .disabled(library.busy)
         .task { await library.start(); await search() }

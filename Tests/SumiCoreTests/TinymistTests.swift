@@ -1,3 +1,4 @@
+import SumiTestSupport
 import Foundation
 import PDFKit
 import Testing
@@ -6,7 +7,7 @@ import Testing
 @MainActor
 @Test(.enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
 func realTinymistRoundTrip() async throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-integration-\(UUID().uuidString)")
+    let root = TestPaths.temporaryDirectory.appendingPathComponent("Sumi-integration-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     let client = TinymistClient()
     var diagnosticEvents: [JSONValue] = []

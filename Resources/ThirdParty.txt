@@ -31,3 +31,8 @@ https://github.com/highlightjs/cdn-release/blob/11.11.1/build/highlight.min.js
 Bundled in SumiCore resources and run offline through JavaScriptCore for code-block colors.
 SHA-256: c4a399dd6f488bc97a3546e3476747b3e714c99c57b9473154c6fb8d259b9381
 The original license is bundled as highlightjs-LICENSE in Sumi_SumiCore.bundle.
+
+Additional Highlight.js 11.11.1 Scheme grammar (BSD-3-Clause)
+https://github.com/highlightjs/cdn-release/blob/11.11.1/build/languages/scheme.min.js
+SHA-256: b16f50dbe365947bdc670369a4bf079bfea2804a09e4b9e89c0faa87fd7f46d8
+Uses the same bundled highlightjs-LICENSE.

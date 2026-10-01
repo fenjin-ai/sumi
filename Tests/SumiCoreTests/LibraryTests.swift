@@ -1,9 +1,10 @@
+import SumiTestSupport
 import Foundation
 import Testing
 @testable import SumiCore
 
 private func libraryFixture() throws -> URL {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-library-" + UUID().uuidString)
+    let url = TestPaths.temporaryDirectory.appendingPathComponent("Sumi-library-" + UUID().uuidString)
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url
 }

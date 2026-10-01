@@ -12,13 +12,20 @@ public struct UniversePackage: Codable, Identifiable, Equatable, Sendable {
     public let categories: [String]
     public let disciplines: [String]
     public let compiler: String?
+    public let template: UniverseTemplateMetadata?
+
+    public var isTemplate: Bool { template != nil }
+    public var thumbnailURL: URL? {
+        guard isValid, let template, template.isValid, template.thumbnail != nil else { return nil }
+        return URL(string: "https://packages.typst.org/preview/thumbnails/\(name)-\(version)-small.webp")
+    }
 
     public var id: String { name }
     public var reference: String { "@preview/\(name):\(version)" }
     public var documentationURL: URL { URL(string: "https://typst.app/universe/package/")!.appendingPathComponent(name, isDirectory: true).appendingPathComponent(version, isDirectory: true) }
 
     private enum CodingKeys: String, CodingKey {
-        case name, version, description, authors, keywords, categories, disciplines, compiler
+        case name, version, description, authors, keywords, categories, disciplines, compiler, template
         case licenseValue = "license"
     }
 
@@ -33,6 +40,8 @@ public struct UniversePackage: Codable, Identifiable, Equatable, Sendable {
         categories = try values.decodeIfPresent([String].self, forKey: .categories) ?? []
         disciplines = try values.decodeIfPresent([String].self, forKey: .disciplines) ?? []
         compiler = try values.decodeIfPresent(String.self, forKey: .compiler)
+        // Bad optional metadata must not hide an otherwise usable package.
+        template = try? values.decodeIfPresent(UniverseTemplateMetadata.self, forKey: .template)
     }
 
     public func pinnedImport() throws -> Snippet {
@@ -45,7 +54,7 @@ public struct UniversePackage: Codable, Identifiable, Equatable, Sendable {
         return installed >= required
     }
 
-    fileprivate var isValid: Bool {
+    var isValid: Bool {
         name.count <= 128 && name.range(of: "^[a-z][a-z0-9]*(-[a-z0-9]+)*\\z", options: .regularExpression) != nil && UniverseVersion(version) != nil
     }
 }
@@ -88,23 +97,21 @@ public struct UniverseCatalogSnapshot: Sendable {
     public let packages: [UniversePackage]
     public let fetchedAt: Date
     public let source: Source
+    private let index: UniverseSearchIndex
+
+    public init(packages: [UniversePackage], fetchedAt: Date, source: Source) {
+        self.packages = packages
+        self.fetchedAt = fetchedAt
+        self.source = source
+        index = UniverseSearchIndex(packages: packages)
+    }
 
     public func search(_ query: String, category: String = "") -> [UniversePackage] {
-        let words = Self.normalized(query).split(whereSeparator: \.isWhitespace)
-        return packages.filter { package in
-            guard category.isEmpty || package.categories.contains(category) else { return false }
-            let translated = package.categories.map { id in UniverseCategory.all.first { $0.id == id }?.searchTerms ?? id }
-            let haystack = Self.normalized(([package.name, package.description] + package.keywords + package.categories + translated + package.disciplines).joined(separator: " "))
-            return words.allSatisfy { haystack.contains($0) }
-        }.sorted { left, right in
-            // Exact package names stay easy to find, even among packages mentioning them.
-            let name = Self.normalized(query.trimmingCharacters(in: .whitespacesAndNewlines))
-            if (left.name == name) != (right.name == name) { return left.name == name }
-            return left.name < right.name
-        }
+        index.search(query, category: category)
     }
-    private static func normalized(_ value: String) -> String {
-        value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+
+    public func discover(_ query: String, mode: UniverseDiscoveryMode, group: String = "", compilerVersion: String? = nil) -> [UniversePackage] {
+        index.search(query, mode: mode, group: group, compilerVersion: compilerVersion)
     }
 }
 
@@ -147,9 +154,11 @@ public actor UniverseCatalogStore {
 
     public func cached() -> UniverseCatalogSnapshot? {
         guard let data = try? Data(contentsOf: cacheURL), data.count <= Self.maximumBytes,
-              let saved = try? JSONDecoder().decode(Cache.self, from: data), saved.schema == 1,
+              let saved = try? JSONDecoder().decode(Cache.self, from: data), (1...2).contains(saved.schema),
               let packages = try? Self.latest(saved.packages), saved.fetchedAt <= now().addingTimeInterval(300) else { return nil }
-        return UniverseCatalogSnapshot(packages: packages, fetchedAt: saved.fetchedAt, source: .cache)
+        // Keep older offline indexes usable, but refresh their missing template metadata online.
+        let fetchedAt = saved.schema == 1 ? min(saved.fetchedAt, now().addingTimeInterval(-Self.cacheLifetime - 1)) : saved.fetchedAt
+        return UniverseCatalogSnapshot(packages: packages, fetchedAt: fetchedAt, source: .cache)
     }
 
     public func load(forceRefresh: Bool = false) async throws -> UniverseCatalogSnapshot {
@@ -163,7 +172,7 @@ public actor UniverseCatalogStore {
             guard response.statusCode == 200 else { throw UniverseError.unavailable }
             let packages = try Self.decodeIndex(response.data)
             let snapshot = UniverseCatalogSnapshot(packages: packages, fetchedAt: now(), source: .network)
-            let cache = Cache(schema: 1, fetchedAt: snapshot.fetchedAt, packages: packages)
+            let cache = Cache(schema: 2, fetchedAt: snapshot.fetchedAt, packages: packages)
             // A read-only or full cache directory must not prevent online discovery.
             if let data = try? JSONEncoder().encode(cache) {
                 try? FileManager.default.createDirectory(at: cacheURL.deletingLastPathComponent(), withIntermediateDirectories: true)

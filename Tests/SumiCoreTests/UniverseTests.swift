@@ -1,3 +1,4 @@
+import SumiTestSupport
 import Foundation
 import Testing
 @testable import SumiCore
@@ -30,7 +31,7 @@ private actor UniverseTestServer {
 }
 
 private func universeDirectory() throws -> URL {
-    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-Universe-\(UUID().uuidString)")
+    let directory = TestPaths.temporaryDirectory.appendingPathComponent("Sumi-Universe-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     return directory
 }

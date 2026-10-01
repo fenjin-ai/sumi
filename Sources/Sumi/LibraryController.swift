@@ -72,7 +72,8 @@ final class LibraryController: ObservableObject {
     }
 
     func associate(_ url: URL) {
-        let document = documents.first { $0.sourceURL.standardizedFileURL == url.standardizedFileURL }
+        let entry = workspace?.mainFileURL ?? url
+        let document = documents.first { $0.sourceURL.standardizedFileURL == entry.standardizedFileURL }
         workspace?.managedDocumentID = document?.id
         workspace?.managedTitle = document?.title
     }
@@ -93,6 +94,40 @@ final class LibraryController: ObservableObject {
         let document = try await store.create(title: title ?? L10n.text(selected == .codeNotes ? "Code notes" : "Untitled"), text: content)
         await refresh()
         try await open(document.id)
+    }
+
+    /// A dedicated resolver keeps template downloads independent of the live
+    /// document service, including when the library is empty or compilation is busy.
+    func create(from package: UniversePackage) async throws {
+        guard let workspace, !busy else { throw LibraryInteractionError.operationInProgress }
+        busy = true
+        defer { busy = false }
+        let staging = workspace.stateDirectory.appendingPathComponent("TemplateDownloads", isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        let client = TinymistClient()
+        defer { client.stop() }
+        try await client.start(root: staging, outputDirectory: workspace.stateDirectory.appendingPathComponent("Exports"))
+        let project = try await UniverseTemplateInstaller.materialize(package, using: client, in: staging)
+        defer { try? FileManager.default.removeItem(at: project.directoryURL) }
+        try Task.checkCancellation()
+        let document = try await store.importProject(at: project.directoryURL, mainFile: project.mainFileURL, title: package.name)
+        await refresh()
+        try await open(document.id)
+        workspace.recordOperation("library.createTemplate", ["package": package.name, "version": package.version])
+    }
+
+    func create(sample: SampleBook, using suppliedStore: SampleBookStore? = nil) async throws {
+        guard let workspace, !busy else { throw LibraryInteractionError.operationInProgress }
+        busy = true
+        defer { busy = false }
+        let books = suppliedStore ?? SampleBookStore(cacheURL: workspace.stateDirectory.appendingPathComponent("SampleBooks"))
+        let project = try await books.materialize(sample, in: workspace.stateDirectory.appendingPathComponent("SampleDownloads"))
+        defer { try? FileManager.default.removeItem(at: project.directoryURL) }
+        try Task.checkCancellation()
+        let document = try await store.importProject(at: project.directoryURL, mainFile: project.mainFileURL, title: sample.title)
+        await refresh()
+        try await open(document.id)
+        workspace.recordOperation("library.createExample", ["book": sample.rawValue])
     }
 
     func open(_ id: UUID) async throws {
@@ -286,9 +321,10 @@ final class LibraryController: ObservableObject {
 }
 
 enum LibraryInteractionError: LocalizedError {
-    case saveFirst, restoreFirst, couldNotOpen
+    case saveFirst, restoreFirst, couldNotOpen, operationInProgress
     var errorDescription: String? {
         switch self {
+        case .operationInProgress: L10n.text("Another library operation is in progress. Try again in a moment.")
         case .saveFirst: L10n.text("Resolve the current save conflict before continuing.")
         case .restoreFirst: L10n.text("Restore this document from Trash before opening it.")
         case .couldNotOpen: L10n.text("The document could not be opened. Your current writing is preserved.")

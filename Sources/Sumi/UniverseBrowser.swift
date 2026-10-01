@@ -3,17 +3,28 @@ import SumiCore
 
 @MainActor
 final class UniverseBrowserModel: ObservableObject {
-    @Published private(set) var snapshot: UniverseCatalogSnapshot?
+    @Published private(set) var snapshot: UniverseCatalogSnapshot? { didSet { updateResults() } }
     @Published private(set) var isLoading = false
     @Published private(set) var error: String?
-    @Published var query = ""
-    @Published var category = "visualization"
+    @Published var query = "" { didSet { updateResults() } }
+    @Published var mode: UniverseDiscoveryMode { didSet { updateResults() } }
+    @Published var group = "" { didSet { updateResults() } }
     @Published var selectedID: String?
     private let store: UniverseCatalogStore
 
-    init(store: UniverseCatalogStore) { self.store = store }
-    var results: [UniversePackage] { snapshot?.search(query, category: category) ?? [] }
+    init(store: UniverseCatalogStore, mode: UniverseDiscoveryMode = .packages) {
+        self.store = store
+        self.mode = mode
+    }
+    @Published private(set) var results: [UniversePackage] = []
+    private func updateResults() { results = snapshot?.discover(query, mode: mode, group: group) ?? [] }
     var selected: UniversePackage? { results.first { $0.id == selectedID } ?? results.first }
+
+    func changeMode(_ mode: UniverseDiscoveryMode) {
+        self.mode = mode
+        group = ""
+        selectedID = nil
+    }
 
     func load(forceRefresh: Bool = false) async {
         guard !isLoading else { return }
@@ -27,114 +38,249 @@ final class UniverseBrowserModel: ObservableObject {
     }
 }
 
-/// A metadata-only browser; the caller inserts the user's explicitly selected, pinned import.
+/// A spacious discovery surface with separate document and writing-tool intents.
+/// Metadata and previews load before selection; package code is requested only
+/// when the writer explicitly creates a document or inserts an import.
 struct UniverseBrowser: View {
     @ObservedObject private var localization = AppLocalization.shared
     private let onImport: (UniversePackage) throws -> Void
+    private let onCreate: ((UniversePackage) async throws -> Void)?
+    private let onAddSample: ((SampleBook) async throws -> Void)?
+    private let onBack: (() -> Void)?
     private let compilerVersion: String
+    private let canImport: Bool
+    private let size: CGSize
+    private let previewCacheURL: URL
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: UniverseBrowserModel
-    @State private var importError: String?
+    @State private var actionError: String?
+    @State private var isApplying = false
+    @State private var compactDetails = false
+    @State private var actionTask: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
 
-    init(cacheURL: URL, compilerVersion: String = "0.15.1", onImport: @escaping (UniversePackage) throws -> Void) {
+    init(cacheURL: URL, mode: UniverseDiscoveryMode = .packages, size: CGSize = CGSize(width: 1040, height: 720),
+         compilerVersion: String = "0.15.1", canImport: Bool = true, onBack: (() -> Void)? = nil,
+         onCreate: ((UniversePackage) async throws -> Void)? = nil,
+         onAddSample: ((SampleBook) async throws -> Void)? = nil,
+         onImport: @escaping (UniversePackage) throws -> Void) {
         self.onImport = onImport
+        self.onCreate = onCreate
+        self.onAddSample = onAddSample
+        self.onBack = onBack
         self.compilerVersion = compilerVersion
-        _model = StateObject(wrappedValue: UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: cacheURL)))
+        self.canImport = canImport
+        self.size = size
+        self.previewCacheURL = cacheURL.deletingLastPathComponent().appendingPathComponent("UniversePreviews")
+        _model = StateObject(wrappedValue: UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: cacheURL), mode: mode))
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("Typst Universe").font(.system(size: 24, weight: .medium, design: .serif)).foregroundStyle(Theme.text)
-                    Text(L10n.text("Find the right tools for your document, from drawing to typesetting."))
-                        .font(.system(size: 12)).foregroundStyle(Theme.secondary)
+            header
+            searchAndFilters.disabled(isApplying)
+            Rectangle().fill(Theme.border.opacity(0.45)).frame(height: 1)
+            GeometryReader { geometry in
+                let wide = geometry.size.width >= 850
+                HStack(spacing: 0) {
+                    if wide || !compactDetails {
+                        catalog.disabled(isApplying).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    if wide || compactDetails {
+                        if wide { Rectangle().fill(Theme.border.opacity(0.45)).frame(width: 1) }
+                        if let package = model.selected {
+                            details(package, compact: !wide)
+                                .frame(width: wide ? 296 : nil)
+                                .frame(maxWidth: wide ? nil : .infinity, maxHeight: .infinity)
+                        } else if wide {
+                            emptyDetails.frame(width: 296)
+                        }
+                    }
                 }
-                Spacer()
-                Button(L10n.text("Done")) { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(.plain).foregroundStyle(Theme.secondary)
-            }.padding(24)
-            HStack(spacing: 12) {
-                PhosphorIcon(name: "magnifying-glass", size: 16).foregroundStyle(Theme.muted)
-                TextField(L10n.text("Search package names, uses or keywords"), text: $model.query)
-                    .textFieldStyle(.plain).focused($searchFocused).accessibilityIdentifier("universe.search")
-                Picker(L10n.text("Category"), selection: $model.category) {
-                    ForEach(UniverseCategory.all) { category in Text(category.title).tag(category.id) }
-                }.labelsHidden().frame(width: 156).accessibilityLabel(L10n.text("Universe package category"))
-            }.font(.system(size: 13)).padding(.horizontal, 14).padding(.vertical, 10)
-                .background(Theme.editor, in: RoundedRectangle(cornerRadius: 7)).padding(.horizontal, 24).padding(.bottom, 18)
-            Rectangle().fill(Theme.border.opacity(0.7)).frame(height: 1)
-            HStack(spacing: 0) {
-                packageList.frame(width: 285)
-                Rectangle().fill(Theme.border.opacity(0.7)).frame(width: 1)
-                if let package = model.selected { details(package).id(package.reference) }
-                else { emptyDetails }
-            }.frame(maxHeight: .infinity)
-            Rectangle().fill(Theme.border.opacity(0.7)).frame(height: 1)
-            HStack(spacing: 12) {
-                if model.isLoading { ProgressView().controlSize(.small).scaleEffect(0.75).frame(width: 14, height: 14) }
-                Text(statusText).font(.system(size: 11)).foregroundStyle(model.snapshot?.source == .offlineCache ? Theme.accent : Theme.muted)
-                    .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
-                Button(L10n.text("Refresh Index")) { Task { await model.load(forceRefresh: true) } }
-                    .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(Theme.secondary).disabled(model.isLoading)
-                    .keyboardShortcut("r", modifiers: .command)
-            }.padding(.horizontal, 24).padding(.vertical, 14)
+            }
+            footer
         }
-        .frame(width: 790, height: 590).background(Theme.background).foregroundStyle(Theme.text)
-        .preferredColorScheme(.dark)
+        .frame(width: size.width, height: size.height)
+        .background(Theme.background).foregroundStyle(Theme.text).preferredColorScheme(.dark)
+        .interactiveDismissDisabled(isApplying)
         .task { searchFocused = true; await model.load() }
+        .onChange(of: model.query) { _, _ in compactDetails = false; actionError = nil }
+        .onChange(of: model.group) { _, _ in compactDetails = false; actionError = nil }
+        .onDisappear { actionTask?.cancel() }
     }
 
-    private var packageList: some View {
-        let results = model.results
-        let selectedID = model.selected?.id
-        return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 3) {
-                ForEach(results) { package in
-                    Button { model.selectedID = package.id; importError = nil } label: {
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack {
-                                Text(package.name).font(.system(size: 13, weight: .medium))
-                                Spacer(minLength: 8)
-                                Text(package.version).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
-                            }
-                            Text(package.description).font(.system(size: 11)).foregroundStyle(Theme.secondary).lineLimit(2)
-                        }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(selectedID == package.id ? Theme.border.opacity(0.5) : .clear, in: RoundedRectangle(cornerRadius: 6))
-                    }.buttonStyle(.plain).accessibilityLabel(L10n.format("%@, version %@", package.name, package.version))
+    private var header: some View {
+        HStack(alignment: .top, spacing: 20) {
+            VStack(alignment: .leading, spacing: 7) {
+                if let onBack {
+                    Button(action: onBack) {
+                        HStack(spacing: 5) {
+                            PhosphorIcon(name: "arrow-left", size: 12)
+                            Text(L10n.text("Your writing")).font(.system(size: 11))
+                        }.foregroundStyle(Theme.secondary)
+                    }.buttonStyle(.plain).disabled(isApplying)
+                        .accessibilityIdentifier("universe.back-library")
                 }
-            }.padding(10)
+                Text(L10n.text(model.mode == .templates ? "A starting point for your ideas" : "More ways to express an idea"))
+                    .font(.system(size: size.width < 760 ? 23 : 27, weight: .medium, design: .serif))
+                Text(L10n.text(model.mode == .templates ? "Start with a complete document, then make it yours." : "Find a tool by what you want to make."))
+                    .font(.system(size: 12)).foregroundStyle(Theme.secondary)
+            }
+            Spacer(minLength: 0)
+            QuietButton(icon: "x", help: L10n.text("Close discovery"), shortcut: "Esc") { if let onBack { onBack() } else { dismiss() } }
+                .keyboardShortcut(.cancelAction).disabled(isApplying)
+        }.padding(.horizontal, 28).padding(.top, 24).padding(.bottom, 22)
+    }
+
+    private var searchAndFilters: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 22) {
+                HStack(spacing: 4) {
+                    intentButton(.templates, title: "Templates", icon: "file-text")
+                    intentButton(.packages, title: "Packages", icon: "package")
+                }.padding(3).background(Theme.editor, in: RoundedRectangle(cornerRadius: 8))
+                HStack(spacing: 9) {
+                    PhosphorIcon(name: "magnifying-glass", size: 16).foregroundStyle(Theme.muted)
+                    TextField(L10n.text(model.mode == .templates ? "Find a resume, paper, presentation…" : "Try diagrams, plots, code blocks…"), text: $model.query)
+                        .textFieldStyle(.plain).focused($searchFocused).accessibilityIdentifier("universe.search")
+                    if !model.query.isEmpty {
+                        Button { model.query = "" } label: { PhosphorIcon(name: "x", size: 12).foregroundStyle(Theme.secondary) }
+                            .buttonStyle(.plain).accessibilityLabel(L10n.text("Clear search"))
+                    }
+                }.font(.system(size: 12)).padding(.horizontal, 12).frame(height: 36)
+                    .background(Theme.editor, in: RoundedRectangle(cornerRadius: 7))
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(UniverseDiscoveryGroup.groups(for: model.mode)) { group in
+                        Button { model.group = group.id; model.selectedID = nil } label: {
+                            HStack(spacing: 6) {
+                                PhosphorIcon(name: group.symbolName, size: 14)
+                                Text(group.title).font(.system(size: 11, weight: model.group == group.id ? .medium : .regular))
+                            }.foregroundStyle(model.group == group.id ? Theme.text : Theme.secondary)
+                                .padding(.horizontal, 11).frame(height: 30)
+                                .background(model.group == group.id ? Theme.border.opacity(0.7) : .clear, in: Capsule())
+                        }.buttonStyle(.plain).accessibilityIdentifier("universe.group.\(group.id)")
+                    }
+                }
+            }
+        }.padding(.horizontal, 28).padding(.bottom, 18)
+    }
+
+    private func intentButton(_ mode: UniverseDiscoveryMode, title: String, icon: String) -> some View {
+        Button { model.changeMode(mode); compactDetails = false; actionError = nil } label: {
+            HStack(spacing: 6) {
+                PhosphorIcon(name: icon, size: 14)
+                Text(L10n.text(title)).font(.system(size: 12, weight: .medium))
+            }.foregroundStyle(model.mode == mode ? Theme.text : Theme.muted)
+                .padding(.horizontal, 12).frame(height: 30)
+                .background(model.mode == mode ? Theme.border.opacity(0.6) : .clear, in: RoundedRectangle(cornerRadius: 6))
+        }.buttonStyle(.plain).accessibilityIdentifier("universe.mode.\(mode == .templates ? "templates" : "packages")")
+    }
+
+    private var catalog: some View {
+        let results = model.results
+        let showSample = onAddSample != nil && model.mode == .templates && (model.group.isEmpty || model.group == "books") && SampleBook.sicp.matches(model.query)
+        return ScrollView {
+            if showSample {
+                SampleBookCard(isAdding: isApplying) {
+                    guard !isApplying, let onAddSample else { return }
+                    isApplying = true; actionError = nil
+                    actionTask = Task {
+                        defer { isApplying = false }
+                        do { try await onAddSample(.sicp); dismiss() }
+                        catch is CancellationError { }
+                        catch { actionError = error.localizedDescription }
+                    }
+                }.padding(24).padding(.bottom, -16)
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 184, maximum: 260), spacing: 18)], alignment: .leading, spacing: 22) {
+                ForEach(results) { package in
+                    Button {
+                        model.selectedID = package.id
+                        compactDetails = true
+                        actionError = nil
+                    } label: { card(package) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(package.name + ", " + package.description)
+                        .accessibilityIdentifier("universe.result.\(package.name)")
+                }
+            }.padding(24)
         }.overlay {
-            if results.isEmpty && !model.isLoading {
-                Text(model.snapshot == nil ? L10n.text("Index not loaded yet") : L10n.text("No matching packages\nTry another keyword or category."))
-                    .font(.system(size: 12)).foregroundStyle(Theme.muted).multilineTextAlignment(.center).padding(22)
+            if results.isEmpty && !showSample {
+                VStack(spacing: 12) {
+                    if model.isLoading { ProgressView().controlSize(.small) }
+                    else { PhosphorIcon(name: "magnifying-glass", size: 26).foregroundStyle(Theme.muted) }
+                    Text(L10n.text(model.isLoading ? "Finding possibilities…" : "No matches yet"))
+                        .font(.system(size: 17, design: .serif)).foregroundStyle(Theme.secondary)
+                    if !model.isLoading {
+                        Text(L10n.text("Try a shorter phrase or another collection."))
+                            .font(.system(size: 12)).foregroundStyle(Theme.muted)
+                    }
+                }.multilineTextAlignment(.center).padding(24)
             }
         }
     }
 
-    private func details(_ package: UniversePackage) -> some View {
+    private func card(_ package: UniversePackage) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if package.isTemplate {
+                UniversePreview(package: package, cacheURL: previewCacheURL)
+                    .frame(height: 180).frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(model.selected?.id == package.id ? Theme.accent.opacity(0.75) : Theme.border.opacity(0.5), lineWidth: 1))
+            } else {
+                HStack(alignment: .top) {
+                    PhosphorIcon(name: packageIcon(package), size: 25).foregroundStyle(Theme.accent.opacity(0.85))
+                    Spacer()
+                    PhosphorIcon(name: "arrow-up-right", size: 13).foregroundStyle(Theme.muted)
+                }.padding(.bottom, 7)
+            }
+            Text(package.name).font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.text).lineLimit(1)
+            Text(package.description).font(.system(size: 11)).lineSpacing(3).foregroundStyle(Theme.secondary)
+                .lineLimit(2).frame(height: 33, alignment: .topLeading)
+        }.padding(package.isTemplate ? 0 : 16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(package.isTemplate ? .clear : (model.selected?.id == package.id ? Theme.panel : Theme.editor), in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                if !package.isTemplate {
+                    RoundedRectangle(cornerRadius: 8).strokeBorder(model.selected?.id == package.id ? Theme.accent.opacity(0.6) : .clear, lineWidth: 1)
+                }
+            }
+            .contentShape(Rectangle())
+    }
+
+    private func details(_ package: UniversePackage, compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
+            if compact {
+                Button { compactDetails = false } label: {
+                    HStack(spacing: 6) {
+                        PhosphorIcon(name: "arrow-left", size: 14)
+                        Text(L10n.text("Back to results")).font(.system(size: 12))
+                    }.foregroundStyle(Theme.secondary)
+                }.buttonStyle(.plain).padding(.horizontal, 24).padding(.top, 18)
+            }
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(package.name).font(.system(size: 25, weight: .medium, design: .serif))
-                        Text(L10n.format("Version %@", package.version)).font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.accent)
-                    }
-                    Text(package.description).font(.system(size: 13)).lineSpacing(5).foregroundStyle(Theme.secondary).textSelection(.enabled)
-                    Text(package.categories.map(UniverseCategory.title(for:)).joined(separator: " · "))
-                        .font(.system(size: 11)).foregroundStyle(Theme.muted)
-                    Rectangle().fill(Theme.border.opacity(0.6)).frame(height: 1)
-                    VStack(alignment: .leading, spacing: 9) {
-                        Text(L10n.text("Import into This Document")).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.secondary)
-                        Text("#import \"\(package.reference)\"")
-                            .font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.accent).textSelection(.enabled)
-                            .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(Theme.editor, in: RoundedRectangle(cornerRadius: 6))
-                        Text(L10n.text("This version is pinned. Typst downloads and caches the package when needed. See the documentation for usage."))
-                            .font(.system(size: 11)).lineSpacing(4).foregroundStyle(Theme.muted)
+                VStack(alignment: .leading, spacing: 17) {
+                    if package.isTemplate {
+                        UniversePreview(package: package, cacheURL: previewCacheURL)
+                            .frame(height: compact ? 240 : 175).frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
                     }
                     VStack(alignment: .leading, spacing: 7) {
+                        Text(package.name).font(.system(size: 25, weight: .medium, design: .serif)).textSelection(.enabled)
+                        Text(L10n.format("Version %@", package.version)).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
+                    }
+                    Text(package.description).font(.system(size: 12)).lineSpacing(5).foregroundStyle(Theme.secondary).textSelection(.enabled)
+                    if !package.isTemplate {
+                        Text("#import \"\(package.reference)\"")
+                            .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.accent).textSelection(.enabled)
+                            .padding(11).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Theme.editor, in: RoundedRectangle(cornerRadius: 6))
+                    }
+                    Text(L10n.text(package.isTemplate ? "Includes the starter document and its assets. Your new document is an independent copy." : "Adds a pinned import to your document. Open the documentation for examples and setup."))
+                        .font(.system(size: 11)).lineSpacing(4).foregroundStyle(Theme.muted)
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(L10n.format("License  %@", package.license))
-                        if let required = package.compiler { Text(L10n.format("Requires Typst %@ or later", required)) }
                         if !package.authors.isEmpty { Text(package.authors.joined(separator: " · ")).lineLimit(3) }
                     }.font(.system(size: 10)).foregroundStyle(Theme.muted)
                     if !package.isCompatible(with: compilerVersion) {
@@ -143,37 +289,97 @@ struct UniverseBrowser: View {
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
             }
-            VStack(alignment: .leading, spacing: 12) {
-                if let importError { Text(importError).font(.system(size: 11)).foregroundStyle(Theme.red) }
-                HStack {
-                    Link(L10n.text("Documentation ↗"), destination: package.documentationURL).font(.system(size: 12)).foregroundStyle(Theme.secondary)
-                    Spacer()
-                    Button(L10n.text("Insert Import")) {
-                        do { try onImport(package); dismiss() }
-                        catch { importError = error.localizedDescription }
-                    }.buttonStyle(.borderedProminent).tint(Theme.accent).foregroundStyle(Theme.background)
-                        .disabled(!package.isCompatible(with: compilerVersion)).accessibilityIdentifier("universe.import")
+            VStack(alignment: .leading, spacing: 13) {
+                if !package.isTemplate && !canImport {
+                    Text(L10n.text("Open a document to add packages.")).font(.system(size: 11)).foregroundStyle(Theme.muted)
                 }
-            }.padding(24).padding(.top, -8)
-        }
+                if let actionError { Text(actionError).font(.system(size: 11)).foregroundStyle(Theme.red).lineLimit(4) }
+                Button { apply(package) } label: {
+                    HStack(spacing: 8) {
+                        if isApplying { ProgressView().controlSize(.small).scaleEffect(0.8).frame(width: 14, height: 14) }
+                        else { PhosphorIcon(name: package.isTemplate ? "file-plus" : "plus-circle", size: 16) }
+                        Text(L10n.text(isApplying ? "Preparing your document…" : (package.isTemplate ? "Create document" : "Insert import")))
+                            .font(.system(size: 12, weight: .medium))
+                    }.frame(maxWidth: .infinity).frame(height: 37)
+                        .background(Theme.text, in: RoundedRectangle(cornerRadius: 6)).foregroundStyle(Theme.background)
+                }.buttonStyle(.plain)
+                    .disabled(isApplying || !package.isCompatible(with: compilerVersion) || (package.isTemplate && onCreate == nil) || (!package.isTemplate && !canImport))
+                    .accessibilityIdentifier(package.isTemplate ? "universe.create" : "universe.import")
+                Link(destination: package.documentationURL) {
+                    HStack(spacing: 5) {
+                        Text(L10n.text("Documentation"))
+                        PhosphorIcon(name: "arrow-up-right", size: 11)
+                    }.font(.system(size: 11)).foregroundStyle(Theme.secondary).frame(maxWidth: .infinity)
+                }
+            }.padding(24).padding(.top, -4)
+        }.background(Theme.editor.opacity(0.35))
     }
 
     private var emptyDetails: some View {
-        VStack(spacing: 12) {
-            Text(L10n.text("Make room for more ideas")).font(.system(size: 23, design: .serif)).foregroundStyle(Theme.secondary)
-            Text(L10n.text("Try CeTZ for drawings or Fletcher for diagrams.\nChoose a package to read about it and see how to use it."))
-                .font(.system(size: 12)).lineSpacing(6).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 13) {
+            PhosphorIcon(name: model.mode == .templates ? "file-text" : "package", size: 28).foregroundStyle(Theme.muted)
+            Text(L10n.text("Choose something to explore"))
+                .font(.system(size: 18, design: .serif)).foregroundStyle(Theme.secondary).multilineTextAlignment(.center)
+        }.padding(30).frame(maxHeight: .infinity)
+    }
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(Theme.border.opacity(0.45)).frame(height: 1)
+            HStack(spacing: 10) {
+                if model.isLoading { ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 12, height: 12) }
+                Text(statusText).font(.system(size: 10)).foregroundStyle(model.error == nil ? Theme.muted : Theme.red)
+                    .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                Text("Typst Universe").font(.system(size: 10)).foregroundStyle(Theme.muted)
+                QuietButton(icon: "arrow-clockwise", help: L10n.text("Refresh Index"), shortcut: "⌘R") {
+                    Task { await model.load(forceRefresh: true) }
+                }.keyboardShortcut("r", modifiers: .command).disabled(model.isLoading)
+            }.padding(.horizontal, 24).frame(height: 44)
+        }
     }
 
     private var statusText: String {
         if let error = model.error { return error }
-        guard let snapshot = model.snapshot else { return L10n.text("Connecting to packages.typst.org…") }
-        let date = snapshot.fetchedAt.formatted(date: .abbreviated, time: .shortened)
-        switch snapshot.source {
-        case .network: return L10n.format("%@ packages · Updated %@", String(snapshot.packages.count), date)
-        case .cache: return L10n.format("%@ packages · Local index %@", String(snapshot.packages.count), date)
-        case .offlineCache: return L10n.format("Offline · Using index from %@ · %@ packages", date, String(snapshot.packages.count))
+        guard let snapshot = model.snapshot else { return L10n.text("Connecting to the catalog…") }
+        if snapshot.source == .offlineCache { return L10n.text("Offline · Browsing the saved catalog") }
+        return L10n.format("%d results · Search by name or what you want to make", model.results.count)
+    }
+
+    private func packageIcon(_ package: UniversePackage) -> String {
+        if package.categories.contains("visualization") { return "bounding-box" }
+        if package.categories.contains("text") || package.categories.contains("languages") { return "text-aa" }
+        if package.categories.contains("layout") { return "layout" }
+        if package.categories.contains("scripting") || package.categories.contains("integration") { return "code" }
+        if package.categories.contains("model") { return "tree-structure" }
+        return "package"
+    }
+
+    private func apply(_ package: UniversePackage) {
+        guard !isApplying else { return }
+        actionError = nil
+        if package.isTemplate {
+            guard let onCreate else { return }
+            isApplying = true
+            actionTask = Task { @MainActor in
+                defer { isApplying = false }
+                do { try await onCreate(package); dismiss() }
+                catch is CancellationError { }
+                catch { actionError = error.localizedDescription }
+            }
+        } else {
+            do { try onImport(package); dismiss() }
+            catch { actionError = error.localizedDescription }
         }
+    }
+}
+
+/// Sheets fit inside smaller writing windows while giving visual discovery room
+/// on larger displays. The catalog changes to a single-pane route below 850 pt.
+@MainActor
+enum DiscoveryLayout {
+    static func size(for window: NSWindow?, gallery: Bool = true) -> CGSize {
+        let available = window?.contentLayoutRect.size ?? CGSize(width: 1200, height: 820)
+        return CGSize(width: min(gallery ? 1040 : 980, max(620, available.width - 48)),
+                      height: min(gallery ? 720 : 680, max(510, available.height - 52)))
     }
 }

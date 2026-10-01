@@ -93,6 +93,7 @@ final class Workspace: ObservableObject {
     private let codeHighlighter = CodeBlockHighlighting()
     private(set) var syntaxSnapshot: (source: String, tokens: [HighlightToken])?
     private(set) var syntaxRevision = 0
+    private(set) var syntaxDocumentRevision = -1
     private var messageTask: Task<Void, Never>?
     private var sentVersion = 0
     let stateDirectory: URL
@@ -209,10 +210,13 @@ final class Workspace: ObservableObject {
         }
     }
 
-    func edited(_ newText: String) {
+    func edited(_ newText: String, change: TextReplacement? = nil) {
         guard !isLibraryHome else { return }
         dismissAssistance()
+        var updatedMetrics: DocumentMetrics?
+        if let change, var current = textMetrics, current.apply(change, to: text) { updatedMetrics = current }
         text = newText
+        textMetrics = updatedMetrics
         documentVersion += 1
         previewStale = true
         saveStatus = fileURL == nil ? "Saving Draft" : "Unsaved"
@@ -245,12 +249,15 @@ final class Workspace: ObservableObject {
                     try flushChanges()
                     async let embedded = codeHighlighter.tokens(in: source)
                     let response = try await client.request("textDocument/semanticTokens/full", ["textDocument": ["uri": documentURL.absoluteString]])
-                    let tokens = SemanticHighlighting.decode(response["data"].array.compactMap(\.int), source: source,
-                        types: client.semanticTokenTypes, modifiers: client.semanticTokenModifiers)
+                    let encoded = response["data"].array.compactMap(\.int)
+                    let types = client.semanticTokenTypes, modifiers = client.semanticTokenModifiers
+                    let tokens = await Task.detached(priority: .userInitiated) {
+                        SemanticHighlighting.decode(encoded, source: source, types: types, modifiers: modifiers)
+                    }.value
                     let combined = await tokens + embedded
                     guard !Task.isCancelled, generation == serviceGeneration else { return }
                     if version != documentVersion { continue }
-                    syntaxSnapshot = (source, combined); syntaxRevision += 1
+                    syntaxSnapshot = (source, combined); syntaxDocumentRevision = version; syntaxRevision += 1
                     editor?.highlight()
                 } catch { /* Keep editing with the lightweight local styles. */ }
                 return

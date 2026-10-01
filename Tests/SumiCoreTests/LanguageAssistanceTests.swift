@@ -1,3 +1,4 @@
+import SumiTestSupport
 import Foundation
 import Testing
 @testable import SumiCore
@@ -124,7 +125,7 @@ private func assistanceAction(_ edits: [[String: Any]], uri: String = assistance
 @MainActor
 @Test(.enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
 func realTinymistLanguageAssistance() async throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-assistance-\(UUID().uuidString)")
+    let root = TestPaths.temporaryDirectory.appendingPathComponent("Sumi-assistance-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     let file = root.appendingPathComponent("文稿.typ")
     let source = "#rect(width: 20pt, height: 30pt)\n== Heading\n$alpha+beta$\n"

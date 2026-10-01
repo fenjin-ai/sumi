@@ -15,13 +15,17 @@ struct ManuscriptView: NSViewRepresentable {
         // drawing-only syntax attributes, with no implicit engine fallback.
         let storage = NSTextStorage()
         let manager = NSLayoutManager()
-        manager.allowsNonContiguousLayout = true
+        // Keep TextKit's default contiguous geometry. With styled paragraphs,
+        // noncontiguous layout can shift an already drawn line during a hit test
+        // after a distant jump (covered by the real-book benchmark).
+        manager.allowsNonContiguousLayout = false
         let container = NSTextContainer(size: NSSize(width: scroll.contentSize.width, height: .greatestFiniteMagnitude))
         storage.addLayoutManager(manager)
         manager.addTextContainer(container)
         let editor = ManuscriptTextView(frame: NSRect(origin: .zero, size: scroll.contentSize), textContainer: container)
         editor.workspace = workspace
         editor.delegate = context.coordinator
+        storage.delegate = context.coordinator
         editor.isRichText = false
         editor.isEditable = true
         editor.isSelectable = true
@@ -58,18 +62,24 @@ struct ManuscriptView: NSViewRepresentable {
         guard let editor = scroll.documentView as? ManuscriptTextView else { return }
         workspace.editor = editor
         editor.setAccessibilityLabel(L10n.text("Document Editor"))
-        if editor.string != workspace.text, !editor.hasMarkedText() { editor.load(workspace.text, selection: workspace.selection) }
+        if editor.workspaceRevision != workspace.revision, !editor.hasMarkedText() { editor.load(workspace.text, selection: workspace.selection) }
         if editor.appliedFontSize != workspace.fontSize { editor.highlight() }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(workspace) }
-    @MainActor final class Coordinator: NSObject, NSTextViewDelegate {
+    @MainActor final class Coordinator: NSObject, NSTextViewDelegate, @preconcurrency NSTextStorageDelegate {
         let workspace: Workspace
         init(_ workspace: Workspace) { self.workspace = workspace }
         func textDidChange(_ notification: Notification) {
             guard let editor = notification.object as? ManuscriptTextView else { return }
-            workspace.edited(editor.string)
+            workspace.edited(editor.string, change: editor.takeCharacterEdit())
+            editor.workspaceRevision = workspace.revision
             editor.scheduleHighlight()
+        }
+        func textStorage(_ textStorage: NSTextStorage, didProcessEditing editedMask: NSTextStorageEditActions,
+                         range editedRange: NSRange, changeInLength delta: Int) {
+            guard editedMask.contains(.editedCharacters) else { return }
+            workspace.editor?.recordCharacterEdit(in: textStorage, range: editedRange, delta: delta)
         }
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let editor = notification.object as? ManuscriptTextView else { return }
@@ -93,6 +103,24 @@ final class ManuscriptTextView: NSTextView {
     private var styler = ManuscriptStyler()
     private let readingAnalysis = ReadingAnalysis()
     private weak var observedUndoManager: UndoManager?
+    var workspaceRevision = -1
+    private var loading = false
+    private var characterEditCount = 0
+    private var characterEdit: TextReplacement?
+
+    func recordCharacterEdit(in storage: NSTextStorage, range: NSRange, delta: Int) {
+        guard !loading else { return }
+        characterEditCount += 1
+        guard characterEditCount == 1, range.length - delta >= 0,
+              NSMaxRange(range) <= storage.length else { characterEdit = nil; return }
+        characterEdit = TextReplacement(range: NSRange(location: range.location, length: range.length - delta),
+                                        text: (storage.string as NSString).substring(with: range))
+    }
+
+    func takeCharacterEdit() -> TextReplacement? {
+        defer { characterEditCount = 0; characterEdit = nil }
+        return characterEditCount == 1 ? characterEdit : nil
+    }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -116,7 +144,9 @@ final class ManuscriptTextView: NSTextView {
         // AppKit can restore the text storage without a delegate textDidChange
         // after grouped programmatic edits. Reconcile only after the whole group.
         placeholders = []
-        if let workspace, workspace.text != string { workspace.edited(string) }
+        if let workspace, workspace.text != string { workspace.edited(string, change: takeCharacterEdit()) }
+        else { _ = takeCharacterEdit() }
+        workspaceRevision = workspace?.revision ?? -1
         workspace?.selection = selectedRange()
         scheduleHighlight()
     }
@@ -155,9 +185,12 @@ final class ManuscriptTextView: NSTextView {
 
     func load(_ content: String, selection: NSRange) {
         highlightTask?.cancel()
+        loading = true
+        defer { loading = false; _ = takeCharacterEdit() }
+        workspaceRevision = workspace?.revision ?? 0
         layoutManager?.setTemporaryAttributes([:], forCharacterRange: NSRange(location: 0, length: textStorage?.length ?? 0))
         styler = ManuscriptStyler()
-        styler.prepare(content, decorations: SourcePresentation.decorations(in: content))
+        styler.prepare(content, revision: workspaceRevision, decorations: SourcePresentation.decorations(in: content))
         string = content
         placeholders = []
         undoManager?.removeAllActions()
@@ -171,13 +204,14 @@ final class ManuscriptTextView: NSTextView {
         highlightTask = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
             guard let self else { return }
-            let source = self.string
-            if self.styler.source != source {
+            let revision = self.workspaceRevision
+            if self.styler.sourceRevision != revision {
+                let source = self.workspace?.text ?? self.string
                 // Parsing has no AppKit dependencies. Typing and IME never wait
                 // for this work; a superseded result cannot touch native ranges.
                 guard let decorations = await self.readingAnalysis.decorations(in: source),
-                      !Task.isCancelled, self.string == source else { return }
-                self.styler.prepare(source, decorations: decorations)
+                      !Task.isCancelled, self.workspaceRevision == revision else { return }
+                self.styler.prepare(source, revision: revision, decorations: decorations)
             }
             self.highlight()
         }
@@ -190,14 +224,18 @@ final class ManuscriptTextView: NSTextView {
         let size = workspace?.fontSize ?? 16
         if appliedFontSize != size {
             // Explicit font changes are rare and must take effect immediately.
-            if styler.source != string { styler.prepare(string, decorations: SourcePresentation.decorations(in: string)) }
+            if styler.sourceRevision != workspaceRevision {
+                let source = workspace?.text ?? string
+                styler.prepare(source, revision: workspaceRevision, decorations: SourcePresentation.decorations(in: source))
+            }
             typingAttributes = ManuscriptStyler.baseAttributes(size: size)
             textColor = ManuscriptStyler.baseColor
             appliedFontSize = size
         }
-        if styler.source != string { scheduleHighlight() }
+        if styler.sourceRevision != workspaceRevision { scheduleHighlight() }
         let geometryChanged = styler.apply(to: self, size: size, styled: workspace?.styledSource == true,
-            snapshot: workspace?.syntaxSnapshot, revision: workspace?.syntaxRevision ?? 0)
+            snapshot: workspace?.syntaxSnapshot, revision: workspace?.syntaxRevision ?? 0,
+            documentRevision: workspaceRevision, syntaxDocumentRevision: workspace?.syntaxDocumentRevision ?? -1)
         if geometryChanged {
             prepareForPointerInteraction()
             window?.invalidateCursorRects(for: self)

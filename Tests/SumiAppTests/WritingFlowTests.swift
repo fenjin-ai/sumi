@@ -1,3 +1,4 @@
+import SumiTestSupport
 import AppKit
 import Foundation
 import PDFKit
@@ -357,7 +358,7 @@ final class WritingFixture {
     init(text: String, startService: Bool = true) throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
-        root = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-writing-\(UUID().uuidString)")
+        root = TestPaths.temporaryDirectory.appendingPathComponent("Sumi-writing-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         document = root.appendingPathComponent("manuscript.typ")
         try Data(text.utf8).write(to: document)

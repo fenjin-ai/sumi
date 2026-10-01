@@ -12,6 +12,29 @@ Source export creates a UTF-8 `.typ` file. Project export includes the relative 
 
 The library is an actor. Its indexing, import, export and migration work runs away from the main actor. `DocumentStorage` also uses `NSFileCoordinator`: baseline comparison and atomic source replacement occur within the same coordinated write accessor. A source changed or deleted elsewhere fails the baseline check and preserves the editor's recovery data. The app's current synchronous save boundary remains available for shutdown and document switching; a coordinated write can wait for other processes. This is not a guarantee that every disk operation has zero UI latency.
 
+## A book is still one document
+
+A project is a storage boundary, not an extra object the writer must create.
+The library shows one title for the entry point; local styles, chapters and
+images travel together when imported, exported, trashed or migrated to iCloud.
+The entry point remains the preview target when following a definition into a
+local `.typ` dependency, and the library identity still refers to the whole book.
+
+For example, the SICP example imports a local `styles/book.typ` function and
+applies it with `#show: book`. Typst `#set` and `#show` rules are scoped, so merely
+importing a file containing top-level settings would not apply those settings
+to the caller. A template function is the explicit, reusable boundary. Authors
+can similarly use `#include "chapters/intro.typ"` for chapter content. Paths are
+relative to the file where they occur; the root entry point should sit above
+its dependencies. See the [Typst module documentation](https://typst.app/docs/reference/scripting/#modules).
+
+There is no hidden global preamble or separate Sumi-only formatting language.
+The exported folder compiles with standard Typst. A full project file tree,
+chapter navigation UI and dependency-aware cross-file library search are future
+work; the current library content search indexes the main manuscript. SICP keeps
+its full prose in that manuscript so search, outline and large-buffer tests
+exercise the complete book today.
+
 ## Native change discovery
 
 `LibraryFileMonitor` implements `NSFilePresenter` and sends callbacks on a serial background queue. Owners must call `stop()` before replacing or releasing it. The presenter catches coordinated external changes; it does not claim to observe every uncoordinated POSIX write. The UI refreshes on relevant app/library activity as a second opportunity to discover changes.

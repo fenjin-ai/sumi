@@ -1,3 +1,4 @@
+import SumiTestSupport
 import AppKit
 import Foundation
 import PDFKit
@@ -7,7 +8,7 @@ import Testing
 @MainActor
 @Test(.enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
 func everyDiscoveredInsertionProducesARealDocument() async throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-command-workflow-\(UUID().uuidString)")
+    let root = TestPaths.temporaryDirectory.appendingPathComponent("Sumi-command-workflow-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: root.appendingPathComponent("images"), withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: root) }
     let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 8, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))

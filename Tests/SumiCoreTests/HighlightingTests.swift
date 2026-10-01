@@ -45,3 +45,14 @@ import Testing
     #expect(await highlighter.tokens(in: "// ```python\nplain prose").isEmpty)
     #expect(await highlighter.tokens(in: "```python\n" + String(repeating: "x", count: 32_001)).isEmpty)
 }
+
+@Test func schemeBookHighlightsPastTheFirstEightyBlocks() async {
+    let source = String(repeating: "```scheme\n(define (square x) (* x x)) ; 中文😀\n```\n\n", count: 1_100)
+    let highlighter = CodeBlockHighlighting()
+    let tokens = await highlighter.tokens(in: source)
+    let ns = source as NSString
+    let definitions = tokens.filter { $0.kind.contains("built_in") && ns.substring(with: $0.range) == "define" }
+    #expect(definitions.count == 1_100)
+    #expect(definitions.last?.range.location ?? 0 > ns.length - 100)
+    #expect(await highlighter.tokens(in: source) == tokens)
+}
