@@ -205,8 +205,8 @@ struct UniverseBrowser: View {
 
     private var catalog: some View {
         let results = model.results
-        let showSample = onAddSample != nil && model.mode == .templates && (model.group.isEmpty || model.group == "books") && SampleBook.sicp.matches(model.query)
-        let builtIns = onCreateBuiltIn != nil && model.mode == .templates && (model.group.isEmpty || model.group == "books")
+        let showSample = onAddSample != nil && model.mode == .templates && model.group.isEmpty && SampleBook.sicp.matches(model.query)
+        let builtIns = onCreateBuiltIn != nil && model.mode == .templates && model.group.isEmpty
             ? BuiltInTemplate.allCases.filter { $0.matches(model.query) } : []
         return ScrollView {
             VStack(alignment: .leading, spacing: 22) {
