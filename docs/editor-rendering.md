@@ -21,3 +21,9 @@ A future source-preserving inline layer needs engine-derived equation spans and 
 The current paragraph decorations can remain lightweight native attributes. Any richer equation or diagram preview should share the page compiler's semantics rather than growing a second approximate parser and renderer.
 
 Sources: [Tinymist semantic tokens](https://github.com/Myriad-Dreamin/tinymist/blob/v0.15.8/crates/tinymist-query/src/analysis/semantic_tokens.rs), [Tinymist hover rendering](https://github.com/Myriad-Dreamin/tinymist/blob/v0.15.8/crates/tinymist-query/src/hover.rs), [Tinymist introduction](https://myriad-dreamin.github.io/tinymist/), [Highlight.js](https://github.com/highlightjs/highlight.js/tree/11.11.1).
+
+## Pointer geometry and native selection
+
+Reading attributes can change glyph widths and line heights. Sumi resolves the visible TextKit layout after an attribute update and before mouse-down, so hit testing and displayed glyphs use the same geometry. It postpones reading/source restyling until native mouse tracking ends, preserving word selection and dragging. Cursor rectangles are invalidated after layout changes and editable text uses the native I-beam. This does not replace AppKit selection or IME handling.
+
+The pointer regression scenarios cover source/reading transitions, single/split layouts, three window widths, wrapped paragraphs, Chinese and emoji. Character rectangles must round-trip to their original insertion offsets, and the real window hit-test must route those points to the editor.

@@ -29,7 +29,7 @@ struct WritingFlowTests {
         #expect(app.workspace.sidePanel == nil)
         #expect(!app.workspace.paletteOpen)
         #expect(menu.performKeyEquivalent(with: app.key("5", code: 23, modifiers: .command)))
-        #expect(app.workspace.sidePanel == .diagnostics)
+        #expect(app.workspace.checksOpen)
         app.window.sendEvent(app.key("\u{1b}", code: 53))
         #expect(app.workspace.sidePanel == nil)
         let editor = try #require(app.workspace.editor)
@@ -51,7 +51,7 @@ struct WritingFlowTests {
         #expect(outline.id == "outline")
         #expect(outline.keyPath == "v o")
         #expect(outline.shortcuts.first?.label == "⌘4")
-        #expect(WritingCommand.all.filter { !$0.shortcuts.isEmpty }.count == 26)
+        #expect(WritingCommand.all.filter { !$0.shortcuts.isEmpty }.count == 30)
     }
 
     @Test func discoverInsertUndoRedoAndExport() async throws {
@@ -215,7 +215,7 @@ struct WritingFlowTests {
         let editor = try #require(app.workspace.editor)
         editor.insertSnippet(Snippet(text: "#unknown-function()"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
         try await app.wait { app.workspace.diagnostics.contains { $0.severity == 1 } }
-        app.workspace.sidePanel = .diagnostics
+        app.workspace.checksOpen = true
         await app.layout()
         let diagnostic = try #require(app.workspace.diagnostics.first { $0.severity == 1 })
         app.workspace.showDiagnostic(diagnostic)

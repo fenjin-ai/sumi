@@ -117,3 +117,15 @@ Historical app screenshots remain in `docs/screenshots/`. They record the runnin
 - Some Tinymist diagnostics lack document versions and can briefly trail fast typing.
 - The release pipeline is signed and notarized as recorded separately. App Store distribution and automatic updating are not implemented.
 - Preferences and document-management behavior evolve after 0.3; consult current feature documentation instead of assuming historical limits still apply.
+
+## 0.5.0 (9): contextual assistance and unobtrusive checks
+
+Audited the pinned Tinymist capabilities in `docs/tinymist-capabilities.md`. Added explicit documentation with active parameter help, local heading/equation code actions, and definition navigation with a return stack. New commands are discoverable through the command palette, native Edit/context menus and direct shortcuts. Actions are validated against the original URL/revision and applied as one native undo operation; unsupported cross-file/resource/snippet actions are not partially executed.
+
+Document Checks now opens above the bottom-right status, with bounded scrolling, source navigation and quiet healthy/pending/disconnected states. It no longer consumes a sidebar or changes manuscript geometry.
+
+Fixed a reproducible mismatch between character rectangles and insertion hit testing after reading/source attribute changes. The editor resolves visible glyph layout before pointer handling and after styling, postpones styling during native mouse tracking, and restores I-beam cursor rectangles. Regression coverage exercises multiple widths, writing/split layouts, wrapping, Chinese, emoji and composition.
+
+Validation: 88 Swift tests and three provisioning-profile checks passed. Local source-line coverage is 88.73% (4,785/5,393), including application UI code. Real-server cases verify hover, signature parameters, heading/equation rewrites, undo/redo, stale-response rejection, cross-file definition/back and diagnostic recovery. Native geometry tests verify that a character rectangle maps back to the same insertion position and that window hit testing reaches the editor.
+
+The 0.5.0 (9) development bundle passed strict signature verification and the relocated cold-launch smoke with its development resource bundle hidden. The updated running app was checked through the native UI: Command-5 opens the healthy popup at the bottom right, Escape dismisses it, Control-Option-H displays real Tinymist documentation, and pointer clicks inside two separate source lines place the caret at the corresponding interior columns. The user's current document was saved before restart and left unchanged.

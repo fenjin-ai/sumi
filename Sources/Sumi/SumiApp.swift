@@ -142,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         edit.addItem(.separator())
         item(L10n.text("Find…"), #selector(find), "f", edit, target: self)
         item(L10n.text("Complete Syntax"), #selector(completion), ".", edit, modifiers: .control, target: self)
-        for id in ["indent", "outdent", "comment", "format"] { commandItem(id, in: edit) }
+        for id in ["quickHelp", "contextActions", "definition", "navigateBack", "indent", "outdent", "comment", "format"] { commandItem(id, in: edit) }
         let view = section(L10n.text("View"))
         item(L10n.text("Discover Commands"), #selector(palette), workspace.commandKey, view, target: self)
         item(L10n.text("Open Diagnostic Logs"), #selector(revealLogs), "", view, target: self)

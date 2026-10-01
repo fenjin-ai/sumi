@@ -33,3 +33,16 @@ Functional tests assert identical manuscript frames/insets with the outline expa
 ## Identity
 
 The approved monochrome Sigma uses an ivory continuous stroke on charcoal, suggesting separate thoughts coming together into writing. A golden-ratio skeleton and sine pressure envelope generate ICNS, SVG, social previews and favicons from one source. ICNS includes 16–1024 pixel representations, with optical correction at small sizes. See [construction](../design/sigma/README.md) and [brand assets](../Brand/README.md).
+
+## Context and document checks
+
+Document Checks lives at the bottom right. Its compact status distinguishes successful compilation, pending changes, warnings/errors and a disconnected service. Clicking it or pressing Command-5 opens a bounded floating list above the footer; it never changes the manuscript's width. Clicking an issue reveals its source and dismisses the list. Escape and an outside click also dismiss it. A successful document gets a short, quiet confirmation instead of an empty sidebar.
+
+Four commands are available from Editing & Code, the Edit menu and the native editor context menu:
+
+- Explain at Cursor: Control-Option-H, or leader `c h`.
+- Actions at Cursor: Command-period, or leader `c q`.
+- Go to Definition: Control-Command-J, or leader `c d`.
+- Go Back: Control-Command-[, or leader `c b`.
+
+Explanations combine Tinymist documentation and active function parameters. Actions include heading depth and equation layout transformations. Requests are explicit, operate on unsaved writing and never block text input; moving the cursor, typing or switching documents invalidates pending help. Applied actions are one native undo operation. Help and action surfaces have bounded widths and scroll when necessary.

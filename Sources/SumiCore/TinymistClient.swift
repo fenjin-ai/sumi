@@ -30,6 +30,7 @@ public final class TinymistClient {
     private var generation = UUID()
     private var pending: [Int: CheckedContinuation<JSONValue, Error>] = [:]
     private var timeouts: [Int: Task<Void, Never>] = [:]
+    public private(set) var capabilities: JSONValue = .null
     public private(set) var initialized = false
     public private(set) var semanticTokenTypes: [String] = []
     public private(set) var semanticTokenModifiers: [String] = []
@@ -88,6 +89,9 @@ public final class TinymistClient {
                 "general": ["positionEncodings": ["utf-16"]],
                 "window": ["showDocument": ["support": true]],
                 "textDocument": ["publishDiagnostics": ["versionSupport": true], "completion": ["completionItem": ["snippetSupport": false]],
+                    "hover": ["contentFormat": ["plaintext"]],
+                    "signatureHelp": ["signatureInformation": ["documentationFormat": ["plaintext"], "parameterInformation": ["labelOffsetSupport": true]]],
+                    "codeAction": ["codeActionLiteralSupport": ["codeActionKind": ["valueSet": ["quickfix", "refactor", "refactor.rewrite"]]]],
                     "semanticTokens": ["requests": ["full": true], "tokenTypes": SemanticHighlighting.tokenTypes,
                         "tokenModifiers": SemanticHighlighting.tokenModifiers, "formats": ["relative"],
                         "multilineTokenSupport": false, "overlappingTokenSupport": false]]
@@ -95,6 +99,7 @@ public final class TinymistClient {
             "initializationOptions": ["exportPdf": "never", "outputPath": outputDirectory.appendingPathComponent("$name").path, "compileStatus": "enable", "typstExtraArgs": ["--package-cache-path", packageCache.path]]
         ])
         guard generation == session else { throw ServiceError.disconnected }
+        capabilities = response["capabilities"]
         let legend = response["capabilities"]["semanticTokensProvider"]["legend"]
         semanticTokenTypes = legend["tokenTypes"].array.compactMap(\.string)
         semanticTokenModifiers = legend["tokenModifiers"].array.compactMap(\.string)
@@ -102,9 +107,18 @@ public final class TinymistClient {
         initialized = true
     }
 
+    public func supports(_ capability: String) -> Bool {
+        switch capabilities[capability] {
+        case .bool(let enabled): enabled
+        case .object: true
+        default: false
+        }
+    }
+
     public func stop() {
         generation = UUID()
         initialized = false
+        capabilities = .null
         semanticTokenTypes = []; semanticTokenModifiers = []
         output?.readabilityHandler = nil
         errorOutput?.readabilityHandler = nil

@@ -28,7 +28,6 @@ struct ContentView: View {
     private var writing: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                if workspace.sidePanel == .diagnostics { diagnosticSidebar.frame(width: 224); divider }
                 GeometryReader { geometry in
                     let width = geometry.size.width
                     let editorWidth = workspace.layout == .writing ? width : (workspace.layout == .preview ? 0 : max(280, min(width - 280, width * splitFraction)))
@@ -58,9 +57,19 @@ struct ContentView: View {
             Rectangle().fill(Theme.border.opacity(0.55)).frame(height: 1)
             footer
         }
+        .overlay {
+            if workspace.checksOpen {
+                GeometryReader { geometry in
+                    ZStack(alignment: .bottomTrailing) {
+                        Color.clear.contentShape(Rectangle()).onTapGesture { workspace.checksOpen = false }
+                        DocumentChecksPopup(workspace: workspace)
+                            .frame(width: min(380, max(260, geometry.size.width - 32)))
+                            .padding(.trailing, 18).padding(.bottom, 42)
+                    }
+                }
+            }
+        }
     }
-
-    private var divider: some View { Rectangle().fill(Theme.border.opacity(0.55)).frame(width: 1) }
 
     private var manuscript: some View {
         VStack(spacing: 0) {
@@ -102,7 +111,7 @@ struct ContentView: View {
                             .font(.system(size: 10)).foregroundStyle(Theme.secondary)
                         Spacer()
                         if workspace.diagnostics.contains(where: { $0.severity == 1 }) {
-                            Button(L10n.text("Check Source")) { workspace.sidePanel = .diagnostics }.buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(Theme.accent)
+                            Button(L10n.text("Check Source")) { workspace.checksOpen = true }.buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(Theme.accent)
                         }
                     }.padding(.horizontal, 24).padding(.bottom, 10)
                 }
@@ -118,35 +127,6 @@ struct ContentView: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }.background(Theme.panel)
-    }
-
-    private var diagnosticSidebar: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text(L10n.text("Document Checks")).font(.system(size: 12, weight: .semibold))
-                Spacer()
-                QuietButton(icon: "x", help: L10n.text("Close Sidebar")) { workspace.sidePanel = nil }
-            }.padding(.horizontal, 18).padding(.top, 16)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 3) {
-                    if workspace.diagnostics.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            PhosphorIcon(name: "check").foregroundStyle(Theme.green)
-                            Text(workspace.serviceReady ? L10n.text("No issues found") : L10n.text("Waiting for Typesetting")).font(.system(size: 12)).foregroundStyle(Theme.secondary)
-                        }.padding(18)
-                    }
-                    ForEach(workspace.diagnostics) { diagnostic in
-                        Button { workspace.showDiagnostic(diagnostic) } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("\(diagnostic.url.lastPathComponent) · \(diagnostic.position.line + 1)").font(.system(size: 10, design: .monospaced)).foregroundStyle(diagnostic.severity == 1 ? Theme.red : Theme.accent)
-                                Text(diagnostic.message).font(.system(size: 12)).foregroundStyle(Theme.text).multilineTextAlignment(.leading)
-                            }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                        }.buttonStyle(.plain)
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-        }.background(Theme.background)
     }
 
     private func messageBar(_ message: String) -> some View {
@@ -170,15 +150,9 @@ struct ContentView: View {
             Spacer()
             Text(L10n.text(workspace.saveStatus)).font(.system(size: 10)).foregroundStyle(Theme.muted)
             Rectangle().fill(Theme.border).frame(width: 1, height: 10)
-            Button { workspace.sidePanel = .diagnostics } label: {
-                HStack(spacing: 6) {
-                    Circle().fill(workspace.diagnostics.contains { $0.severity == 1 } ? Theme.red : (workspace.serviceReady ? Theme.green : Theme.muted)).frame(width: 4, height: 4)
-                    Text(L10n.text(workspace.serviceStatus)).font(.system(size: 10))
-                }
-            }.buttonStyle(.plain).foregroundStyle(Theme.secondary)
-            Rectangle().fill(Theme.border).frame(width: 1, height: 10)
             Text(L10n.format("%@ words", String(workspace.wordCount))).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
             Text("\(workspace.position.line + 1):\(workspace.position.character + 1)").font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted).frame(minWidth: 35, alignment: .trailing)
+            DocumentCheckButton(workspace: workspace)
         }.padding(.horizontal, 24).frame(height: 34)
     }
 }
