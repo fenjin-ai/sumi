@@ -106,9 +106,15 @@ public actor DocumentLibrary {
         return documents.sorted { $0.modifiedAt == $1.modifiedAt ? $0.id.uuidString < $1.id.uuidString : $0.modifiedAt > $1.modifiedAt }
     }
 
-    public func create(title: String = "", text: String = "") throws -> LibraryDocument {
+    public func create(title: String = "", text: String = "", assets: [String: Data] = [:]) throws -> LibraryDocument {
         let title = title.isEmpty ? L10n.text("Untitled") : try validatedTitle(title)
-        return try createDocument(title: title) { source in try Data(text.utf8).write(to: source, options: .atomic) }
+        guard assets.keys.allSatisfy({ !$0.contains("/") && !$0.contains("\\") && !$0.isEmpty && $0 != "." && $0 != ".." && $0 != "main.typ" && $0 != Self.metadataName }) else { throw LibraryError.unsafeResource }
+        return try createDocument(title: title) { source in
+            try Data(text.utf8).write(to: source, options: .atomic)
+            for (name, data) in assets {
+                try data.write(to: source.deletingLastPathComponent().appendingPathComponent(name), options: .atomic)
+            }
+        }
     }
 
     public func read(_ id: UUID) throws -> LibraryReadResult {

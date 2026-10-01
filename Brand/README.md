@@ -9,7 +9,7 @@ The public tagline is **A quiet space to write.** Branding speaks to writing and
 | Asset | Use |
 |---|---|
 | `logo.svg`, `logo-512.png`, `logo-1024.png` | Approved mark on a rounded tile; PNG corners remain transparent |
-| `mark-light.svg`, `mark-dark.svg` | Transparent monochrome mark for dark or light backgrounds |
+| `mark-light.svg`, `mark-dark.svg` | Transparent monochrome mark for dark or light backgrounds; the generator also copies the dark mark into the built-in welcome document and `Examples/sumi-mark.svg` |
 | `social-preview.png`, `social-preview.svg` | 1280×640 GitHub / Open Graph card |
 | `../Resources/AppIcon.svg`, `../Resources/AppIcon.icns` | macOS application icon, with ICNS representations from 16 to 1024 pixels |
 | `web/favicon.svg`, `web/favicon.ico` | Website favicon; ICO contains 16, 32 and 48 pixel frames |

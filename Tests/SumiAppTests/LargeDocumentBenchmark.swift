@@ -47,6 +47,15 @@ extension WritingFlowTests {
         let sum = (source as NSString).range(of: codeWord)
         #expect(sum.location != NSNotFound)
         if sum.location != NSNotFound { #expect(editorColor(editor, at: sum.location) == NSColor(hex: 0x9DBBCD)) }
+        // Publishing semantic tokens precedes SwiftUI's next native layout.
+        // Finish and report that initial presentation before timing navigation,
+        // just as we settle the window between every subsequent jump below.
+        let presentationStart = ContinuousClock.now
+        await app.layout()
+        editor.prepareForPointerInteraction()
+        editor.cacheDisplay(in: editor.visibleRect, to: bitmap)
+        report["initial_presentation_ms"] = seconds(presentationStart.duration(to: .now)) * 1000
+        report["editor_ready_seconds"] = seconds(opened.duration(to: .now))
         var navigation: [Double] = [], hitTesting: [Double] = [], search: [Double] = []
         var jumpTimes: [Double] = [], highlightTimes: [Double] = [], layoutTimes: [Double] = []
         var navigationSamples: [[String: Double]] = []

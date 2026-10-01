@@ -717,5 +717,9 @@
 "Keep the latest 7 source snapshots on this Mac. No snapshots are created while a document is unchanged." = "在本机保留最新 7 个源文稿快照。文稿没有变化时不创建快照。";
 "Compare and restore recent versions of this source document." = "对比并恢复当前源文稿的近期版本。";
 "Light" = "浅色";
+"From Sumi" = "从 Sumi 开始";
+"From the community" = "来自社区";
+"Browsing the included catalog · Checking for updates…" = "浏览内置目录 · 正在检查更新……";
+"Offline · Browsing the included catalog" = "离线 · 浏览内置目录";
 "Removed" = "删除";
 "Added" = "新增";

@@ -6,9 +6,10 @@ final class UniverseBrowserModel: ObservableObject {
     @Published private(set) var snapshot: UniverseCatalogSnapshot? { didSet { updateResults() } }
     @Published private(set) var isLoading = false
     @Published private(set) var error: String?
-    @Published var query = "" { didSet { updateResults() } }
-    @Published var mode: UniverseDiscoveryMode { didSet { updateResults() } }
-    @Published var group = "" { didSet { updateResults() } }
+    @Published private(set) var previewGeneration = 0
+    @Published var query = "" { didSet { if query != oldValue { selectedID = nil }; updateResults() } }
+    @Published var mode: UniverseDiscoveryMode { didSet { if mode != oldValue { selectedID = nil }; updateResults() } }
+    @Published var group = "" { didSet { if group != oldValue { selectedID = nil }; updateResults() } }
     @Published var selectedID: String?
     private let store: UniverseCatalogStore
 
@@ -17,8 +18,11 @@ final class UniverseBrowserModel: ObservableObject {
         self.mode = mode
     }
     @Published private(set) var results: [UniversePackage] = []
-    private func updateResults() { results = snapshot?.discover(query, mode: mode, group: group) ?? [] }
-    var selected: UniversePackage? { results.first { $0.id == selectedID } ?? results.first }
+    private func updateResults() {
+        results = snapshot?.discover(query, mode: mode, group: group) ?? []
+        if let selectedID, !results.contains(where: { $0.id == selectedID }) { self.selectedID = nil }
+    }
+    var selected: UniversePackage? { results.first { $0.id == selectedID } }
 
     func changeMode(_ mode: UniverseDiscoveryMode) {
         self.mode = mode
@@ -31,7 +35,14 @@ final class UniverseBrowserModel: ObservableObject {
         isLoading = true
         error = nil
         defer { isLoading = false }
-        if snapshot == nil { snapshot = await store.cached() }
+        if forceRefresh {
+            await UniversePreviewLoader.shared.allowRetry()
+            previewGeneration += 1
+        }
+        if snapshot == nil {
+            snapshot = await store.cached()
+            if snapshot == nil { snapshot = await store.bundled() }
+        }
         do { snapshot = try await store.load(forceRefresh: forceRefresh) }
         catch is CancellationError { return }
         catch { self.error = error.localizedDescription }
@@ -59,7 +70,9 @@ struct UniverseBrowser: View {
     @State private var actionError: String?
     @State private var isApplying = false
     @State private var compactDetails = false
+    @State private var catalogPosition: String?
     @State private var actionTask: Task<Void, Never>?
+    @State private var refreshTask: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
 
     init(cacheURL: URL, mode: UniverseDiscoveryMode = .packages, size: CGSize = CGSize(width: 1040, height: 720),
@@ -92,18 +105,15 @@ struct UniverseBrowser: View {
             GeometryReader { geometry in
                 let wide = geometry.size.width >= 850
                 HStack(spacing: 0) {
-                    if wide || !compactDetails {
+                    if wide || !compactDetails || model.selected == nil {
                         catalog.disabled(isApplying).frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    if wide || compactDetails {
+                    if let package = model.selected, wide || compactDetails {
                         if wide { Rectangle().fill(Theme.border.opacity(0.45)).frame(width: 1) }
-                        if let package = model.selected {
-                            details(package, compact: !wide)
-                                .frame(width: wide ? 296 : nil)
-                                .frame(maxWidth: wide ? nil : .infinity, maxHeight: .infinity)
-                        } else if wide {
-                            emptyDetails.frame(width: 296)
-                        }
+                        details(package, compact: !wide)
+                            .id(package.reference)
+                            .frame(width: wide ? 296 : nil)
+                            .frame(maxWidth: wide ? nil : .infinity, maxHeight: .infinity)
                     }
                 }
             }
@@ -120,7 +130,7 @@ struct UniverseBrowser: View {
         .onChange(of: model.mode) { _, mode in onModeChange?(mode) }
         .onChange(of: model.query) { _, _ in compactDetails = false; actionError = nil }
         .onChange(of: model.group) { _, _ in compactDetails = false; actionError = nil }
-        .onDisappear { actionTask?.cancel() }
+        .onDisappear { actionTask?.cancel(); refreshTask?.cancel() }
     }
 
     private var header: some View {
@@ -196,42 +206,57 @@ struct UniverseBrowser: View {
 
     private var catalog: some View {
         let results = model.results
-        let showSample = onAddSample != nil && model.mode == .templates && (model.group.isEmpty || model.group == "books") && SampleBook.sicp.matches(model.query)
-        let builtIns = onCreateBuiltIn != nil && model.mode == .templates && (model.group.isEmpty || model.group == "books")
+        let showSample = onAddSample != nil && model.mode == .templates && model.group.isEmpty && SampleBook.sicp.matches(model.query)
+        let builtIns = onCreateBuiltIn != nil && model.mode == .templates && model.group.isEmpty
             ? BuiltInTemplate.allCases.filter { $0.matches(model.query) } : []
         return ScrollView {
-            if !builtIns.isEmpty {
-                VStack(spacing: 10) {
-                    ForEach(builtIns) { template in
-                        BuiltInTemplateCard(template: template, isCreating: isApplying) { apply(template) }
+            VStack(alignment: .leading, spacing: 22) {
+                if !builtIns.isEmpty || showSample {
+                    HStack {
+                        Text(L10n.text("From Sumi")).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.secondary)
+                        Spacer()
+                        if builtIns.contains(.blank) {
+                            Button { apply(.blank) } label: {
+                                HStack(spacing: 6) {
+                                    PhosphorIcon(name: "file-plus", size: 14)
+                                    Text(BuiltInTemplate.blank.title).font(.system(size: 11, weight: .medium))
+                                    PhosphorIcon(name: "arrow-right", size: 12)
+                                }.foregroundStyle(Theme.secondary).padding(.horizontal, 12).frame(height: 30)
+                                    .background(Theme.panel, in: RoundedRectangle(cornerRadius: 6)).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityIdentifier("universe.builtin.blank")
+                                .learningHelp(L10n.text("Start with a blank page"))
+                        }
                     }
-                }.padding(24).padding(.bottom, -16)
-            }
-            if showSample {
-                SampleBookCard(isAdding: isApplying) {
-                    guard !isApplying, let onAddSample else { return }
-                    isApplying = true; actionError = nil
-                    actionTask = Task {
-                        defer { isApplying = false }
-                        do { try await onAddSample(.sicp); dismiss() }
-                        catch is CancellationError { }
-                        catch { actionError = error.localizedDescription }
+                    if size.width >= 920 && model.selected == nil {
+                        HStack(alignment: .top, spacing: 16) {
+                            starterCards(builtIns: builtIns, showSample: showSample, compact: true)
+                        }
+                    } else {
+                        VStack(spacing: 12) { starterCards(builtIns: builtIns, showSample: showSample, compact: false) }
                     }
-                }.padding(24).padding(.bottom, -16)
-            }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 184, maximum: 260), spacing: 18)], alignment: .leading, spacing: 22) {
-                ForEach(results) { package in
-                    Button {
-                        model.selectedID = package.id
-                        compactDetails = true
-                        actionError = nil
-                    } label: { card(package) }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(package.name + ", " + package.description)
-                        .accessibilityIdentifier("universe.result.\(package.name)")
                 }
+                if !results.isEmpty && (!builtIns.isEmpty || showSample) {
+                    Text(L10n.text("From the community")).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.secondary)
+                }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 174, maximum: 260), spacing: 18)], alignment: .leading, spacing: 22) {
+                    ForEach(results) { package in
+                        Button {
+                            catalogPosition = package.id
+                            model.selectedID = package.id
+                            compactDetails = true
+                            actionError = nil
+                        } label: { card(package) }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(package.name + ", " + package.description)
+                            .accessibilityIdentifier("universe.result.\(package.name)")
+                    }
+                }.scrollTargetLayout()
             }.padding(24)
-        }.overlay {
+        }
+        // Track a card, not a pixel offset: opening details changes both the
+        // grid columns and starter height. The chosen card must stay in view.
+        .scrollPosition(id: $catalogPosition)
+        .overlay {
             if results.isEmpty && !showSample && builtIns.isEmpty {
                 VStack(spacing: 12) {
                     if model.isLoading { ProgressView().controlSize(.small) }
@@ -247,10 +272,32 @@ struct UniverseBrowser: View {
         }
     }
 
+    @ViewBuilder
+    private func starterCards(builtIns: [BuiltInTemplate], showSample: Bool, compact: Bool) -> some View {
+        if builtIns.contains(.welcome) {
+            BuiltInTemplateCard(template: .welcome, isCreating: isApplying, compact: compact) { apply(.welcome) }
+                .frame(maxWidth: .infinity)
+        }
+        if showSample {
+            SampleBookCard(isAdding: isApplying, compact: compact) {
+                guard !isApplying, let onAddSample else { return }
+                isApplying = true; actionError = nil
+                actionTask = Task {
+                    defer { isApplying = false }
+                    do { try await onAddSample(.sicp); dismiss() }
+                    catch where Task.isCancelled { }
+                    catch is CancellationError { }
+                    catch { actionError = error.localizedDescription }
+                }
+            }.frame(maxWidth: .infinity)
+        }
+    }
+
     private func card(_ package: UniversePackage) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             if package.isTemplate {
                 UniversePreview(package: package, cacheURL: previewCacheURL)
+                    .id(model.previewGeneration)
                     .frame(height: 180).frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 5))
                     .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(model.selected?.id == package.id ? Theme.accent.opacity(0.75) : Theme.border.opacity(0.5), lineWidth: 1))
@@ -276,18 +323,20 @@ struct UniverseBrowser: View {
 
     private func details(_ package: UniversePackage, compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            if compact {
-                Button { compactDetails = false } label: {
+            HStack {
+                Button { compactDetails = false; model.selectedID = nil } label: {
                     HStack(spacing: 6) {
                         PhosphorIcon(name: "arrow-left", size: 14)
                         Text(L10n.text("Back to results")).font(.system(size: 12))
                     }.foregroundStyle(Theme.secondary)
-                }.buttonStyle(.plain).padding(.horizontal, 24).padding(.top, 18)
-            }
+                }.buttonStyle(.plain).accessibilityIdentifier("universe.back-results")
+                Spacer()
+            }.padding(.horizontal, 24).padding(.top, 18)
             ScrollView {
                 VStack(alignment: .leading, spacing: 17) {
                     if package.isTemplate {
                         UniversePreview(package: package, cacheURL: previewCacheURL)
+                            .id(model.previewGeneration)
                             .frame(height: compact ? 240 : 175).frame(maxWidth: .infinity)
                             .clipShape(RoundedRectangle(cornerRadius: 5))
                     }
@@ -339,30 +388,30 @@ struct UniverseBrowser: View {
         }.background(Theme.editor.opacity(0.35))
     }
 
-    private var emptyDetails: some View {
-        VStack(spacing: 13) {
-            PhosphorIcon(name: model.mode == .templates ? "file-text" : "package", size: 28).foregroundStyle(Theme.muted)
-            Text(L10n.text("Choose something to explore"))
-                .font(.system(size: 18, design: .serif)).foregroundStyle(Theme.secondary).multilineTextAlignment(.center)
-        }.padding(30).frame(maxHeight: .infinity)
-    }
-
     private var footer: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.border.opacity(0.45)).frame(height: 1)
             HStack(spacing: 10) {
                 if model.isLoading { ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 12, height: 12) }
-                Text(statusText).font(.system(size: 10)).foregroundStyle(model.error == nil ? Theme.muted : Theme.red)
+                Text(statusText).font(.system(size: 10)).foregroundStyle(model.error == nil || model.snapshot != nil ? Theme.muted : Theme.red)
                     .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                if isApplying {
+                    Button(L10n.text("Cancel")) { actionTask?.cancel() }
+                        .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Theme.secondary)
+                        .accessibilityIdentifier("universe.cancel-download")
+                }
                 Text("Typst Universe").font(.system(size: 10)).foregroundStyle(Theme.muted)
                 QuietButton(icon: "arrow-clockwise", help: L10n.text("Refresh Index"), shortcut: "⌘R") {
-                    Task { await model.load(forceRefresh: true) }
-                }.keyboardShortcut("r", modifiers: .command).disabled(model.isLoading)
+                    refreshTask = Task { await model.load(forceRefresh: true) }
+                }.keyboardShortcut("r", modifiers: .command).disabled(model.isLoading || isApplying)
             }.padding(.horizontal, 24).frame(height: 44)
         }
     }
 
     private var statusText: String {
+        if model.snapshot?.source == .bundled {
+            return L10n.text(model.error == nil ? "Browsing the included catalog · Checking for updates…" : "Offline · Browsing the included catalog")
+        }
         if let error = model.error { return error }
         guard let snapshot = model.snapshot else { return L10n.text("Connecting to the catalog…") }
         if snapshot.source == .offlineCache { return L10n.text("Offline · Browsing the saved catalog") }
@@ -385,6 +434,7 @@ struct UniverseBrowser: View {
         actionTask = Task {
             defer { isApplying = false }
             do { try await onCreateBuiltIn(template); dismiss() }
+            catch where Task.isCancelled { }
             catch is CancellationError { }
             catch { actionError = error.localizedDescription }
         }
@@ -399,6 +449,7 @@ struct UniverseBrowser: View {
             actionTask = Task { @MainActor in
                 defer { isApplying = false }
                 do { try await onCreate(package); dismiss() }
+                catch where Task.isCancelled { }
                 catch is CancellationError { }
                 catch { actionError = error.localizedDescription }
             }

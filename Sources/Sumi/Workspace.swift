@@ -200,6 +200,7 @@ final class Workspace: ObservableObject {
             }
         } else {
             text = Self.welcome
+            try? WelcomeDocument.prepareAssets(in: stateDirectory)
             layout = .split
         }
         saveStatus = fileURL == nil ? "Local Draft" : (text == savedText ? "Saved" : "Unsaved Work Restored")

@@ -70,7 +70,10 @@ and uploads `build/benchmarks` plus a job summary. No fixture download is requir
 Each scenario uses production Workspace, NSTextView and real Tinymist:
 
 1. Open a complete source and wait for semantic highlighting; assert a known
-   built-in inside a fenced code block has the embedded-language color.
+   built-in inside a fenced code block has the embedded-language color. Settle
+   the pending native layout and paint the initial viewport before interaction
+   timing starts; report this separately as `initial_presentation_ms` and the
+   total opening-to-ready time as `editor_ready_seconds`.
 2. Jump among six distant offsets, apply styles, force layout and draw the
    visible region into a bitmap. Map a rendered glyph back to a native insertion
    point and check the position, rather than only checking a selection integer.

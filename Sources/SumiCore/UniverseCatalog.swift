@@ -93,7 +93,7 @@ public struct UniverseCategory: Identifiable, Sendable {
 }
 
 public struct UniverseCatalogSnapshot: Sendable {
-    public enum Source: Sendable { case network, cache, offlineCache }
+    public enum Source: Sendable { case network, cache, offlineCache, bundled }
     public let packages: [UniversePackage]
     public let fetchedAt: Date
     public let source: Source
@@ -140,6 +140,19 @@ public actor UniverseCatalogStore {
     private let transport: Transport
     private let now: @Sendable () -> Date
     private static let maximumBytes = 12 * 1_024 * 1_024
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 15
+        return URLSession(configuration: configuration)
+    }()
+    private static let includedSnapshot: UniverseCatalogSnapshot? = {
+        guard let url = L10n.resourceBundle.url(forResource: "universe-index", withExtension: "json"),
+              let data = try? Data(contentsOf: url), data.count <= maximumBytes,
+              let saved = try? JSONDecoder().decode(Cache.self, from: data),
+              let packages = try? latest(saved.packages) else { return nil }
+        return UniverseCatalogSnapshot(packages: packages, fetchedAt: saved.fetchedAt, source: .bundled)
+    }()
 
     public init(cacheURL: URL, transport: @escaping Transport = UniverseCatalogStore.fetch, now: @escaping @Sendable () -> Date = { Date() }) {
         self.cacheURL = cacheURL
@@ -148,9 +161,20 @@ public actor UniverseCatalogStore {
     }
 
     public static func fetch(_ request: URLRequest) async throws -> UniverseHTTPResponse {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (bytes, response) = try await session.bytes(for: request)
+        guard response.expectedContentLength <= maximumBytes else { throw UniverseError.invalidIndex }
+        var data = Data()
+        if response.expectedContentLength > 0 { data.reserveCapacity(Int(response.expectedContentLength)) }
+        for try await byte in bytes {
+            guard data.count < maximumBytes else { throw UniverseError.invalidIndex }
+            data.append(byte)
+        }
         return UniverseHTTPResponse(data: data, statusCode: (response as? HTTPURLResponse)?.statusCode ?? 0)
     }
+
+    /// A release snapshot makes search usable on a first launch without a connection.
+    /// It never pretends to be a fresh network cache or prevents an online refresh.
+    public func bundled() -> UniverseCatalogSnapshot? { Self.includedSnapshot }
 
     public func cached() -> UniverseCatalogSnapshot? {
         guard let data = try? Data(contentsOf: cacheURL), data.count <= Self.maximumBytes,
@@ -165,7 +189,7 @@ public actor UniverseCatalogStore {
         let fallback = cached()
         if !forceRefresh, let fallback, now().timeIntervalSince(fallback.fetchedAt) < Self.cacheLifetime { return fallback }
         do {
-            var request = URLRequest(url: Self.indexURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+            var request = URLRequest(url: Self.indexURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             let response = try await transport(request)
             try Task.checkCancellation()

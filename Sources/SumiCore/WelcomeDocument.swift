@@ -11,6 +11,31 @@ public enum WelcomeDocument {
     }
 
     public static var thumbnailURL: URL? {
-        L10n.resourceBundle.url(forResource: "welcome-cover", withExtension: "png")
+        thumbnailURL(language: L10n.language)
+    }
+
+    public static func thumbnailURL(language: AppLanguage) -> URL? {
+        let suffix = AppLanguage.resolve(language) == .simplifiedChinese ? ".zh-Hans" : ""
+        return L10n.resourceBundle.url(forResource: "welcome-cover" + suffix, withExtension: "png")
+    }
+
+    public static let markFilename = "sumi-mark.svg"
+
+    public static func assets() throws -> [String: Data] {
+        guard let url = L10n.resourceBundle.url(forResource: "sumi-mark", withExtension: "svg") else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return [markFilename: try Data(contentsOf: url)]
+    }
+
+    /// First-launch drafts and exported project copies use an ordinary relative asset.
+    /// An existing author-edited mark always wins over the bundled original.
+    public static func prepareAssets(in directory: URL) throws {
+        for (name, data) in try assets() {
+            let destination = directory.appendingPathComponent(name)
+            if !FileManager.default.fileExists(atPath: destination.path) {
+                try data.write(to: destination, options: .withoutOverwriting)
+            }
+        }
     }
 }

@@ -7,7 +7,7 @@
 #let muted = rgb("66736d")
 #let sage = rgb("dbe6df")
 #set document(title: "给想法一点留白", author: "Sumi")
-#set page(paper: "a4", margin: (x: 25mm, y: 22mm), numbering: "01", number-align: right)
+#set page(paper: "a4", margin: (x: 25mm, y: 22mm), numbering: "01", number-align: center)
 #set text(font: ("Libertinus Serif", "PingFang SC"), size: 11pt, fill: ink)
 #set par(leading: 0.85em)
 #set text(lang: "zh")
@@ -17,8 +17,11 @@
 #show: codly-init.with()
 #codly(display-name: false, display-icon: false, zebra-fill: none)
 
-#text(size: 9pt, tracking: 3pt, fill: muted)[S U M I   /   写作手记]
-#v(14mm)
+#grid(columns: (10mm, 1fr), align: (left, horizon),
+  image("sumi-mark.svg", width: 9mm),
+  text(size: 9pt, tracking: 3pt, fill: muted)[S U M I   /   写作手记],
+)
+#v(9mm)
 = 给想法一点留白
 
 #text(size: 15pt, fill: muted)[从一个想法开始，让它慢慢生长。]

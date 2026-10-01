@@ -60,7 +60,7 @@ private func universeDirectory() throws -> URL {
     let request = try #require(await server.requests.first)
     #expect(request.url == UniverseCatalogStore.indexURL)
     #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
-    #expect(request.timeoutInterval == 20)
+    #expect(request.timeoutInterval == 8)
     #expect(snapshot.search("minimal").first?.license == L10n.text("Unspecified"))
 }
 
