@@ -55,6 +55,12 @@ extension WritingFlowTests {
             #expect(id != previousID)
             previousID = id
             #expect(app.workspace.text == WelcomeDocument.source(language: language))
+            let sourceURL = try #require(app.workspace.fileURL)
+            let originalMark = try WelcomeDocument.assets()[WelcomeDocument.markFilename]
+            #expect(try Data(contentsOf: sourceURL.deletingLastPathComponent().appendingPathComponent(WelcomeDocument.markFilename)) == originalMark)
+            let exported = app.root.appendingPathComponent("welcome-project-\(language.rawValue)")
+            try await app.workspace.library.store.exportProject(id, to: exported)
+            #expect(try Data(contentsOf: exported.appendingPathComponent(WelcomeDocument.markFilename)) == originalMark, "Source export must retain the document's logo asset")
             try await app.ready()
             let pdf = app.root.appendingPathComponent("welcome-\(language.rawValue).pdf")
             try await app.workspace.exportPDF(to: pdf)
@@ -74,6 +80,7 @@ extension WritingFlowTests {
         #expect(fresh.text == WelcomeDocument.source(language: .english))
         #expect(fresh.layout == .split)
         #expect(fresh.text.contains("@preview/cetz:0.5.2"))
+        #expect(FileManager.default.fileExists(atPath: fresh.stateDirectory.appendingPathComponent(WelcomeDocument.markFilename).path))
         fresh.save()
         let recovered = Workspace(stateDirectory: fresh.stateDirectory)
         defer { recovered.shutdown() }

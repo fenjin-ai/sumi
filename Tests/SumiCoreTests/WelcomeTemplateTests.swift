@@ -1,4 +1,5 @@
 import Foundation
+import PDFKit
 import Testing
 import SumiCore
 import SumiTestSupport
@@ -11,6 +12,8 @@ func bundledWelcomeCompilesWithFreshPackagesAndBlockedRegistry() throws {
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let cache = root.appendingPathComponent("packages")
     try BundledPackages.prepare(in: cache, resources: repo.appendingPathComponent("Resources/Packages"))
+    try WelcomeDocument.prepareAssets(in: root)
+    #expect(try Data(contentsOf: root.appendingPathComponent(WelcomeDocument.markFilename)) == Data(contentsOf: repo.appendingPathComponent("Brand/mark-dark.svg")))
     for language in [AppLanguage.english, .simplifiedChinese] {
         let input = root.appendingPathComponent("welcome-\(language.rawValue).typ")
         let output = input.deletingPathExtension().appendingPathExtension("pdf")
@@ -37,6 +40,22 @@ func bundledWelcomeCompilesWithFreshPackagesAndBlockedRegistry() throws {
         process.waitUntilExit()
         #expect(process.terminationStatus == 0)
         #expect(try Data(contentsOf: output).starts(with: Data("%PDF".utf8)))
+        let pdf = try #require(PDFDocument(url: output))
+        #expect(pdf.pageCount == 2)
+        for index in 0..<pdf.pageCount {
+            let page = try #require(pdf.page(at: index))
+            let label = "0\(index + 1)"
+            let pageString = try #require(page.string)
+            let range = (pageString as NSString).range(of: label, options: .backwards)
+            let number = try #require(page.selection(for: range))
+            #expect(abs(number.bounds(for: page).midX - page.bounds(for: .mediaBox).midX) < 2, "Page numbers should be centered")
+        }
+        #expect(WelcomeDocument.thumbnailURL(language: language) != nil)
+        if let artifacts = ProcessInfo.processInfo.environment["SUMI_DISCOVERY_ARTIFACTS"] {
+            let directory = URL(fileURLWithPath: artifacts)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data(contentsOf: output).write(to: directory.appendingPathComponent("welcome-\(language.rawValue).pdf"))
+        }
     }
     #expect(WelcomeDocument.thumbnailURL != nil)
     #expect(BuiltInTemplate.welcome.matches("欢迎 公式"))

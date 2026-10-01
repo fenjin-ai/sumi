@@ -50,7 +50,11 @@ final class LibraryController: ObservableObject {
         }
         else if let workspace, !workspace.isLibraryHome {
             // One-time adoption of the previous single-draft model.
-            do { try await create(title: L10n.text("Welcome"), text: workspace.text) }
+            do {
+                let mark = workspace.stateDirectory.appendingPathComponent(WelcomeDocument.markFilename)
+                let assets = (try? Data(contentsOf: mark)).map { [WelcomeDocument.markFilename: $0] } ?? [:]
+                try await create(title: L10n.text("Welcome"), text: workspace.text, assets: assets)
+            }
             catch { self.error = error.localizedDescription }
         }
         await observeRoot()
@@ -88,16 +92,17 @@ final class LibraryController: ObservableObject {
         }
     }
 
-    func create(title: String? = nil, text: String? = nil, template: DocumentTemplate? = nil) async throws {
+    func create(title: String? = nil, text: String? = nil, template: DocumentTemplate? = nil, assets: [String: Data] = [:]) async throws {
         let selected = template ?? .blank
         let content = text ?? selected.source
-        let document = try await store.create(title: title ?? L10n.text(selected == .codeNotes ? "Code notes" : "Untitled"), text: content)
+        let document = try await store.create(title: title ?? L10n.text(selected == .codeNotes ? "Code notes" : "Untitled"), text: content, assets: assets)
         await refresh()
         try await open(document.id)
     }
 
     func create(builtIn template: BuiltInTemplate) async throws {
-        try await create(title: template == .welcome ? L10n.text("Welcome") : nil, text: template.source)
+        let assets = template == .welcome ? try WelcomeDocument.assets() : [:]
+        try await create(title: template == .welcome ? L10n.text("Welcome") : nil, text: template.source, assets: assets)
         if template == .welcome { workspace?.layout = .split }
     }
 
@@ -111,8 +116,13 @@ final class LibraryController: ObservableObject {
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
         let client = TinymistClient()
         defer { client.stop() }
-        try await client.start(root: staging, outputDirectory: workspace.stateDirectory.appendingPathComponent("Exports"))
-        let project = try await UniverseTemplateInstaller.materialize(package, using: client, in: staging)
+        let project = try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            try await client.start(root: staging, outputDirectory: workspace.stateDirectory.appendingPathComponent("Exports"))
+            return try await UniverseTemplateInstaller.materialize(package, using: client, in: staging)
+        } onCancel: {
+            Task { @MainActor in client.stop() }
+        }
         defer { try? FileManager.default.removeItem(at: project.directoryURL) }
         try Task.checkCancellation()
         let document = try await store.importProject(at: project.directoryURL, mainFile: project.mainFileURL, title: package.name)

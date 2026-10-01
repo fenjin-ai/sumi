@@ -691,3 +691,7 @@
 "Collapsed" = "已折叠";
 "Preview stopped unexpectedly. Reconnect typesetting to try again." = "预览意外停止，请重新连接排版服务后重试。";
 "Light" = "浅色";
+"From Sumi" = "从 Sumi 开始";
+"From the community" = "来自社区";
+"Browsing the included catalog · Checking for updates…" = "浏览内置目录 · 正在检查更新……";
+"Offline · Browsing the included catalog" = "离线 · 浏览内置目录";

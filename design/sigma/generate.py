@@ -184,6 +184,8 @@ def main():
     (root / "Resources/AppIcon.svg").write_text(logo)
     (brand / "mark-light.svg").write_text(svg(mark()))
     (brand / "mark-dark.svg").write_text(svg(mark(ink=PAPER)))
+    for destination in [root / "Examples/sumi-mark.svg", root / "Sources/SumiCore/Resources/Templates/sumi-mark.svg"]:
+        destination.write_text(svg(mark(ink=PAPER)))
     (brand / "social-preview.svg").write_text(social_preview())
     (web / "favicon.svg").write_text(svg(tile(compact=True)))
     manifest = {

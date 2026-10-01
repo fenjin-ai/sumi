@@ -41,9 +41,14 @@ extension WritingFlowTests {
         _ = try await store.load()
         let model = UniverseBrowserModel(store: store, mode: .templates)
         await model.load()
+        #expect(model.selected == nil, "Opening the gallery must not select an unseen community template")
         model.query = "简历"
+        #expect(model.results.first?.name == "basic-resume")
+        #expect(model.selected == nil)
+        model.selectedID = "basic-resume"
         #expect(model.selected?.name == "basic-resume")
         model.query = ""
+        #expect(model.selected == nil)
         model.group = "research"
         #expect(model.results.map(\.name) == ["research-paper"])
         model.changeMode(.packages)
@@ -135,7 +140,8 @@ extension WritingFlowTests {
         await model.load()
         #expect(model.results.map(\.name) == ["cetz", "fletcher"])
         model.query = "flowchart"
-        #expect(model.selected?.name == "fletcher")
+        #expect(model.results.first?.name == "fletcher")
+        #expect(model.selected == nil)
         model.query = ""
         model.selectedID = "fletcher"
         #expect(model.selected?.reference == "@preview/fletcher:0.5.8")
@@ -153,7 +159,9 @@ extension WritingFlowTests {
         let uncached = UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: app.root.appendingPathComponent("absent.json"), transport: { _ in throw URLError(.notConnectedToInternet) }))
         await uncached.load()
         #expect(uncached.error != nil)
-        #expect(uncached.results.isEmpty)
+        #expect(uncached.snapshot?.source == .bundled)
+        #expect(uncached.results.contains { $0.name == "cetz" })
+        #expect(uncached.selected == nil)
     }
     @Test(.enabled(if: ProcessInfo.processInfo.environment["SUMI_UNIVERSE_NETWORK"] == "1"))
     func officialTemplateGalleryLoadsRealThumbnails() async throws {
@@ -188,4 +196,122 @@ extension WritingFlowTests {
         #expect(app.workspace.text == "= Keep writing\n")
     }
 
+}
+
+private actor DiscoveryNetworkGate {
+    private var continuation: CheckedContinuation<UniverseHTTPResponse, Error>?
+    private(set) var requests: [URLRequest] = []
+    private(set) var cancellations = 0
+
+    func send(_ request: URLRequest) async throws -> UniverseHTTPResponse {
+        requests.append(request)
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                if Task.isCancelled { continuation.resume(throwing: CancellationError()) }
+                else { self.continuation = continuation }
+            }
+        } onCancel: {
+            Task { await self.cancel() }
+        }
+    }
+    func complete(_ response: UniverseHTTPResponse) {
+        continuation?.resume(returning: response)
+        continuation = nil
+    }
+    private func cancel() {
+        cancellations += 1
+        continuation?.resume(throwing: CancellationError())
+        continuation = nil
+    }
+}
+
+extension WritingFlowTests {
+    @Test func discoveryRemainsSearchableWhileRefreshingAndTabChangesDoNotRequestAgain() async throws {
+        let app = try WritingFixture(text: "= Slow connection\n", startService: false)
+        defer { app.close() }
+        let cache = app.root.appendingPathComponent("slow-index.json")
+        let old = Date().addingTimeInterval(-UniverseCatalogStore.cacheLifetime - 1)
+        let fixtureData = Self.index
+        _ = try await UniverseCatalogStore(cacheURL: cache, transport: { _ in UniverseHTTPResponse(data: fixtureData, statusCode: 200) }, now: { old }).load()
+        let network = DiscoveryNetworkGate()
+        let model = UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: cache, transport: { try await network.send($0) }))
+        let refresh = Task { await model.load() }
+        defer { refresh.cancel() }
+        for _ in 0..<100 where await network.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(await network.requests.count == 1)
+        #expect(model.isLoading)
+        #expect(model.snapshot?.source == .cache)
+        #expect(model.results.count == 2, "The saved catalog must be visible before a slow server answers")
+        model.query = "diagram"
+        model.selectedID = "cetz"
+        #expect(model.selected?.name == "cetz")
+        for _ in 0..<20 {
+            model.changeMode(.templates)
+            #expect(model.selected == nil)
+            model.changeMode(.packages)
+            model.group = "draw"
+        }
+        #expect(model.results.count == 2)
+        #expect(await network.requests.count == 1, "Search, filters and tabs share one local index")
+        await network.complete(UniverseHTTPResponse(data: Data(), statusCode: 503))
+        await refresh.value
+        #expect(model.snapshot?.source == .offlineCache)
+        #expect(model.results.count == 2)
+        #expect(!model.isLoading)
+        #expect(app.workspace.text == "= Slow connection\n")
+
+        let retry = Task { await model.load(forceRefresh: true) }
+        for _ in 0..<100 where await network.requests.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+        retry.cancel()
+        await retry.value
+        #expect(!model.isLoading)
+        #expect(model.error == nil, "Closing a pending refresh is not an offline error")
+        #expect(model.results.count == 2)
+        #expect(await network.cancellations == 1)
+    }
+
+    @Test func firstLaunchCanBrowseBundledCatalogBeforeNetworkReturns() async throws {
+        let app = try WritingFixture(text: "= First launch offline\n", startService: false)
+        defer { app.close() }
+        let network = DiscoveryNetworkGate()
+        let model = UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: app.root.appendingPathComponent("new-index.json"), transport: { try await network.send($0) }), mode: .templates)
+        let refresh = Task { await model.load() }
+        defer { refresh.cancel() }
+        for _ in 0..<100 where await network.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(model.isLoading)
+        #expect(model.snapshot?.source == .bundled)
+        model.query = "简历"
+        #expect(model.results.contains { $0.name == "basic-resume" })
+        #expect(model.selected == nil)
+        model.changeMode(.packages)
+        model.query = "代码"
+        #expect(model.results.contains { $0.name == "codly" })
+        await network.complete(UniverseHTTPResponse(data: Self.index, statusCode: 200))
+        await refresh.value
+        #expect(model.snapshot?.source == .network)
+        #expect(!model.isLoading)
+    }
+
+    @Test func previewDownloadsCancelOffscreenReadersAndAllowImmediateRetry() async throws {
+        let app = try WritingFixture(text: "= Preview cancellation\n", startService: false)
+        defer { app.close() }
+        let cache = app.root.appendingPathComponent("previews")
+        let network = DiscoveryNetworkGate()
+        let loader = UniversePreviewLoader(transport: { try await network.send($0) })
+        let url = URL(string: "https://packages.typst.org/preview/thumbnails/example-1.0.0-small.webp")!
+        let first = Task { await loader.data(for: url, cacheURL: cache) }
+        for _ in 0..<100 where await network.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        first.cancel()
+        #expect(await first.value == nil)
+        for _ in 0..<100 where await network.cancellations == 0 { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(await network.cancellations == 1, "A scrolled-off image must not keep downloading in the background")
+        let retry = Task { await loader.data(for: url, cacheURL: cache) }
+        for _ in 0..<100 where await network.requests.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(await network.requests.count == 2, "Cancellation must not trigger the failure cooldown")
+        let bytes = Data("preview bytes".utf8)
+        await network.complete(UniverseHTTPResponse(data: bytes, statusCode: 200))
+        #expect(await retry.value == bytes)
+        #expect(await loader.data(for: URL(string: "https://example.com/private-image")!, cacheURL: cache) == nil)
+        #expect(await network.requests.count == 2)
+    }
 }
