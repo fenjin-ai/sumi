@@ -39,7 +39,7 @@ import Testing
     let bold = try TypstInsertion.make("bold", selection: value)
     #expect(bold.text == "*«中文😀»*")
     #expect(bold.selections.isEmpty)
-    let list = try TypstInsertion.make("bullet", selection: value)
+    let list = try TypstInsertion.make("bullet", selection: value, language: .simplifiedChinese)
     #expect((list.text as NSString).substring(with: list.selections[0]) == "第二项")
     let image = try TypstInsertion.make("image", values: ["path": "图«一».png", "caption": "«说明»"])
     #expect(image.text.contains("图«一».png"))
@@ -69,7 +69,7 @@ import Testing
 
 @Test func blockInsertionDoesNotMergeWithParagraph() throws {
     let command = WritingCommand.all.first { $0.id == "heading" }!
-    let plan = InsertionPlan(command: command, snippet: try TypstInsertion.make("heading"), text: "beforeafter", selection: NSRange(location: 6, length: 0))
+    let plan = InsertionPlan(command: command, snippet: try TypstInsertion.make("heading", language: .simplifiedChinese), text: "beforeafter", selection: NSRange(location: 6, length: 0))
     #expect(plan.snippet.text == "\n\n= 标题\n\n")
     #expect((plan.snippet.text as NSString).substring(with: plan.snippet.selections[0]) == "标题")
 }
@@ -96,7 +96,7 @@ import Testing
         #expect(Set(keys).count == keys.count)
     }
     #expect(WritingCommand.search("公式").contains { $0.id == "equation" })
-    #expect(WritingCommand.search("export pdf").map(\.id) == ["export"])
+    #expect(WritingCommand.search("export pdf").contains { $0.id == "export" })
 }
 
 @Test func recoveryPreservesDraftAndMainFile() throws {

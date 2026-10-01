@@ -37,6 +37,9 @@ enum IconStore {
         guard let url = directory?.appendingPathComponent("\(name).pdf"), let image = NSImage(contentsOf: url) else {
             missing.insert(name); return nil
         }
+        // Native menu labels may use the NSImage directly and ignore the
+        // surrounding SwiftUI frame. PDF assets have a 256 pt artboard.
+        image.size = NSSize(width: 18, height: 18)
         image.isTemplate = true
         images[name] = image
         return image

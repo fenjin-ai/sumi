@@ -20,15 +20,15 @@ final class Workspace: ObservableObject {
     @Published var fileURL: URL?
     @Published var mainFileURL: URL?
     @Published var savedText: String?
-    @Published var saveStatus = "草稿"
-    @Published var serviceStatus = "正在连接"
+    @Published var saveStatus = "Draft"
+    @Published var serviceStatus = "Connecting"
     @Published var serviceReady = false
     @Published var previewURL: URL?
     @Published var diagnostics: [DiagnosticItem] = []
     @Published var layout: EditorLayout = .writing {
         didSet {
             recordOperation("layout.changed", ["layout": layout.rawValue])
-            editor?.isEditable = layout != .preview && !paletteOpen
+            editor?.isEditable = layout != .preview && !paletteOpen && !documentTransitionInProgress
             if !paletteOpen {
                 editor?.window?.makeFirstResponder(layout == .preview ? nil : editor)
             }
@@ -55,6 +55,11 @@ final class Workspace: ObservableObject {
         didSet { editor?.highlight() }
     }
     @Published var universeOpen = false
+    @Published var libraryOpen = false
+    @Published var documentTemplate: DocumentTemplate = .blank
+    @Published var managedDocumentID: UUID?
+    @Published var managedTitle: String?
+    @Published var documentTransitionInProgress = false
     @Published var previewStale = true
     @Published var hasSuccessfulPreview = false
     @Published var outline: [OutlineItem] = []
@@ -75,12 +80,14 @@ final class Workspace: ObservableObject {
     private var messageTask: Task<Void, Never>?
     private var sentVersion = 0
     let stateDirectory: URL
+    lazy var library = LibraryController(workspace: self)
     private let actionLog: ActionLog?
     private var recoveryURL: URL { stateDirectory.appendingPathComponent("recovery.json") }
     var draftURL: URL { stateDirectory.appendingPathComponent("Draft.typ") }
     var documentURL: URL { fileURL ?? draftURL }
     var compilationURL: URL { mainFileURL ?? documentURL }
-    var title: String { fileURL?.deletingPathExtension().lastPathComponent ?? "未命名文稿" }
+    var title: String { managedTitle ?? fileURL?.deletingPathExtension().lastPathComponent ?? L10n.text("Untitled") }
+    var revision: Int { documentVersion }
     private var textMetrics: DocumentMetrics?
     private var metrics: DocumentMetrics {
         if let textMetrics { return textMetrics }
@@ -131,11 +138,11 @@ final class Workspace: ObservableObject {
         } else {
             text = Self.welcome
         }
-        saveStatus = fileURL == nil ? "本地草稿" : (text == savedText ? "已保存" : "已恢复未保存内容")
+        saveStatus = fileURL == nil ? "Local Draft" : (text == savedText ? "Saved" : "Unsaved Work Restored")
         client.onNotification = { [weak self] method, params in self?.receive(method, params) }
         client.onDisconnect = { [weak self] message in
             self?.recordOperation("service.disconnected", ["reason": message])
-            self?.serviceReady = false; self?.serviceStatus = "连接中断"; self?.message = message
+            self?.serviceReady = false; self?.serviceStatus = "Disconnected"; self?.message = message
         }
         client.onShowDocument = { [weak self] params in self?.showDocument(params) }
     }
@@ -145,7 +152,7 @@ final class Workspace: ObservableObject {
         let generation = UUID()
         serviceGeneration = generation
         serviceReady = false
-        serviceStatus = "正在连接"
+        serviceStatus = "Connecting"
         diagnostics = []
         diagnosticsByURI = [:]
         outline = []
@@ -164,7 +171,7 @@ final class Workspace: ObservableObject {
                 }
                 sentVersion = documentVersion
                 serviceReady = true
-                serviceStatus = "准备就绪"
+                serviceStatus = "Ready"
                 let url = try await client.startPreview(compilationURL)
                 guard serviceGeneration == generation else { return }
                 previewURL = url
@@ -173,7 +180,7 @@ final class Workspace: ObservableObject {
                 await refreshOutline()
             } catch {
                 guard serviceGeneration == generation else { return }
-                serviceStatus = "暂不可用"
+                serviceStatus = "Unavailable"
                 recordOperation("service.failed", ["error": error.localizedDescription])
                 showMessage(error.localizedDescription, persistent: true)
             }
@@ -184,13 +191,13 @@ final class Workspace: ObservableObject {
         text = newText
         documentVersion += 1
         previewStale = true
-        saveStatus = fileURL == nil ? "正在保存草稿" : "尚未保存"
-        if serviceReady { serviceStatus = "正在排版" }
+        saveStatus = fileURL == nil ? "Saving Draft" : "Unsaved"
+        if serviceReady { serviceStatus = "Typesetting" }
         saveTask?.cancel()
         saveTask = Task {
             do { try await Task.sleep(for: .milliseconds(650)) } catch { return }
             let recovered = saveRecovery()
-            if fileURL != nil { save() } else { saveStatus = recovered ? "草稿已保存" : "草稿保存失败" }
+            if fileURL != nil { save() } else { saveStatus = recovered ? "Draft Saved" : "Draft Save Failed" }
         }
         syncTask?.cancel()
         syncTask = Task {
@@ -211,7 +218,7 @@ final class Workspace: ObservableObject {
                     let isHeading = node["kind"].int == 3
                     let start = node["range"]["start"]
                     let position = TextPosition(line: start["line"].int ?? 0, character: start["character"].int ?? 0)
-                    let current = isHeading ? [OutlineItem(title: node["name"].string ?? "标题", level: level, offset: position.offset(in: text))] : []
+                    let current = isHeading ? [OutlineItem(title: node["name"].string ?? L10n.text("Heading"), level: level, offset: position.offset(in: text))] : []
                     return current + headings(node["children"].array, level: isHeading ? level + 1 : level)
                 }
             }
@@ -228,7 +235,7 @@ final class Workspace: ObservableObject {
     @discardableResult func saveRecovery() -> Bool {
         let snapshot = RecoverySnapshot(fileURL: fileURL, text: text, savedText: savedText, selection: selection.location, mainFileURL: mainFileURL)
         do { try JSONEncoder().encode(snapshot).write(to: recoveryURL, options: .atomic); return true }
-        catch { recordOperation("recovery.failed", ["error": error.localizedDescription]); showMessage("无法保存恢复副本：\(error.localizedDescription)", persistent: true); return false }
+        catch { recordOperation("recovery.failed", ["error": error.localizedDescription]); showMessage(L10n.format("Could not save the recovery copy: %@", error.localizedDescription), persistent: true); return false }
     }
 
     func save() {
@@ -236,12 +243,12 @@ final class Workspace: ObservableObject {
         do {
             baseline = try DocumentStorage.write(text, to: fileURL, baseline: baseline)
             savedText = text
-            saveStatus = "已保存"
+            saveStatus = "Saved"
             recordOperation("save.finished")
             saveRecovery()
             try? client.notify("textDocument/didSave", ["textDocument": ["uri": fileURL.absoluteString]])
         } catch {
-            saveStatus = "保存需要处理"
+            saveStatus = "Save Needs Attention"
             recordOperation("save.failed", ["error": error.localizedDescription])
             saveRecovery()
             showMessage(error.localizedDescription, persistent: true)
@@ -258,9 +265,10 @@ final class Workspace: ObservableObject {
     func saveAs() {
         recordOperation("saveAs.dialog")
         let panel = NSSavePanel()
-        panel.title = "保存文稿"
-        panel.nameFieldStringValue = fileURL?.lastPathComponent ?? "未命名.typ"
-        panel.directoryURL = fileURL?.deletingLastPathComponent()
+        panel.title = L10n.text("Save Document")
+        panel.nameFieldStringValue = managedTitle.map { $0.replacingOccurrences(of: "/", with: "-") + ".typ" }
+            ?? fileURL?.lastPathComponent ?? L10n.text("Untitled.typ")
+        panel.directoryURL = managedDocumentID == nil ? fileURL?.deletingLastPathComponent() : nil
         panel.allowedContentTypes = [UTType(filenameExtension: "typ") ?? .plainText]
         present(panel) { [weak self] url in
             guard let self else { return }
@@ -272,7 +280,8 @@ final class Workspace: ObservableObject {
 
     func save(to url: URL) throws {
         baseline = try DocumentStorage.write(text, to: url, baseline: url == fileURL ? baseline : nil)
-        fileURL = url; mainFileURL = nil; savedText = text; saveStatus = "已保存"
+        fileURL = url; mainFileURL = nil; savedText = text; saveStatus = "Saved"
+        library.associate(url)
         recordOperation("saveAs.finished")
         saveRecovery(); onTitleChange?(title); startService()
     }
@@ -280,7 +289,7 @@ final class Workspace: ObservableObject {
     func openPanel(recovery: Bool = false) {
         recordOperation("open.dialog", ["recovery": String(recovery)])
         let panel = NSOpenPanel()
-        panel.title = recovery ? "恢复草稿副本" : "打开 Typst 文稿"
+        panel.title = recovery ? L10n.text("Recover Draft Copy") : L10n.text("Open Document")
         panel.directoryURL = recovery ? stateDirectory : fileURL?.deletingLastPathComponent()
         panel.allowedContentTypes = [UTType(filenameExtension: "typ") ?? .plainText, .plainText]
         panel.allowsMultipleSelection = false
@@ -296,7 +305,7 @@ final class Workspace: ObservableObject {
             let backup = stateDirectory.appendingPathComponent("Draft-\(date)-\(UUID().uuidString.prefix(6)).typ")
             do {
                 _ = try DocumentStorage.write(text, to: backup, baseline: nil)
-                showMessage("原文稿已保留。通过「文件 → 恢复草稿副本」可重新打开。")
+                showMessage(L10n.text("Your previous document is preserved. Reopen it from Documents → Recover Draft Copy."))
             } catch { showMessage(error.localizedDescription, persistent: true); return false }
         }
         return true
@@ -310,9 +319,10 @@ final class Workspace: ObservableObject {
             let previousMain = compilationURL
             mainFileURL = preservingMain && url != previousMain ? previousMain : nil
             fileURL = url; text = content; savedText = content; baseline = disk
+            library.associate(url)
             documentVersion += 1; selection = NSRange(location: 0, length: 0)
             editor?.load(content, selection: selection)
-            saveStatus = "已保存"
+            saveStatus = "Saved"
             saveRecovery(); onTitleChange?(title); startService()
             return true
         } catch { showMessage(error.localizedDescription, persistent: true); return false }
@@ -320,13 +330,7 @@ final class Workspace: ObservableObject {
 
     func newDocument() {
         recordOperation("document.new")
-        guard preserveCurrent() else { return }
-        fileURL = nil; mainFileURL = nil; baseline = nil; savedText = nil
-        text = "#set text(font: (\"New York\", \"PingFang SC\"), size: 11pt)\n#set page(margin: 24mm)\n#set heading(numbering: \"1.\")\n\n= 新的开始\n\n"
-        documentVersion += 1; selection = NSRange(location: text.utf16.count, length: 0)
-        editor?.load(text, selection: selection)
-        saveStatus = saveRecovery() ? "草稿已保存" : "草稿保存失败"
-        onTitleChange?(title); startService()
+        library.perform { try await self.library.create() }
     }
 
     func reload() {
@@ -337,9 +341,47 @@ final class Workspace: ObservableObject {
             let (content, disk) = try DocumentStorage.read(fileURL)
             text = content; savedText = content; baseline = disk; documentVersion += 1
             editor?.load(content, selection: NSRange(location: 0, length: 0))
-            saveStatus = "已保存"; saveRecovery(); startService()
-            showMessage("已读取磁盘版本，原编辑内容已保留为草稿副本。")
+            saveStatus = "Saved"; saveRecovery(); startService()
+            showMessage(L10n.text("Loaded the disk version. Your edits are preserved in a draft copy."))
         } catch { showMessage(error.localizedDescription, persistent: true) }
+    }
+
+    /// Incorporate an external save without replacing the text view or moving the
+    /// viewport. Conflicting paragraphs stay in the live buffer and recovery file.
+    func refreshFromLibrary() async {
+        guard managedDocumentID != nil, let url = fileURL, let base = savedText,
+              !documentTransitionInProgress, editor?.hasMarkedText() != true else { return }
+        let result = await Task.detached { try? DocumentStorage.read(url) }.value
+        guard let (remote, disk) = result, fileURL == url, savedText == base, remote != base else { return }
+        let local = text, caret = selection, version = documentVersion
+        let merge = await Task.detached(priority: .utility) {
+            DocumentMerge.merge(base: base, local: local, remote: remote, selection: caret)
+        }.value
+        guard fileURL == url, savedText == base, documentVersion == version,
+              selection == caret, editor?.hasMarkedText() != true, !documentTransitionInProgress else { return }
+        guard let merged = merge else {
+            saveRecovery()
+            showMessage(L10n.text("This paragraph changed on another device. Your writing is safe; resolve the conflict before saving."), persistent: true)
+            return
+        }
+        let scrollView = editor?.enclosingScrollView
+        let origin = scrollView?.contentView.bounds.origin
+        let wasClean = text == base
+        baseline = disk
+        savedText = remote
+        guard merged.text != text else { saveStatus = "Saved"; saveRecovery(); return }
+        if let editor {
+            editor.insertSnippet(Snippet(text: merged.text), replacing: NSRange(location: 0, length: text.utf16.count), focus: false)
+            editor.undoManager?.setActionName(L10n.text("Sync update"))
+            editor.setSelectedRange(merged.selection)
+        } else { edited(merged.text); selection = merged.selection }
+        if wasClean { saveStatus = "Saved" }
+        if let origin {
+            scrollView?.contentView.scroll(to: origin)
+            if let clip = scrollView?.contentView { scrollView?.reflectScrolledClipView(clip) }
+        }
+        saveRecovery()
+        recordOperation("document.remoteUpdate", ["merged": String(!wasClean)])
     }
 
     func togglePalette() {
@@ -354,7 +396,7 @@ final class Workspace: ObservableObject {
     func closePalette() {
         recordOperation("palette.close")
         paletteOpen = false; activeCommand = nil; commandError = nil
-        editor?.isEditable = layout != .preview
+        editor?.isEditable = layout != .preview && !documentTransitionInProgress
         if layout != .preview, let editor { editor.window?.makeFirstResponder(editor) }
     }
     func backPalette() {
@@ -417,7 +459,10 @@ final class Workspace: ObservableObject {
         case "fontLarger": closePalette(); fontSize = min(28, fontSize + 1)
         case "fontSmaller": closePalette(); fontSize = max(12, fontSize - 1)
         case "new": closePalette(); newDocument()
-        case "open": closePalette(); openPanel()
+        case "newCodeNotes": closePalette(); library.perform { try await self.library.create(template: .codeNotes) }
+        case "open": closePalette(); libraryOpen = true
+        case "importDocument": closePalette(); library.importPanel()
+        case "revealSource": closePalette(); NSWorkspace.shared.activateFileViewerSelecting([documentURL])
         case "save": closePalette(); save()
         case "saveAs": closePalette(); saveAs()
         case "reload": closePalette(); reload()
@@ -465,7 +510,7 @@ final class Workspace: ObservableObject {
                     return TextReplacement(range: NSRange(location: start, length: end - start), text: edit["newText"].string ?? "")
                 }
                 let formatted = try TextEditing.applying(replacements, to: text)
-                guard formatted != text else { showMessage("文稿格式已经整齐。"); return }
+                guard formatted != text else { showMessage(L10n.text("The document is already formatted.")); return }
                 editor.insertSnippet(Snippet(text: formatted), replacing: NSRange(location: 0, length: text.utf16.count))
                 editor.setSelectedRange(NSRange(location: min(caret.location, formatted.utf16.count), length: 0))
                 recordOperation("document.formatted")
@@ -474,10 +519,10 @@ final class Workspace: ObservableObject {
     }
 
     func importPackage(_ package: UniversePackage) throws {
-        guard let editor, !editor.hasMarkedText() else { throw CommandError.invalid("请先完成当前输入，再插入包。") }
-        guard package.isCompatible(with: "0.15.1") else { throw CommandError.invalid("这个版本需要更新的 Typst。请在 Universe 查看兼容版本。") }
+        guard let editor, !editor.hasMarkedText() else { throw CommandError.invalid(L10n.text("Finish the current input before inserting a package.")) }
+        guard package.isCompatible(with: "0.15.1") else { throw CommandError.invalid(L10n.text("This version requires a newer Typst. Check Universe for a compatible version.")) }
         let snippet = try package.pinnedImport()
-        if text.contains(TypstInsertion.quoted(package.reference)) { throw CommandError.invalid("文稿已经包含这个版本的包。") }
+        if text.contains(TypstInsertion.quoted(package.reference)) { throw CommandError.invalid(L10n.text("This package version is already imported.")) }
         if layout == .preview { layout = .split }
         editor.insertSnippet(snippet.padded(before: "", after: "\n"), replacing: NSRange(location: 0, length: 0))
         recordOperation("package.imported", ["package": package.reference])
@@ -485,7 +530,7 @@ final class Workspace: ObservableObject {
 
     private func insert(_ command: WritingCommand) {
         guard !applyingCommand, let editor, !editor.hasMarkedText() else { return }
-        guard serviceReady else { commandError = "排版服务尚未就绪，暂时无法判断插入位置。你仍可直接编辑文字。"; return }
+        guard serviceReady else { commandError = L10n.text("The typesetting service is not ready to check the insertion position. You can still edit directly."); return }
         let range = editor.selectedRange()
         let version = documentVersion, generation = serviceGeneration
         let values = fieldValues
@@ -504,7 +549,7 @@ final class Workspace: ObservableObject {
                     let result = try await client.command("tinymist.interactCodeContext", arguments: [["textDocument": ["uri": documentURL.absoluteString], "query": queries]])
                     let modes = result.array.compactMap { $0["mode"].string }
                     guard modes.count == queries.count, Set(modes).count == 1, modes.allSatisfy(command.acceptsContext) else {
-                        throw CommandError.invalid(command.supportsMath ? "请在正文或同一个公式内插入，避免跨越代码或注释区域。" : "这个命令用于正文。当前位置属于公式、代码或注释，请回到正文后插入；现有内容未被修改。")
+                        throw CommandError.invalid(command.supportsMath ? L10n.text("Insert within body text or a single equation, without crossing code or comments.") : L10n.text("This command works in body text. Move out of equations, code or comments and try again. Your text is unchanged."))
                     }
                     insertionContext = modes.first == "math" ? .math : .markup
                 }
@@ -542,10 +587,11 @@ final class Workspace: ObservableObject {
 
     func exportPDF() {
         recordOperation("export.dialog")
-        guard serviceReady, !exporting else { showMessage("请等待排版服务准备就绪。"); return }
+        guard serviceReady, !exporting else { showMessage(L10n.text("Please wait for the typesetting service to be ready.")); return }
         let panel = NSSavePanel()
-        panel.title = "导出 PDF"
-        panel.nameFieldStringValue = compilationURL.deletingPathExtension().lastPathComponent + ".pdf"
+        panel.title = L10n.text("Export PDF")
+        panel.nameFieldStringValue = (managedTitle?.replacingOccurrences(of: "/", with: "-")
+            ?? compilationURL.deletingPathExtension().lastPathComponent) + ".pdf"
         panel.allowedContentTypes = [.pdf]
         present(panel) { [weak self] destination in
             Task { @MainActor in
@@ -557,7 +603,7 @@ final class Workspace: ObservableObject {
     }
 
     func exportPDF(to destination: URL) async throws {
-        guard serviceReady, !exporting else { throw ServiceError.remote("请等待排版服务准备就绪。") }
+        guard serviceReady, !exporting else { throw ServiceError.remote(L10n.text("Please wait for the typesetting service to be ready.")) }
         recordOperation("export.begin")
         exporting = true
         defer { exporting = false }
@@ -565,12 +611,12 @@ final class Workspace: ObservableObject {
                 try flushChanges()
                 let version = documentVersion
                 let result = try await client.command("tinymist.exportPdf", arguments: [compilationURL.path])
-                guard let path = result["path"].string else { throw ServiceError.remote("文稿无法编译，请先处理错误后再导出。") }
+                guard let path = result["path"].string else { throw ServiceError.remote(L10n.text("The document cannot be compiled. Resolve the errors before exporting.")) }
                 let data = try Data(contentsOf: URL(fileURLWithPath: path))
-                guard data.starts(with: Data("%PDF".utf8)) else { throw ServiceError.remote("排版服务未生成有效 PDF。") }
+                guard data.starts(with: Data("%PDF".utf8)) else { throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF.")) }
                 try data.write(to: destination, options: .atomic)
                 recordOperation("export.finished", ["exportedVersion": String(version)])
-                showMessage(version == documentVersion ? "PDF 已导出：\(destination.lastPathComponent)" : "PDF 已导出（导出开始时的文稿版本）。")
+                showMessage(version == documentVersion ? L10n.format("PDF exported: %@", destination.lastPathComponent) : L10n.text("PDF exported using the document version from when export began."))
             } catch { recordOperation("export.failed", ["error": error.localizedDescription]); throw error }
     }
 
@@ -593,27 +639,27 @@ final class Workspace: ObservableObject {
         if method == "textDocument/publishDiagnostics", let uri = params["uri"].string, let url = URL(string: uri), url.isFileURL {
             if url == documentURL, let version = params["version"].int, version < documentVersion { return }
             diagnosticsByURI[uri] = params["diagnostics"].array.map { item in
-                DiagnosticItem(message: item["message"].string ?? "未知问题", severity: item["severity"].int ?? 1,
+                DiagnosticItem(message: item["message"].string ?? L10n.text("Unknown Issue"), severity: item["severity"].int ?? 1,
                     position: TextPosition(line: item["range"]["start"]["line"].int ?? 0, character: item["range"]["start"]["character"].int ?? 0), url: url)
             }
             diagnostics = diagnosticsByURI.keys.sorted().flatMap { diagnosticsByURI[$0] ?? [] }
             recordOperation("diagnostics.updated", ["count": String(diagnostics.count)])
             if diagnostics.contains(where: { $0.severity == 1 }) {
                 previewStale = true
-                serviceStatus = hasSuccessfulPreview ? "保留上次成稿 · 请检查源码" : "文稿需要检查"
+                serviceStatus = hasSuccessfulPreview ? "Showing Last Preview · Check Source" : "Document Needs Attention"
             }
         } else if method == "tinymist/compileStatus" || method == "tinymist/status" {
             recordOperation("compile.status", ["status": params["status"].string ?? "unknown"])
             if let status = params["status"].string {
                 switch status {
-                case "compiling": previewStale = true; serviceStatus = "正在排版"
+                case "compiling": previewStale = true; serviceStatus = "Typesetting"
                 case "compileError":
                     previewStale = true
-                    serviceStatus = hasSuccessfulPreview ? "保留上次成稿 · 请检查源码" : "文稿需要检查"
+                    serviceStatus = hasSuccessfulPreview ? "Showing Last Preview · Check Source" : "Document Needs Attention"
                 case "compileSuccess":
                     hasSuccessfulPreview = true
                     previewStale = documentVersion != sentVersion
-                    serviceStatus = previewStale ? "正在排版" : "排版已更新"
+                    serviceStatus = previewStale ? "Typesetting" : "Preview Updated"
                 default: break
                 }
             }
@@ -647,15 +693,15 @@ final class Workspace: ObservableObject {
         if fileURL != nil, text != savedText { save() }
         if saveRecovery() { return true }
         let alert = NSAlert()
-        alert.messageText = "文稿尚未安全保存"
-        alert.informativeText = "无法写入恢复副本。请保存到一个可写的位置后再退出。"
-        alert.addButton(withTitle: "返回文稿")
-        alert.addButton(withTitle: "另存为…")
+        alert.messageText = L10n.text("Your Document Has Not Been Saved Safely")
+        alert.informativeText = L10n.text("The recovery copy could not be written. Save to a writable location before quitting.")
+        alert.addButton(withTitle: L10n.text("Return to Document"))
+        alert.addButton(withTitle: L10n.text("Save As…"))
         if alert.runModal() == .alertSecondButtonReturn { saveAs() }
         return false
     }
 
-    func shutdown() { recordOperation("session.end"); saveTask?.cancel(); syncTask?.cancel(); client.stop() }
+    func shutdown() { recordOperation("session.end"); saveTask?.cancel(); syncTask?.cancel(); library.stop(); client.stop() }
 
     func recordOperation(_ event: String, _ fields: [String: String] = [:]) {
         var context = fields
@@ -676,45 +722,10 @@ final class Workspace: ObservableObject {
     }
 
     func revealLogs() {
-        guard let actionLog else { showMessage("诊断日志目录暂时不可写。", persistent: true); return }
+        guard let actionLog else { showMessage(L10n.text("The diagnostic log folder is not writable."), persistent: true); return }
         recordOperation("logs.reveal")
         NSWorkspace.shared.activateFileViewerSelecting([actionLog.fileURL])
     }
 
-    static let welcome = """
-    #set page(paper: "a4", margin: 24mm)
-    #set text(font: ("New York", "PingFang SC"), size: 11pt)
-    #set par(leading: 0.8em)
-    #set heading(numbering: "1.")
-
-    = 给想法一点留白
-
-    好的文字，始于一个安静的地方。
-
-    Sumi 是你的写作空间。在这里，文字保留原本的样子，
-    排版自然发生。把注意力交给想法，剩下的慢慢来。
-
-    == 从一句话开始
-
-    写下你正在思考的事情。不必急着整理，也不必记住所有语法。
-    按下 *⌘J*，发现此刻用得上的工具。
-
-    - 用标题梳理思路
-    - 用图片和表格解释细节
-    - 用一个公式，表达一个简洁的关系
-
-    $ E = m c^2 $
-
-    == 看见文字的另一面
-
-    切换到并排预览，看看文字在纸面上如何呼吸。
-    每一处修改，都会成为成稿的一部分。
-
-    #quote(block: true)[
-      简洁，是让重要的东西清晰可见。
-    ]
-
-    // 你的下一段，从这里开始。
-
-    """
+    static var welcome: String { WelcomeDocument.source() }
 }

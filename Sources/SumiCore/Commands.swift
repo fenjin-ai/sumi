@@ -3,40 +3,44 @@ import Foundation
 public struct CommandGroup: Identifiable, Sendable {
     public let id: String
     public let key: String
-    public let title: String
-    public let subtitle: String
+    private let titleKey: String
+    public var title: String { L10n.text(titleKey) }
+    private let subtitleKey: String
+    public var subtitle: String { L10n.text(subtitleKey) }
     public let icon: String
     public let parentID: String?
 
     public init(id: String, key: String, title: String, subtitle: String, icon: String, parentID: String? = nil) {
-        self.id = id; self.key = key; self.title = title; self.subtitle = subtitle
+        self.id = id; self.key = key; self.titleKey = title; self.subtitleKey = subtitle
         self.icon = icon; self.parentID = parentID
     }
 
     public static var roots: [Self] { children(of: nil) }
     public static func children(of parentID: String?) -> [Self] { all.filter { $0.parentID == parentID } }
     public static let all: [Self] = [
-        .init(id: "insert", key: "i", title: "插入内容", subtitle: "标题、图片、公式与表格", icon: "plus-circle"),
-        .init(id: "style", key: "s", title: "文字样式", subtitle: "让文字有恰当的强调", icon: "text-aa"),
-        .init(id: "page", key: "p", title: "纸张设置", subtitle: "纸张、页边距与页码", icon: "file"),
-        .init(id: "math", key: "m", title: "数学", subtitle: "从分式到矩阵，逐层发现", icon: "sigma"),
-        .init(id: "layout", key: "l", title: "文稿排版", subtitle: "文稿中的分栏、对齐与容器", icon: "layout"),
-        .init(id: "references", key: "r", title: "引用与目录", subtitle: "引文、书目与文章导航", icon: "books"),
-        .init(id: "code", key: "c", title: "编辑与代码", subtitle: "编辑操作、代码与 Universe", icon: "brackets-curly"),
-        .init(id: "view", key: "v", title: "工作空间", subtitle: "编辑器、预览与辅助工具", icon: "desktop"),
-        .init(id: "file", key: "f", title: "文件", subtitle: "打开、保存与导出", icon: "folder-open"),
-        .init(id: "math-basic", key: "b", title: "基本运算", subtitle: "分式、根式与上下标", icon: "function", parentID: "math"),
-        .init(id: "math-structures", key: "s", title: "公式结构", subtitle: "矩阵、分段函数与微积分", icon: "grid-four", parentID: "math"),
-        .init(id: "math-symbols", key: "y", title: "符号与字形", subtitle: "希腊字母、集合与向量", icon: "pi", parentID: "math")
+        .init(id: "insert", key: "i", title: "Insert", subtitle: "Headings, images, equations and tables", icon: "plus-circle"),
+        .init(id: "style", key: "s", title: "Text Style", subtitle: "Give your words the right emphasis", icon: "text-aa"),
+        .init(id: "page", key: "p", title: "Page Setup", subtitle: "Paper, margins and page numbers", icon: "file"),
+        .init(id: "math", key: "m", title: "Mathematics", subtitle: "Discover fractions, matrices and more", icon: "sigma"),
+        .init(id: "layout", key: "l", title: "Typesetting", subtitle: "Columns, alignment and containers", icon: "layout"),
+        .init(id: "references", key: "r", title: "References", subtitle: "Citations, bibliography and contents", icon: "books"),
+        .init(id: "code", key: "c", title: "Editing & Code", subtitle: "Editing, code and Universe packages", icon: "brackets-curly"),
+        .init(id: "view", key: "v", title: "Workspace", subtitle: "Editor, preview and writing tools", icon: "desktop"),
+        .init(id: "file", key: "f", title: "Documents", subtitle: "Open, save and export", icon: "folder-open"),
+        .init(id: "math-basic", key: "b", title: "Basic Operations", subtitle: "Fractions, roots and scripts", icon: "function", parentID: "math"),
+        .init(id: "math-structures", key: "s", title: "Equation Structures", subtitle: "Matrices, cases and calculus", icon: "grid-four", parentID: "math"),
+        .init(id: "math-symbols", key: "y", title: "Symbols & Letterforms", subtitle: "Greek letters, sets and vectors", icon: "pi", parentID: "math")
     ]
 }
 
 public struct CommandField: Identifiable, Sendable {
     public let id: String
-    public let title: String
-    public let initial: String
+    private let titleKey: String
+    public var title: String { L10n.text(titleKey) }
+    private let initialValue: String
+    public var initial: String { L10n.text(initialValue) }
     public init(_ id: String, _ title: String, _ initial: String) {
-        self.id = id; self.title = title; self.initial = initial
+        self.id = id; self.titleKey = title; self.initialValue = initial
     }
 }
 
@@ -47,8 +51,10 @@ public struct WritingCommand: Identifiable, Sendable {
     public let id: String
     public let group: String
     public let key: String
-    public let title: String
-    public let detail: String
+    private let titleKey: String
+    public var title: String { L10n.text(titleKey) }
+    private let detailKey: String
+    public var detail: String { L10n.text(detailKey) }
     public let keywords: String
     public let fields: [CommandField]
     public let placement: InsertionPlacement
@@ -60,10 +66,13 @@ public struct WritingCommand: Identifiable, Sendable {
         guard isInsertion else { return nil }
         return URL(string: "https://typst.app/docs/reference/" + (documentationPath ?? Self.documentationPath(for: id)))
     }
-    public var example: String? { Self.examples[id] }
-    private static let examples = Dictionary(uniqueKeysWithValues: all.filter(\.isInsertion).compactMap { command in
-        (try? TypstInsertion.make(command.id).text).map { (command.id, $0) }
-    })
+    public var example: String? { Self.examples[L10n.resolvedLanguage]?[id] }
+    private static let examples: [AppLanguage: [String: String]] = Dictionary(uniqueKeysWithValues:
+        [AppLanguage.english, .simplifiedChinese].map { language in
+            (language, Dictionary(uniqueKeysWithValues: all.filter(\.isInsertion).compactMap { command in
+                (try? TypstInsertion.make(command.id, language: language).text).map { (command.id, $0) }
+            }))
+        })
     public var keyPath: String { Self.keyPaths[id] ?? key }
     private static let keyPaths: [String: String] = Dictionary(uniqueKeysWithValues: all.map { command in
         var path = [command.key]
@@ -79,6 +88,7 @@ public struct WritingCommand: Identifiable, Sendable {
         "writing": [.init("1")], "split": [.init("2")], "preview": [.init("3")],
         "outline": [.init("4")], "diagnostics": [.init("5")],
         "new": [.init("n")], "open": [.init("o")], "save": [.init("s")],
+        "importDocument": [.init("o", modifiers: [.command, .shift])],
         "saveAs": [.init("s", modifiers: [.shift, .command])], "export": [.init("e", modifiers: [.shift, .command])],
         "universe": [.init("u", modifiers: [.shift, .command])],
         "completion": [.init(".", modifiers: [.control])],
@@ -183,7 +193,10 @@ public struct WritingCommand: Identifiable, Sendable {
         "previewDark": "moon",
         "styledSource": "sparkle",
         "new": "file-plus",
+        "newCodeNotes": "notebook",
         "open": "folder-open",
+        "importDocument": "tray-arrow-down",
+        "revealSource": "folder-simple",
         "save": "floppy-disk",
         "saveAs": "floppy-disk-back",
         "export": "file-pdf",
@@ -193,8 +206,8 @@ public struct WritingCommand: Identifiable, Sendable {
     public func acceptsContext(_ mode: String) -> Bool { mode == "markup" || (supportsMath && mode == "math") }
 
     public init(_ id: String, _ group: String, _ key: String, _ title: String, _ detail: String, _ keywords: String = "", fields: [CommandField] = [], placement: InsertionPlacement? = nil, supportsMath: Bool = false, documentation: String? = nil, isInsertion: Bool? = nil) {
-        self.id = id; self.group = group; self.key = key; self.title = title
-        self.detail = detail; self.keywords = keywords; self.fields = fields
+        self.id = id; self.group = group; self.key = key; self.titleKey = title
+        self.detailKey = detail; self.keywords = keywords; self.fields = fields
         self.placement = placement ?? (group == "page" ? .preamble : (["heading", "bullet", "numbered", "quote", "image", "table", "code", "equation"].contains(id) ? .block : .inline))
         self.supportsMath = supportsMath
         self.documentationPath = documentation
@@ -221,115 +234,118 @@ public struct WritingCommand: Identifiable, Sendable {
     }
 
     public static let all: [Self] = [
-        .init("heading", "insert", "h", "标题", "为当前段落添加标题层级。", "heading title 标题", fields: [.init("level", "标题层级 · 1–6", "1")]),
-        .init("image", "insert", "i", "图片", "插入图片，并为它添加说明。", "image figure 图片", fields: [.init("path", "图片路径", "images/figure.png"), .init("caption", "图片说明", "图片说明")]),
-        .init("table", "insert", "t", "表格", "生成一个清晰的表格，Tab 在单元格之间移动。", "table rows columns 表格", fields: [.init("columns", "列数 · 1–8", "3"), .init("rows", "内容行数 · 1–20", "2")]),
-        .init("math", "insert", "m", "行内公式", "在段落中插入 $公式$。", "math equation 数学"),
-        .init("equation", "insert", "e", "独立公式", "让公式独占一行，保留清晰的呼吸空间。", "block equation 数学"),
-        .init("code", "insert", "c", "代码块", "插入指定语言的代码片段。", "code programming 代码", fields: [.init("language", "代码语言", "rust")]),
-        .init("link", "insert", "l", "链接", "为选中的文字添加链接。", "link url 网址", fields: [.init("url", "链接地址", "https://typst.app")]),
-        .init("bullet", "insert", "b", "无序列表", "逐条整理你的想法。", "bullet list 列表"),
-        .init("numbered", "insert", "n", "有序列表", "用编号表达顺序和步骤。", "numbered list 列表"),
-        .init("quote", "insert", "q", "引用段落", "引用一段值得保留的文字。", "quote quotation 引用"),
-        .init("footnote", "insert", "f", "脚注", "补充背景，同时保持正文流畅。", "footnote note 注释"),
-        .init("label", "insert", "a", "标签", "给标题、公式或图片一个可引用的名字。", "label anchor 标签", fields: [.init("name", "标签名称", "section-intro")]),
-        .init("reference", "insert", "r", "交叉引用", "引用已有标签；目标标题、公式或图片需要开启编号。", "reference cross 引用", fields: [.init("name", "标签名称", "section-intro")]),
-        .init("terms", "insert", "d", "术语定义", "让术语和说明成对排列。", "terms definition glossary 名词 定义列表", placement: .block, documentation: "model/terms/"),
-        .init("lineBreak", "insert", "w", "换行", "在当前段落内换行，不开始新的段落。", "linebreak soft break 换行 断行", documentation: "text/linebreak/"),
-        .init("bold", "style", "b", "加粗", "用 *文字* 强调选中的内容。", "bold strong 加粗"),
-        .init("italic", "style", "i", "斜体", "用 _文字_ 设置斜体。", "italic emphasis 斜体"),
-        .init("highlight", "style", "h", "高亮", "为选中的文字加上背景标记。", "highlight mark 高亮"),
-        .init("underline", "style", "u", "下划线", "给选中的文字添加下划线。", "underline 下划线", documentation: "text/underline/"),
-        .init("strike", "style", "s", "删除线", "保留文字，同时表示删除或修订。", "strike strikethrough 删除线 划掉", documentation: "text/strike/"),
-        .init("superscript", "style", "p", "文字上标", "插入上标文字，例如序数或单位。", "super superscript 上标", documentation: "text/super/"),
-        .init("subscript", "style", "d", "文字下标", "插入下标文字，例如化学式。", "sub subscript 下标", documentation: "text/sub/"),
-        .init("smallcaps", "style", "a", "小型大写", "以小型大写字形排印英文。", "smallcaps capitals 大写", documentation: "text/smallcaps/"),
-        .init("textColor", "style", "c", "文字颜色", "用十六进制色值设置选中文字的颜色。", "text fill color 颜色", fields: [.init("color", "颜色 · 十六进制", "245c73")], documentation: "text/text/"),
-        .init("paper", "page", "p", "纸张尺寸", "在文稿顶部设置纸张。", "paper a4 letter", fields: [.init("paper", "纸张 · a4 / us-letter / a5", "a4")]),
-        .init("margin", "page", "m", "页边距", "在文稿顶部设置统一的页面留白。", "margin page 边距", fields: [.init("margin", "页边距 · 毫米", "24")]),
-        .init("fontSize", "page", "s", "成稿字号", "设置排版输出的正文字号。", "font size 字号", fields: [.init("size", "字号 · pt", "11")]),
-        .init("pageNumber", "page", "n", "页码", "为页面添加居中页码。", "page number 页码"),
-        .init("font", "page", "f", "正文字体", "设置成稿字体；可使用本机已经安装的字体名称。", "font family 字体 宋体 黑体", fields: [.init("font", "字体名称", "Libertinus Serif")], documentation: "text/text/#parameters-font"),
-        .init("language", "page", "l", "文稿语言", "设置语言代码，影响断词和自动生成的标题。", "language locale 中文 英文 语言", fields: [.init("language", "语言代码 · zh / en / ja", "zh")], documentation: "text/text/#parameters-lang"),
-        .init("leading", "page", "g", "行间距", "设置相邻文字行之间的额外留白。", "leading line spacing 行距", fields: [.init("amount", "行间距 · em", "0.65")], documentation: "model/par/#parameters-leading"),
-        .init("paragraphSpacing", "page", "b", "段落间距", "设置段落之间的留白。", "paragraph spacing 段间距", fields: [.init("amount", "段落间距 · em", "1.2")], documentation: "model/par/#parameters-spacing"),
-        .init("firstLineIndent", "page", "i", "首行缩进", "为普通段落设置首行缩进。", "indent first line 首行缩进", fields: [.init("amount", "首行缩进 · em", "2")], documentation: "model/par/#parameters-first-line-indent"),
-        .init("justify", "page", "j", "两端对齐", "让正文段落同时对齐左右边缘。", "justify paragraph 两端对齐", documentation: "model/par/#parameters-justify"),
-        .init("headingNumbering", "page", "h", "标题编号", "为各级标题启用分层编号。", "heading numbering 标题 章节 编号", documentation: "model/heading/#parameters-numbering"),
-        .init("equationNumbering", "page", "e", "公式编号", "为独立公式启用括号编号。", "equation numbering 数学 公式 编号", documentation: "math/equation/#parameters-numbering"),
-        .init("header", "page", "a", "页眉", "在每页顶部加入固定文字。", "header 页眉", fields: [.init("text", "页眉文字", "文稿标题")], documentation: "layout/page/#parameters-header"),
-        .init("footer", "page", "o", "页脚", "在每页底部加入固定文字；会替代默认页码位置。", "footer 页脚", fields: [.init("text", "页脚文字", "草稿")], documentation: "layout/page/#parameters-footer"),
-        .init("documentInfo", "page", "d", "文档元信息", "设置 PDF 的标题和作者。", "document metadata title author 作者 元数据", fields: [.init("title", "文档标题", "未命名文稿"), .init("author", "作者", "作者")], documentation: "model/document/"),
-        .init("fraction", "math-basic", "f", "分式", "插入分子与分母；在公式内部会直接插入数学语法。", "frac fraction 分数 分式", supportsMath: true, documentation: "math/frac/"),
-        .init("squareRoot", "math-basic", "r", "平方根", "对选中公式开平方，或填写新的被开方数。", "sqrt root 根号 根式 平方根", supportsMath: true, documentation: "math/roots/"),
-        .init("nthRoot", "math-basic", "n", "任意次根", "插入可以编辑次数的根式。", "root nth cube 立方根 次方根", supportsMath: true, documentation: "math/roots/"),
-        .init("power", "math-basic", "p", "幂与上标", "为选中的表达式添加指数。", "power exponent superscript 幂 指数 数学上标", supportsMath: true, documentation: "math/attach/"),
-        .init("mathSubscript", "math-basic", "s", "数学下标", "为选中的表达式添加下标。", "subscript index 数学下标 索引", supportsMath: true, documentation: "math/attach/"),
-        .init("binomial", "math-basic", "b", "二项式系数", "插入组合数的上下排列形式。", "binom binomial combination 组合数 二项式", supportsMath: true, documentation: "math/binom/"),
-        .init("matrix", "math-structures", "m", "矩阵", "逗号分隔列，分号分隔行；Tab 在元素之间移动。", "mat matrix 矩阵 线性代数", supportsMath: true, documentation: "math/mat/"),
-        .init("vector", "math-structures", "v", "列向量", "插入竖向排列的向量元素。", "vec vector 列向量", supportsMath: true, documentation: "math/vec/"),
-        .init("cases", "math-structures", "c", "分段函数", "用大括号组织表达式与适用条件。", "cases piecewise 分段 条件函数", supportsMath: true, documentation: "math/cases/"),
-        .init("aligned", "math-structures", "a", "多行对齐公式", "使用 & 对齐等号，反斜杠开始下一行。", "aligned multiline equation 对齐 方程组 多行", supportsMath: true, documentation: "math/#alignment"),
-        .init("sum", "math-structures", "s", "求和", "插入求和符号、上下限和通项。", "sum summation sigma 求和 累加", supportsMath: true, documentation: "math/attach/"),
-        .init("integral", "math-structures", "i", "积分", "插入定积分与微分符号。", "integral calculus 积分 微积分", supportsMath: true, documentation: "symbols/sym/"),
-        .init("limit", "math-structures", "l", "极限", "插入变量趋近条件和表达式。", "lim limit 极限 趋于", supportsMath: true, documentation: "math/op/"),
-        .init("greek", "math-symbols", "g", "希腊字母", "用名称输入希腊字母，Tab 可逐个替换示例。", "alpha beta gamma Greek 希腊 阿尔法 贝塔", supportsMath: true, documentation: "symbols/sym/"),
-        .init("setMembership", "math-symbols", "s", "集合与数域", "插入集合属于关系与实数域。", "set membership RR NN ZZ 属于 集合 实数 自然数", supportsMath: true, documentation: "symbols/sym/"),
-        .init("arrow", "math-symbols", "a", "箭头与映射", "插入从一个表达式到另一个表达式的箭头。", "arrow mapping maps to 箭头 映射", supportsMath: true, documentation: "symbols/sym/"),
-        .init("upright", "math-symbols", "u", "数学直立体", "让单位或数学文字使用直立字形。", "upright roman unit 直立体 单位", supportsMath: true, documentation: "math/variants/"),
-        .init("accent", "math-symbols", "v", "向量箭头", "在表达式上方添加向量箭头。", "accent arrow vector 矢量 向量箭头", supportsMath: true, documentation: "math/accent/"),
-        .init("align", "layout", "a", "内容对齐", "设置一段内容的水平对齐方式。", "align center left right 居中 左对齐 右对齐", fields: [.init("alignment", "对齐 · left / center / right", "center")], placement: .block, documentation: "layout/align/"),
-        .init("columns", "layout", "c", "分栏", "将一段内容排成两栏或更多栏。", "columns newspaper 分栏 双栏", fields: [.init("columns", "栏数 · 2–4", "2")], placement: .block, documentation: "layout/columns/"),
-        .init("grid", "layout", "g", "布局网格", "用网格并排组织内容；展示数据请使用表格。", "grid layout 网格 布局", placement: .block, documentation: "layout/grid/"),
-        .init("block", "layout", "b", "提示框", "用浅色背景和内边距突出一段内容。", "block callout box 提示框 色块 容器", placement: .block, documentation: "layout/block/"),
-        .init("padding", "layout", "p", "内容留白", "在内容四周添加内边距。", "pad padding 内边距 留白", fields: [.init("amount", "内边距 · pt", "12")], placement: .block, documentation: "layout/pad/"),
-        .init("stack", "layout", "s", "横向排列", "将两个内容块横向排列，并保持间距。", "stack horizontal 横向 排列", placement: .block, documentation: "layout/stack/"),
-        .init("pageBreak", "layout", "n", "分页", "让后续内容从新的一页开始。", "pagebreak new page 分页 换页", placement: .block, documentation: "layout/pagebreak/"),
-        .init("verticalSpace", "layout", "v", "垂直间距", "在内容块之间插入指定高度的留白。", "vertical v spacing 垂直间距 空行", fields: [.init("amount", "间距 · pt", "12")], placement: .block, documentation: "layout/v/"),
-        .init("horizontalSpace", "layout", "h", "水平间距", "在同一行中插入指定宽度的留白。", "horizontal h spacing 水平间距 空格", fields: [.init("amount", "间距 · pt", "12")], documentation: "layout/h/"),
-        .init("divider", "layout", "d", "分隔线", "用一条细线划分文章内容。", "line divider rule 分隔线 横线", placement: .block, documentation: "visualize/line/"),
-        .init("contents", "references", "o", "文稿目录", "根据标题生成带页码的目录。", "outline contents toc 目录", placement: .block, documentation: "model/outline/"),
-        .init("bibliography", "references", "b", "参考文献表", "从 BibLaTeX 或 Hayagriva 文件生成书目。", "bibliography references bib yaml 参考文献 书目", fields: [.init("path", "文献文件 · .bib / .yaml", "references.bib")], placement: .block, documentation: "model/bibliography/"),
-        .init("citation", "references", "c", "引用文献", "通过文献条目的键引用来源；需要文稿中已有参考文献表。", "cite citation bibliography 文献 引文", fields: [.init("name", "文献键", "example")], documentation: "model/cite/"),
-        .init("include", "code", "i", "包含子文稿", "在当前位置排版另一个 .typ 文件的内容。", "include chapter subdocument 包含 子文稿 章节", fields: [.init("path", "子文稿路径", "section.typ")], placement: .block, documentation: "scripting/#modules"),
-        .init("import", "code", "m", "导入本地模块", "在文稿顶部导入可复用的本地定义。", "import module local 模块 导入", fields: [.init("path", "模块路径", "helpers.typ")], placement: .preamble, documentation: "scripting/#modules"),
-        .init("variable", "code", "v", "定义变量", "定义可在后文通过 #名称 使用的文字变量。", "let variable binding 定义 变量", fields: [.init("name", "变量名称", "project"), .init("value", "变量文字", "Sumi")], placement: .preamble, documentation: "scripting/#bindings"),
-        .init("rawInline", "code", "r", "行内代码", "把选中内容按原样显示，不解释其中的 Typst 语法。", "raw inline code 行内代码 原样", documentation: "text/raw/"),
-        .init("universe", "code", "u", "发现 Universe 包", "寻找绘图、图表和排版扩展，插入带版本的导入语句。", "universe package plugin cetz fletcher 绘图 扩展 插件 包", isInsertion: false),
-        .init("format", "code", "f", "整理代码格式", "使用 Tinymist 格式化当前文稿。", "format pretty 格式化 整理", isInsertion: false),
-        .init("indent", "code", ">", "增加缩进", "将当前行或选中的多行向右缩进。", "indent 缩进", isInsertion: false),
-        .init("outdent", "code", "<", "减少缩进", "将当前行或选中的多行向左缩进。", "outdent unindent 取消缩进", isInsertion: false),
-        .init("comment", "code", ";", "切换行注释", "注释或取消注释当前行与选中的多行。", "comment uncomment 注释", isInsertion: false),
-        .init("completion", "code", ".", "语法补全", "查看光标位置可用的 Typst 名称和参数。", "completion autocomplete 补全", isInsertion: false),
-        .init("undo", "code", "z", "撤销", "撤销最近一次文稿编辑。", "undo 撤销", isInsertion: false),
-        .init("redo", "code", "y", "重做", "恢复刚刚撤销的编辑。", "redo 重做", isInsertion: false),
-        .init("cut", "code", "x", "剪切", "剪切选中的源码。", "cut 剪切", isInsertion: false),
-        .init("copy", "code", "c", "复制", "复制选中的原始 Typst 源码。", "copy 复制", isInsertion: false),
-        .init("paste", "code", "p", "粘贴", "在光标处粘贴文本。", "paste 粘贴", isInsertion: false),
-        .init("selectAll", "code", "a", "全选", "选中整篇文稿。", "select all 全选", isInsertion: false),
-        .init("find", "code", "s", "查找文稿", "在当前文稿中查找文字。", "find search 查找 搜索", isInsertion: false),
-        .init("fontLarger", "view", "+", "放大编辑文字", "放大编辑区字号，不改变成稿排版。", "zoom in editor font 放大 字号"),
-        .init("fontSmaller", "view", "-", "缩小编辑文字", "缩小编辑区字号，不改变成稿排版。", "zoom out editor font 缩小 字号"),
-        .init("writing", "view", "w", "专注写作", "留出整个窗口，给正在写的文字。", "focus writing 专注"),
-        .init("split", "view", "s", "并排预览", "一边写作，一边查看 Typst 成稿。", "split preview 分屏"),
-        .init("preview", "view", "p", "阅读成稿", "用整个窗口查看排版结果。", "preview reading 预览"),
-        .init("outline", "view", "o", "文章脉络", "在左侧留白中查看标题与章节，不移动正文。", "outline headings 大纲 目录 脉络"),
-        .init("diagnostics", "view", "d", "检查文稿", "查看错误和建议，并跳转到对应位置。", "diagnostics errors 错误"),
-        .init("revealPreview", "view", "r", "在成稿中定位", "找到光标所在段落的排版位置。", "reveal jump sync 定位"),
-        .init("restart", "view", "l", "重新连接排版服务", "重启 Tinymist，并重新同步当前文稿。", "restart language server"),
-        .init("logs", "view", "g", "打开诊断日志", "查看本地操作记录，帮助排查崩溃和异常。", "logs debug diagnostics 日志"),
-        .init("previewDark", "view", "n", "切换深色预览", "切换成稿的阅读配色，PDF 导出保持文档原色。", "dark preview night 深色 暗色 夜间"),
-        .init("styledSource", "view", "t", "切换编辑区样式", "为标题和强调文字显示样式，光标所在段落保留清晰源码。", "styled source live markup 编辑区 样式 源码"),
-        .init("new", "file", "n", "新建文稿", "从一张安静的空白页开始。", "new document 新建"),
-        .init("open", "file", "o", "打开文稿", "打开一个 .typ 文件。", "open file 打开"),
-        .init("save", "file", "s", "保存", "将当前文稿保存到磁盘。", "save 保存"),
-        .init("saveAs", "file", "a", "另存为", "为文稿选择新的名称和位置。", "save as 另存为"),
-        .init("export", "file", "e", "导出 PDF", "把当前文稿排版为可分享的 PDF。", "export pdf 导出"),
-        .init("drafts", "file", "d", "恢复草稿副本", "重新打开切换文稿时保留的草稿或重新加载前的副本。", "draft recovery 恢复"),
-        .init("reload", "file", "r", "重新加载磁盘版本", "本地编辑先保留为恢复副本，再读取磁盘文件。", "reload disk conflict 重新加载")
+        .init("heading", "insert", "h", "Heading", "Add a heading level to the current paragraph.", "heading title 标题", fields: [.init("level", "Heading level · 1–6", "1")]),
+        .init("image", "insert", "i", "Image", "Insert an image with a caption.", "image figure 图片", fields: [.init("path", "Image path", "images/figure.png"), .init("caption", "Image caption", "Image caption")]),
+        .init("table", "insert", "t", "Table", "Create a table. Use Tab to move between cells.", "table rows columns 表格", fields: [.init("columns", "Columns · 1–8", "3"), .init("rows", "Body rows · 1–20", "2")]),
+        .init("math", "insert", "m", "Inline Equation", "Insert an $equation$ within a paragraph.", "math equation 数学"),
+        .init("equation", "insert", "e", "Display Equation", "Set an equation on its own line with room to breathe.", "block equation 数学"),
+        .init("code", "insert", "c", "Code Block", "Insert a code block in the chosen language.", "code programming 代码", fields: [.init("language", "Code language", "rust")]),
+        .init("link", "insert", "l", "Link", "Link the selected text to a web address.", "link url 网址", fields: [.init("url", "Link URL", "https://typst.app")]),
+        .init("bullet", "insert", "b", "Bullet List", "Organize your thoughts, one item at a time.", "bullet list 列表"),
+        .init("numbered", "insert", "n", "Numbered List", "Use numbers to show order and steps.", "numbered list 列表"),
+        .init("quote", "insert", "q", "Block Quote", "Quote a passage worth keeping.", "quote quotation 引用"),
+        .init("footnote", "insert", "f", "Footnote", "Add context without interrupting the text.", "footnote note 注释"),
+        .init("label", "insert", "a", "Label", "Give a heading, equation or image a referenceable name.", "label anchor 标签", fields: [.init("name", "Label name", "section-intro")]),
+        .init("reference", "insert", "r", "Cross-reference", "Refer to a label. Enable numbering on the target heading, equation or image.", "reference cross 引用", fields: [.init("name", "Label name", "section-intro")]),
+        .init("terms", "insert", "d", "Term Definition", "Arrange terms alongside their definitions.", "terms definition glossary 名词 定义列表", placement: .block, documentation: "model/terms/"),
+        .init("lineBreak", "insert", "w", "Line Break", "Start a new line within the same paragraph.", "linebreak soft break 换行 断行", documentation: "text/linebreak/"),
+        .init("bold", "style", "b", "Bold", "Emphasize the selection with *bold text*.", "bold strong 加粗"),
+        .init("italic", "style", "i", "Italic", "Set the selection in _italics_.", "italic emphasis 斜体"),
+        .init("highlight", "style", "h", "Highlight", "Highlight the selected text.", "highlight mark 高亮"),
+        .init("underline", "style", "u", "Underline", "Underline the selected text.", "underline 下划线", documentation: "text/underline/"),
+        .init("strike", "style", "s", "Strikethrough", "Keep text visible while marking a deletion or revision.", "strike strikethrough 删除线 划掉", documentation: "text/strike/"),
+        .init("superscript", "style", "p", "Superscript", "Insert superscript text for ordinals or units.", "super superscript 上标", documentation: "text/super/"),
+        .init("subscript", "style", "d", "Subscript", "Insert subscript text, such as a chemical formula.", "sub subscript 下标", documentation: "text/sub/"),
+        .init("smallcaps", "style", "a", "Small Capitals", "Use small capital letterforms.", "smallcaps capitals 大写", documentation: "text/smallcaps/"),
+        .init("textColor", "style", "c", "Text Color", "Set the selection's color with a hexadecimal value.", "text fill color 颜色", fields: [.init("color", "Color · hexadecimal", "245c73")], documentation: "text/text/"),
+        .init("paper", "page", "p", "Paper Size", "Set the paper size at the top of the document.", "paper a4 letter", fields: [.init("paper", "Paper · a4 / us-letter / a5", "a4")]),
+        .init("margin", "page", "m", "Page Margins", "Set consistent margins at the top of the document.", "margin page 边距", fields: [.init("margin", "Margins · mm", "24")]),
+        .init("fontSize", "page", "s", "Document Font Size", "Set the body font size in the finished document.", "font size 字号", fields: [.init("size", "Font size · pt", "11")]),
+        .init("pageNumber", "page", "n", "Page Numbers", "Add centered page numbers.", "page number 页码"),
+        .init("font", "page", "f", "Document Font", "Choose an installed font for the finished document.", "font family 字体 宋体 黑体", fields: [.init("font", "Font name", "Libertinus Serif")], documentation: "text/text/#parameters-font"),
+        .init("language", "page", "l", "Document Language", "Set a language code for hyphenation and generated headings.", "language locale 中文 英文 语言", fields: [.init("language", "Language code · en / zh / ja", "zh")], documentation: "text/text/#parameters-lang"),
+        .init("leading", "page", "g", "Line Spacing", "Set the extra space between lines of text.", "leading line spacing 行距", fields: [.init("amount", "Line spacing · em", "0.65")], documentation: "model/par/#parameters-leading"),
+        .init("paragraphSpacing", "page", "b", "Paragraph Spacing", "Set the space between paragraphs.", "paragraph spacing 段间距", fields: [.init("amount", "Paragraph spacing · em", "1.2")], documentation: "model/par/#parameters-spacing"),
+        .init("firstLineIndent", "page", "i", "First-line Indent", "Indent the first line of body paragraphs.", "indent first line 首行缩进", fields: [.init("amount", "First-line indent · em", "2")], documentation: "model/par/#parameters-first-line-indent"),
+        .init("justify", "page", "j", "Justify Text", "Align paragraphs to both left and right edges.", "justify paragraph 两端对齐", documentation: "model/par/#parameters-justify"),
+        .init("headingNumbering", "page", "h", "Heading Numbers", "Enable hierarchical numbering for headings.", "heading numbering 标题 章节 编号", documentation: "model/heading/#parameters-numbering"),
+        .init("equationNumbering", "page", "e", "Equation Numbers", "Number display equations in parentheses.", "equation numbering 数学 公式 编号", documentation: "math/equation/#parameters-numbering"),
+        .init("header", "page", "a", "Page Header", "Add text to the top of each page.", "header 页眉", fields: [.init("text", "Header text", "Document title")], documentation: "layout/page/#parameters-header"),
+        .init("footer", "page", "o", "Page Footer", "Add text to the bottom of each page, replacing the default page-number position.", "footer 页脚", fields: [.init("text", "Footer text", "Draft")], documentation: "layout/page/#parameters-footer"),
+        .init("documentInfo", "page", "d", "Document Metadata", "Set the PDF title and author.", "document metadata title author 作者 元数据", fields: [.init("title", "PDF title", "Untitled"), .init("author", "Author", "Author")], documentation: "model/document/"),
+        .init("fraction", "math-basic", "f", "Fraction", "Insert a numerator and denominator. Existing equations use math syntax directly.", "frac fraction 分数 分式", supportsMath: true, documentation: "math/frac/"),
+        .init("squareRoot", "math-basic", "r", "Square Root", "Take the square root of a selection or enter a new expression.", "sqrt root 根号 根式 平方根", supportsMath: true, documentation: "math/roots/"),
+        .init("nthRoot", "math-basic", "n", "Nth Root", "Insert a root with an editable degree.", "root nth cube 立方根 次方根", supportsMath: true, documentation: "math/roots/"),
+        .init("power", "math-basic", "p", "Power & Exponent", "Add an exponent to the selected expression.", "power exponent superscript 幂 指数 数学上标", supportsMath: true, documentation: "math/attach/"),
+        .init("mathSubscript", "math-basic", "s", "Math Subscript", "Add a subscript to the selected expression.", "subscript index 数学下标 索引", supportsMath: true, documentation: "math/attach/"),
+        .init("binomial", "math-basic", "b", "Binomial Coefficient", "Insert a stacked binomial coefficient.", "binom binomial combination 组合数 二项式", supportsMath: true, documentation: "math/binom/"),
+        .init("matrix", "math-structures", "m", "Matrix", "Separate columns with commas and rows with semicolons. Tab moves between entries.", "mat matrix 矩阵 线性代数", supportsMath: true, documentation: "math/mat/"),
+        .init("vector", "math-structures", "v", "Column Vector", "Insert a vector with vertically arranged entries.", "vec vector 列向量", supportsMath: true, documentation: "math/vec/"),
+        .init("cases", "math-structures", "c", "Piecewise Function", "Group expressions and conditions with a brace.", "cases piecewise 分段 条件函数", supportsMath: true, documentation: "math/cases/"),
+        .init("aligned", "math-structures", "a", "Aligned Equations", "Align equals signs with & and start each line with a backslash.", "aligned multiline equation 对齐 方程组 多行", supportsMath: true, documentation: "math/#alignment"),
+        .init("sum", "math-structures", "s", "Summation", "Insert a sum with bounds and a term.", "sum summation sigma 求和 累加", supportsMath: true, documentation: "math/attach/"),
+        .init("integral", "math-structures", "i", "Integral", "Insert a definite integral and differential.", "integral calculus 积分 微积分", supportsMath: true, documentation: "symbols/sym/"),
+        .init("limit", "math-structures", "l", "Limit", "Insert a limit condition and expression.", "lim limit 极限 趋于", supportsMath: true, documentation: "math/op/"),
+        .init("greek", "math-symbols", "g", "Greek Letters", "Enter Greek letters by name. Tab moves between examples.", "alpha beta gamma Greek 希腊 阿尔法 贝塔", supportsMath: true, documentation: "symbols/sym/"),
+        .init("setMembership", "math-symbols", "s", "Sets & Number Fields", "Insert set membership and the real number field.", "set membership RR NN ZZ 属于 集合 实数 自然数", supportsMath: true, documentation: "symbols/sym/"),
+        .init("arrow", "math-symbols", "a", "Arrows & Mappings", "Insert an arrow between two expressions.", "arrow mapping maps to 箭头 映射", supportsMath: true, documentation: "symbols/sym/"),
+        .init("upright", "math-symbols", "u", "Upright Math", "Set units or mathematical text in upright letterforms.", "upright roman unit 直立体 单位", supportsMath: true, documentation: "math/variants/"),
+        .init("accent", "math-symbols", "v", "Vector Accent", "Add a vector arrow above an expression.", "accent arrow vector 矢量 向量箭头", supportsMath: true, documentation: "math/accent/"),
+        .init("align", "layout", "a", "Content Alignment", "Set the horizontal alignment of a content block.", "align center left right 居中 左对齐 右对齐", fields: [.init("alignment", "Alignment · left / center / right", "center")], placement: .block, documentation: "layout/align/"),
+        .init("columns", "layout", "c", "Columns", "Arrange content in two or more columns.", "columns newspaper 分栏 双栏", fields: [.init("columns", "Columns · 2–4", "2")], placement: .block, documentation: "layout/columns/"),
+        .init("grid", "layout", "g", "Layout Grid", "Arrange content side by side in a grid. Use a table for data.", "grid layout 网格 布局", placement: .block, documentation: "layout/grid/"),
+        .init("block", "layout", "b", "Callout", "Highlight content with a pale background and padding.", "block callout box 提示框 色块 容器", placement: .block, documentation: "layout/block/"),
+        .init("padding", "layout", "p", "Content Padding", "Add space around a content block.", "pad padding 内边距 留白", fields: [.init("amount", "Padding · pt", "12")], placement: .block, documentation: "layout/pad/"),
+        .init("stack", "layout", "s", "Horizontal Stack", "Arrange two content blocks side by side with spacing.", "stack horizontal 横向 排列", placement: .block, documentation: "layout/stack/"),
+        .init("pageBreak", "layout", "n", "Page Break", "Start the following content on a new page.", "pagebreak new page 分页 换页", placement: .block, documentation: "layout/pagebreak/"),
+        .init("verticalSpace", "layout", "v", "Vertical Space", "Insert vertical space between content blocks.", "vertical v spacing 垂直间距 空行", fields: [.init("amount", "Space · pt", "12")], placement: .block, documentation: "layout/v/"),
+        .init("horizontalSpace", "layout", "h", "Horizontal Space", "Insert horizontal space within a line.", "horizontal h spacing 水平间距 空格", fields: [.init("amount", "Space · pt", "12")], documentation: "layout/h/"),
+        .init("divider", "layout", "d", "Divider", "Separate sections with a fine rule.", "line divider rule 分隔线 横线", placement: .block, documentation: "visualize/line/"),
+        .init("contents", "references", "o", "Table of Contents", "Generate a table of contents with page numbers.", "outline contents toc 目录", placement: .block, documentation: "model/outline/"),
+        .init("bibliography", "references", "b", "Bibliography", "Generate a bibliography from a BibLaTeX or Hayagriva file.", "bibliography references bib yaml 参考文献 书目", fields: [.init("path", "Bibliography file · .bib / .yaml", "references.bib")], placement: .block, documentation: "model/bibliography/"),
+        .init("citation", "references", "c", "Citation", "Cite a source by its key. The document needs a bibliography.", "cite citation bibliography 文献 引文", fields: [.init("name", "Citation key", "example")], documentation: "model/cite/"),
+        .init("include", "code", "i", "Include Document", "Include another .typ document at the current position.", "include chapter subdocument 包含 子文稿 章节", fields: [.init("path", "Document path", "section.typ")], placement: .block, documentation: "scripting/#modules"),
+        .init("import", "code", "m", "Import Local Module", "Import reusable local definitions at the top of the document.", "import module local 模块 导入", fields: [.init("path", "Module path", "helpers.typ")], placement: .preamble, documentation: "scripting/#modules"),
+        .init("variable", "code", "v", "Define Variable", "Define text that you can reuse with #name.", "let variable binding 定义 变量", fields: [.init("name", "Variable name", "project"), .init("value", "Variable text", "Sumi")], placement: .preamble, documentation: "scripting/#bindings"),
+        .init("rawInline", "code", "r", "Inline Code", "Show the selection literally without interpreting its Typst syntax.", "raw inline code 行内代码 原样", documentation: "text/raw/"),
+        .init("universe", "code", "u", "Discover Universe Packages", "Find drawing, charting and typesetting packages, then insert a versioned import.", "universe package plugin cetz fletcher 绘图 扩展 插件 包", isInsertion: false),
+        .init("format", "code", "f", "Format Source", "Format the current document with Tinymist.", "format pretty 格式化 整理", isInsertion: false),
+        .init("indent", "code", ">", "Indent", "Indent the current line or selected lines.", "indent 缩进", isInsertion: false),
+        .init("outdent", "code", "<", "Outdent", "Outdent the current line or selected lines.", "outdent unindent 取消缩进", isInsertion: false),
+        .init("comment", "code", ";", "Toggle Line Comments", "Comment or uncomment the current line or selection.", "comment uncomment 注释", isInsertion: false),
+        .init("completion", "code", ".", "Complete Syntax", "Discover Typst names and parameters at the caret.", "completion autocomplete 补全", isInsertion: false),
+        .init("undo", "code", "z", "Undo", "Undo the most recent document edit.", "undo 撤销", isInsertion: false),
+        .init("redo", "code", "y", "Redo", "Restore the edit you just undid.", "redo 重做", isInsertion: false),
+        .init("cut", "code", "x", "Cut", "Cut the selected source text.", "cut 剪切", isInsertion: false),
+        .init("copy", "code", "c", "Copy", "Copy the selected original Typst source.", "copy 复制", isInsertion: false),
+        .init("paste", "code", "p", "Paste", "Paste text at the caret.", "paste 粘贴", isInsertion: false),
+        .init("selectAll", "code", "a", "Select All", "Select the whole document.", "select all 全选", isInsertion: false),
+        .init("find", "code", "s", "Find in Document", "Find text in the current document.", "find search 查找 搜索", isInsertion: false),
+        .init("fontLarger", "view", "+", "Increase Editor Text Size", "Increase the editor font size without changing the finished document.", "zoom in editor font 放大 字号"),
+        .init("fontSmaller", "view", "-", "Decrease Editor Text Size", "Decrease the editor font size without changing the finished document.", "zoom out editor font 缩小 字号"),
+        .init("writing", "view", "w", "Focus on Writing", "Give your writing the whole window.", "focus writing 专注"),
+        .init("split", "view", "s", "Side-by-side Preview", "Write alongside a live preview of the finished page.", "split preview 分屏"),
+        .init("preview", "view", "p", "Read the Preview", "Read the finished pages in the whole window.", "preview reading 预览"),
+        .init("outline", "view", "o", "Outline", "See headings and sections in the left margin without moving your text.", "outline headings 大纲 目录 脉络"),
+        .init("diagnostics", "view", "d", "Check Document", "Review errors and suggestions, then jump to their source.", "diagnostics errors 错误"),
+        .init("revealPreview", "view", "r", "Reveal in Preview", "Find the current paragraph in the finished page.", "reveal jump sync 定位"),
+        .init("restart", "view", "l", "Reconnect Typesetting Service", "Restart Tinymist and synchronize the current document.", "restart language server"),
+        .init("logs", "view", "g", "Open Diagnostic Logs", "Open local activity logs to investigate crashes and errors.", "logs debug diagnostics 日志"),
+        .init("previewDark", "view", "n", "Toggle Dark Preview", "Change the preview colors. Exported PDFs keep the document's original colors.", "dark preview night 深色 暗色 夜间"),
+        .init("styledSource", "view", "t", "Toggle Editor Styling", "Style headings and emphasis while showing source in the active paragraph.", "styled source live markup 编辑区 样式 源码"),
+        .init("new", "file", "n", "New Document", "Begin with a quiet blank page.", "new document 新建"),
+        .init("newCodeNotes", "file", "c", "New Code Notes", "Start a document with styled code blocks, language labels and line numbers.", "codly code notes template 代码 笔记 模板"),
+        .init("open", "file", "o", "Your Writing", "Search and open documents in your library.", "open file library 文稿 资料库 打开"),
+        .init("importDocument", "file", "i", "Import Document", "Add a copy of a source document to your library.", "import typ 导入"),
+        .init("revealSource", "file", "v", "Show Source in Finder", "Reveal the current document's source file.", "source file finder 源码 文件"),
+        .init("save", "file", "s", "Save", "Save the current document to disk.", "save 保存"),
+        .init("saveAs", "file", "a", "Save As", "Choose a new name and location for this document.", "save as 另存为"),
+        .init("export", "file", "e", "Export PDF", "Export the current document as a shareable PDF.", "export pdf 导出"),
+        .init("drafts", "file", "d", "Recover Draft Copy", "Reopen a draft saved before switching documents or reloading.", "draft recovery 恢复"),
+        .init("reload", "file", "r", "Reload from Disk", "Preserve local edits in a recovery copy, then read the file from disk.", "reload disk conflict 重新加载")
     ]
 
-    private static let searchIndex = all.map { "\($0.title) \($0.keywords) \($0.detail) \($0.shortcuts.map(\.label).joined(separator: " "))".lowercased() }
+    private static let searchIndex = all.map { "\(L10n.searchTerms($0.titleKey)) \($0.keywords) \(L10n.searchTerms($0.detailKey)) \($0.shortcuts.map(\.label).joined(separator: " "))".lowercased() }
     public static func search(_ query: String) -> [Self] {
         let words = query.lowercased().split(whereSeparator: \.isWhitespace)
         if words.isEmpty { return all }
@@ -385,22 +401,24 @@ public enum TypstInsertion {
         "\"" + value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "\r", with: "\\r").replacingOccurrences(of: "\t", with: "\\t") + "\""
     }
 
-    public static func make(_ id: String, values: [String: String] = [:], selection: String = "", context: InsertionContext = .markup) throws -> Snippet {
+    public static func make(_ id: String, values: [String: String] = [:], selection: String = "", context: InsertionContext = .markup, language: AppLanguage? = nil) throws -> Snippet {
+        func localized(_ key: String) -> String { L10n.text(key, language: language) }
+        func placeholder(_ key: String) -> String { "«" + localized(key) + "»" }
         func value(_ key: String, _ fallback: String) -> String { values[key] ?? fallback }
         func number(_ key: String, _ fallback: String, _ range: ClosedRange<Int>) throws -> Int {
-            guard let n = Int(value(key, fallback)), range.contains(n) else { throw CommandError.invalid("请输入 \(range.lowerBound)–\(range.upperBound) 之间的整数。") }
+            guard let n = Int(value(key, fallback)), range.contains(n) else { throw CommandError.invalid(L10n.format("Enter an integer between %@ and %@.", String(range.lowerBound), String(range.upperBound))) }
             return n
         }
         func label(_ fallback: String = "section-intro") throws -> String {
             let name = value("name", fallback)
-            guard name.range(of: "^[A-Za-z][A-Za-z0-9_-]*$", options: .regularExpression) != nil else { throw CommandError.invalid("标签请以英文字母开头，使用字母、数字、短横线或下划线。") }
+            guard name.range(of: "^[A-Za-z][A-Za-z0-9_-]*$", options: .regularExpression) != nil else { throw CommandError.invalid(localized("Start labels with an English letter; use letters, numbers, hyphens or underscores.")) }
             return name
         }
         func amount(_ fallback: String, range: ClosedRange<Double> = 0...200) throws -> String {
             let source = value("amount", fallback)
             guard source.range(of: "^[0-9]+(?:\\.[0-9]+)?$", options: .regularExpression) != nil,
                   let number = Double(source), range.contains(number) else {
-                throw CommandError.invalid("请输入 \(range.lowerBound)–\(range.upperBound) 之间的数字。")
+                throw CommandError.invalid(L10n.format("Enter a number between %@ and %@.", String(range.lowerBound), String(range.upperBound)))
             }
             return source
         }
@@ -417,9 +435,9 @@ public enum TypstInsertion {
             snippet(context == .math ? marked : (block ? "$ \(marked) $" : "$\(marked)$"))
         }
         let selectedSource = protect(selection)
-        let selected = selection.isEmpty ? "«文字»" : selectedSource
+        let selected = selection.isEmpty ? placeholder("Text") : selectedSource
         switch id {
-        case "heading": return snippet(String(repeating: "=", count: try number("level", "1", 1...6)) + " " + (selection.isEmpty ? "«标题»" : selectedSource))
+        case "heading": return snippet(String(repeating: "=", count: try number("level", "1", 1...6)) + " " + (selection.isEmpty ? placeholder("Heading") : selectedSource))
         case "bold": return snippet("*\(selected)*")
         case "italic": return snippet("_\(selected)_")
         case "highlight": return snippet("#highlight[\(selected)]")
@@ -428,43 +446,43 @@ public enum TypstInsertion {
         case "subscript": return snippet("#sub[\(selected)]")
         case "textColor":
             let color = value("color", "245c73").trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-            guard color.range(of: "^(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$", options: .regularExpression) != nil else { throw CommandError.invalid("请输入 3、6 或 8 位十六进制色值，例如 245c73。") }
+            guard color.range(of: "^(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$", options: .regularExpression) != nil else { throw CommandError.invalid(localized("Enter a 3-, 6- or 8-digit hexadecimal color, such as 245c73.")) }
             return snippet("#text(fill: rgb(\(quoted(color))))[\(selected)]")
         case "math": return snippet("$\(selection.isEmpty ? "«x^2 + y^2»" : selectedSource)$")
         case "equation": return snippet("\n$ \(selection.isEmpty ? "«E = m c^2»" : selectedSource) $\n")
-        case "bullet": return snippet("- \(selection.isEmpty ? "«第一项»" : selectedSource)\n- «第二项»")
-        case "numbered": return snippet("+ \(selection.isEmpty ? "«第一步»" : selectedSource)\n+ «第二步»")
-        case "terms": return snippet("/ «术语»: \(selection.isEmpty ? "«定义说明»" : selectedSource)")
+        case "bullet": return snippet("- \(selection.isEmpty ? placeholder("First item") : selectedSource)\n- \(placeholder("Second item"))")
+        case "numbered": return snippet("+ \(selection.isEmpty ? placeholder("First step") : selectedSource)\n+ \(placeholder("Second step"))")
+        case "terms": return snippet("/ \(placeholder("Term")): \(selection.isEmpty ? placeholder("Definition") : selectedSource)")
         case "lineBreak": return snippet("#linebreak()\n")
         case "quote": return snippet("#quote(block: true)[\n  \(selected)\n]")
         case "footnote": return snippet("#footnote[\(selected)]")
         case "label": return snippet("<\(try label())>")
         case "reference": return snippet("@\(try label())")
         case "link": return snippet("#link(\(protect(quoted(value("url", "https://typst.app")))))[\(selected)]")
-        case "image": return snippet("#figure(\n  image(\(protect(quoted(value("path", "images/figure.png")))), width: 80%),\n  caption: \(protect(quoted(value("caption", "图片说明")))),\n)")
+        case "image": return snippet("#figure(\n  image(\(protect(quoted(value("path", "images/figure.png")))), width: 80%),\n  caption: \(protect(quoted(value("caption", localized("Image caption"))))),\n)")
         case "code":
             let language = value("language", "rust")
-            guard language.range(of: "^[A-Za-z0-9_+-]*$", options: .regularExpression) != nil else { throw CommandError.invalid("代码语言只能包含字母、数字、下划线、加号或短横线。") }
+            guard language.range(of: "^[A-Za-z0-9_+-]*$", options: .regularExpression) != nil else { throw CommandError.invalid(localized("Code language names may contain letters, numbers, underscores, plus signs or hyphens.")) }
             let backticks = selection.split(whereSeparator: { $0 != "`" }).map(\.count).max() ?? 0
             let fence = String(repeating: "`", count: max(3, backticks + 1))
-            return snippet("\(fence)\(language)\n\(selection.isEmpty ? "«// 在这里写代码»" : selectedSource)\n\(fence)")
+            return snippet("\(fence)\(language)\n\(selection.isEmpty ? placeholder("// Write code here") : selectedSource)\n\(fence)")
         case "table":
             let columns = try number("columns", "3", 1...8)
             let rows = try number("rows", "2", 1...20)
-            var source = "#table(\n  columns: \(columns),\n  inset: 10pt,\n  table.header(\(Array(1...columns).map { "[«标题\($0)»]" }.joined(separator: ", "))),\n"
-            for row in 1...rows { source += "  " + (1...columns).map { "[«内容\(row).\($0)»]" }.joined(separator: ", ") + ",\n" }
+            var source = "#table(\n  columns: \(columns),\n  inset: 10pt,\n  table.header(\(Array(1...columns).map { "[«\(localized("Heading")) \($0)»]" }.joined(separator: ", "))),\n"
+            for row in 1...rows { source += "  " + (1...columns).map { "[«\(localized("Cell")) \(row).\($0)»]" }.joined(separator: ", ") + ",\n" }
             return snippet(source + ")")
         case "paper":
             let paper = value("paper", "a4").lowercased()
-            guard ["a4", "a5", "us-letter"].contains(paper) else { throw CommandError.invalid("纸张请选择 a4、a5 或 us-letter。") }
+            guard ["a4", "a5", "us-letter"].contains(paper) else { throw CommandError.invalid(localized("Choose a4, a5 or us-letter for the paper size.")) }
             return snippet("#set page(paper: \(quoted(paper)))\n")
         case "margin": return snippet("#set page(margin: \(try number("margin", "24", 5...80))mm)\n")
         case "fontSize": return snippet("#set text(size: \(try number("size", "11", 6...72))pt)\n")
         case "pageNumber": return snippet("#set page(numbering: \"1\")\n")
         case "font": return snippet("#set text(font: \(protect(quoted(value("font", "Libertinus Serif")))))\n")
         case "language":
-            let language = value("language", "zh")
-            guard language.range(of: "^[A-Za-z]{2,3}$", options: .regularExpression) != nil else { throw CommandError.invalid("请填写两个或三个字母的语言代码，例如 zh、en 或 ja。") }
+            let language = value("language", AppLanguage.resolve(language ?? L10n.language) == .simplifiedChinese ? "zh" : "en")
+            guard language.range(of: "^[A-Za-z]{2,3}$", options: .regularExpression) != nil else { throw CommandError.invalid(localized("Enter a two- or three-letter language code, such as en, zh or ja.")) }
             return snippet("#set text(lang: \(quoted(language.lowercased())))\n")
         case "leading": return snippet("#set par(leading: \(try amount("0.65", range: 0...10))em)\n")
         case "paragraphSpacing": return snippet("#set par(spacing: \(try amount("1.2", range: 0...20))em)\n")
@@ -472,8 +490,8 @@ public enum TypstInsertion {
         case "justify": return snippet("#set par(justify: true)\n")
         case "headingNumbering": return snippet("#set heading(numbering: \"1.1\")\n")
         case "equationNumbering": return snippet("#set math.equation(numbering: \"(1)\")\n")
-        case "header", "footer": return snippet("#set page(\(id): \(protect(quoted(value("text", id == "header" ? "文稿标题" : "草稿")))))\n")
-        case "documentInfo": return snippet("#set document(title: \(protect(quoted(value("title", "未命名文稿")))), author: \(protect(quoted(value("author", "作者")))))\n")
+        case "header", "footer": return snippet("#set page(\(id): \(protect(quoted(value("text", id == "header" ? localized("Document title") : localized("Draft"))))))\n")
+        case "documentInfo": return snippet("#set document(title: \(protect(quoted(value("title", localized("Untitled"))))), author: \(protect(quoted(value("author", localized("Author"))))))\n")
         case "fraction": return math("frac(\(selection.isEmpty ? "«a»" : selectedSource), «b»)")
         case "squareRoot": return math("sqrt(\(selection.isEmpty ? "«x»" : selectedSource))")
         case "nthRoot": return math("root(«3», \(selection.isEmpty ? "«x»" : selectedSource))")
@@ -494,28 +512,28 @@ public enum TypstInsertion {
         case "accent": return math("arrow(\(selection.isEmpty ? "«v»" : selectedSource))")
         case "align":
             let alignment = value("alignment", "center")
-            guard ["left", "center", "right"].contains(alignment) else { throw CommandError.invalid("请选择 left、center 或 right。") }
+            guard ["left", "center", "right"].contains(alignment) else { throw CommandError.invalid(localized("Choose left, center or right.")) }
             return snippet("#align(\(alignment))[\(selected)]")
         case "columns": return snippet("#columns(\(try number("columns", "2", 2...4)), gutter: 18pt)[\n  \(selected)\n]")
-        case "grid": return snippet("#grid(\n  columns: (1fr, 1fr),\n  gutter: 12pt,\n  [«左侧内容»], [«右侧内容»],\n)")
+        case "grid": return snippet("#grid(\n  columns: (1fr, 1fr),\n  gutter: 12pt,\n  [\(placeholder("Left content"))], [\(placeholder("Right content"))],\n)")
         case "block": return snippet("#block(fill: luma(95%), inset: 12pt, radius: 4pt)[\n  \(selected)\n]")
         case "padding": return snippet("#pad(\(try amount("12"))pt)[\(selected)]")
-        case "stack": return snippet("#stack(dir: ltr, spacing: 12pt, [«左侧内容»], [«右侧内容»])")
+        case "stack": return snippet("#stack(dir: ltr, spacing: 12pt, [\(placeholder("Left content"))], [\(placeholder("Right content"))])")
         case "pageBreak": return snippet("#pagebreak()")
         case "verticalSpace": return snippet("#v(\(try amount("12"))pt)")
         case "horizontalSpace": return snippet("#h(\(try amount("12"))pt)")
         case "divider": return snippet("#line(length: 100%, stroke: 0.5pt)")
-        case "contents": return snippet("#outline(title: \"目录\")")
+        case "contents": return snippet("#outline(title: \(quoted(localized("Contents"))))")
         case "bibliography": return snippet("#bibliography(\(protect(quoted(value("path", "references.bib")))), style: \"ieee\")")
         case "citation": return snippet("#cite(<\(try label("example"))>)")
         case "include": return snippet("#include \(protect(quoted(value("path", "section.typ"))))")
         case "import": return snippet("#import \(protect(quoted(value("path", "helpers.typ")))): *\n")
         case "variable":
             let name = try label("project")
-            guard !["let", "set", "show", "import", "include", "return", "break", "continue", "for", "while", "if", "else", "in", "as", "and", "or", "not", "true", "false", "none", "auto", "context"].contains(name) else { throw CommandError.invalid("变量名称不能使用 Typst 关键字。") }
+            guard !["let", "set", "show", "import", "include", "return", "break", "continue", "for", "while", "if", "else", "in", "as", "and", "or", "not", "true", "false", "none", "auto", "context"].contains(name) else { throw CommandError.invalid(localized("Variable names cannot be Typst keywords.")) }
             return snippet("#let \(name) = \(protect(quoted(value("value", "Sumi"))))\n")
-        case "rawInline": return snippet("#raw(\(selection.isEmpty ? "\"«代码»\"" : protect(quoted(selection))))")
-        default: throw CommandError.invalid("这个命令不能插入文字。")
+        case "rawInline": return snippet("#raw(\(selection.isEmpty ? "\"\(placeholder("Code"))\"" : protect(quoted(selection))))")
+        default: throw CommandError.invalid(localized("This command does not insert text."))
         }
     }
 }

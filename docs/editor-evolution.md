@@ -1,27 +1,27 @@
-# Sumi 0.2：Typst 写作与工程质量
+# Writing features and engineering quality · 0.2
 
-本轮目标是把原生 Typst 写作的发现、反馈和恢复做完整，同时建立公开仓库与可重复的测试、发布流程。
+This iteration completed command discovery, feedback and recovery while establishing the public repository and repeatable testing and release processes.
 
-## 产品行为
+## Product behavior
 
-- `⌘J` 保持唯一的发现入口。根分类按写作意图区分；数学等大分类继续分层。所有命令都能中英文搜索，显示键路径、用途、语法示例和官方文档。保留现有常用键位。
-- 插入使用结构化参数和 Tab 占位符，整次操作可撤销。按插入位置选择正文、数学或文稿设置上下文，异步查询期间发生文稿或光标切换就取消操作。
-- Universe 面板读取官方包索引，按名称、用途与分类查找，展示版本和文档。插入固定版本的原生 `#import`；索引可缓存离线浏览，包由 Tinymist 在实际编译时按需取得。
-- 成稿提供纸张原色与深色阅读开关。深色只影响屏幕预览，不更改文稿或导出的 PDF，图片尽量保持原色。
-- 明确开启 Tinymist 可见区域渲染。编译未完成或遇到错误时保留上次成功成稿，并提示成稿可能落后于源码；首次编译失败则显示可操作的错误状态。不能把可见区域渲染误称为任意错误都能局部编译。
-- 编辑区提供可关闭的阅读样式，保守识别标题、粗体、斜体和行内代码。当前光标所在段落显示源码，其他段落弱化语法标记。只改变显示属性，绝不改写源文本、复制结果和撤销内容。代码、注释、数学区域不误套正文样式；中文组合输入期间不改显示属性。
-- 基础编辑补齐缩进、取消缩进、注释与格式化；通过命令面板发现，继续使用原生查找、选区、撤销和输入法。
+- `⌘J` remains the discovery entry point. Categories follow writing intent, with nested groups for mathematics. English and Chinese search show paths, purpose, examples and official references while retaining familiar direct shortcuts.
+- Insertion uses structured parameters and Tab placeholders as one undoable edit. Markup, math and preamble placement follow context. A document or caret change during an asynchronous query cancels the insertion.
+- Universe reads the official package index, searches names, purpose and categories, and shows versions and documentation. Imports pin versions. The index supports offline browsing; Tinymist obtains package code when compilation needs it.
+- Preview supports original page colors and dark reading. Dark reading changes only the screen, not source or PDF output; images retain their colors.
+- Tinymist explicitly renders visible regions. Pending or failed compilation keeps the last successful preview with a stale indicator. A first failure presents an actionable state. Visible-region rendering is not arbitrary partial compilation of invalid source.
+- Optional editor styling handles headings, bold, italics and inline code conservatively. The active paragraph shows full source while other paragraphs soften syntax markers. Display attributes never rewrite source, clipboard content or undo records. Code, comments and math are excluded, and marked text defers style changes.
+- Indent, outdent, comments and formatting complement native selection, find, undo and input methods.
 
-## 技术与验收
+## Architecture and acceptance
 
-沿用 SwiftUI + AppKit/NSTextView + SumiCore + 固定版本 Tinymist。将应用代码拆为可导入的库与极薄启动器，让测试直接使用真实 Workspace、原生编辑器和排版进程。文件系统和用户状态使用隔离目录。
+SwiftUI, AppKit/NSTextView, SumiCore and pinned Tinymist remain the foundation. An importable app library and thin launcher let tests exercise the real workspace, native editor and language-service process. Filesystem and user state use isolated test directories.
 
-覆盖率门槛为第一方核心与应用 Swift 源码整体行覆盖率至少 80%，报告包含每个文件；不靠仅统计核心库或整批排除界面来达到目标。功能集成场景优先：发现命令 → 参数 → 插入 → 占位符 → 撤销，文件冲突与恢复，真实 Tinymist 编译/导出/多文件，以及预览失败后恢复。纯解析和边界算法保留小型测试。界面还要实际启动进行视觉与交互检查。
+The coverage target is at least 80% of all first-party core and app Swift lines, reported per file. UI files are not excluded to inflate results. Functional integration takes priority: discovery → parameters → insertion → placeholders → undo; file conflicts and recovery; real compilation, export and multiple files; preview failure and recovery. Small parsing and boundary tests complement these flows. Real app checks cover visuals and interaction.
 
-GitHub Actions 在 macOS Apple Silicon 上构建、运行功能测试、检查覆盖率并上传报告和应用产物。版本标签触发 Developer ID 签名、Apple 公证与票据装订，全部成功后发布压缩包与校验和。缺少凭据或校验失败时停止正式发布；普通 CI 产物使用临时签名。所有本机开发临时文件仍放在外置 SSD，CI 则使用 runner 自带工作目录和临时目录。
+GitHub Actions builds on macOS arm64, runs functional tests and coverage, and uploads reports and app artifacts. Matching version tags trigger Developer ID signing, Apple notarization and stapling before publishing a ZIP and checksum. Missing credentials or failed checks stop publication. Ordinary CI builds remain development-signed. Local temporary files stay on the SSD; CI uses runner storage.
 
-## 边界
+## Scope
 
-本轮不把任意 Typst 函数或包模板变成所见即所得控件。公式、图表的真实结果在成稿中查看；后续嵌入式预览必须保持原文档编译上下文与源码映射。本轮不修改导出文稿配色，也不加入系统全局按键记录。
+Arbitrary Typst functions and package templates are not converted into visual widgets. Equations and diagrams appear in the real preview. Future embedded previews must retain document context and source mapping. This iteration does not change exported colors or introduce system-wide key recording.
 
-参考：[Tinymist 预览配置](https://myriad-dreamin.github.io/tinymist/config/vscode.html)、[Typst 包仓库](https://github.com/typst/packages)、[Typst 脚本与包](https://typst.app/docs/reference/scripting/)。
+References: [Tinymist preview configuration](https://myriad-dreamin.github.io/tinymist/config/vscode.html), [Typst packages](https://github.com/typst/packages), [Typst scripting and packages](https://typst.app/docs/reference/scripting/).

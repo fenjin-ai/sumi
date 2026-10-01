@@ -4,3 +4,5 @@ build/
 .tools/
 .scratch/
 .DS_Store
+*.profraw
+__pycache__/

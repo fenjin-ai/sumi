@@ -115,8 +115,7 @@ def social_preview():
         '<rect width="1280" height="640" fill="#191C20"/>'
         f'<g transform="translate(112 146) scale(.34)">{tile()}</g>'
         f'<text x="532" y="301" fill="{INK}" font-family="Helvetica Neue, Arial, sans-serif" font-size="88" font-weight="400" letter-spacing="-2">Sumi</text>'
-        '<text x="537" y="366" fill="#A7ADB5" font-family="Helvetica Neue, Arial, sans-serif" font-size="26">A quiet space to write.</text>'
-        '<text x="537" y="453" fill="#8F979F" font-family="PingFang SC, sans-serif" font-size="20" letter-spacing="3">给想法一点留白</text>', 1280, 640)
+        '<text x="537" y="366" fill="#A7ADB5" font-family="Helvetica Neue, Arial, sans-serif" font-size="26">A quiet space to write.</text>', 1280, 640)
 
 
 def render(source, target, size=None):

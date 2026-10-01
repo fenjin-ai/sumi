@@ -3,34 +3,72 @@ import SumiCore
 
 struct FloatingOutline: View {
     @ObservedObject var workspace: Workspace
+    @ObservedObject private var localization = AppLocalization.shared
     let availableMargin: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hovering = false
+    @State private var pinHovering = false
+    @State private var suppressedUntilExit = false
     @State private var dismissTask: Task<Void, Never>?
-    private var expanded: Bool { hovering || workspace.sidePanel == .outline }
+    private var pinned: Bool { workspace.sidePanel == .outline }
+    private var expanded: Bool { (hovering && !suppressedUntilExit) || pinned }
+    private var panelWidth: CGFloat {
+        // A pinned outline stays inside the existing margin. Hover can briefly
+        // expand it for reading long headings without moving the manuscript.
+        min(224, max(hovering ? 180 : 30, availableMargin - 24))
+    }
     private var current: Int? { workspace.outline.last { $0.offset <= workspace.selection.location }?.id }
 
     var body: some View {
         if !workspace.outline.isEmpty || workspace.sidePanel == .outline {
             VStack(alignment: .leading, spacing: 0) {
                 if expanded {
-                    Text("文章脉络").font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.muted)
-                        .padding(.leading, 17).padding(.top, 12).padding(.bottom, 10)
+                    HStack(spacing: 8) {
+                        if panelWidth >= 140 {
+                            Text(L10n.text("Outline")).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.muted)
+                        }
+                        Spacer(minLength: 0)
+                        Button {
+                            if pinned {
+                                workspace.sidePanel = nil
+                                hovering = false
+                                suppressedUntilExit = true
+                            } else { workspace.sidePanel = .outline }
+                        } label: {
+                            ZStack {
+                                PhosphorIcon(name: "push-pin", size: 14)
+                                    .opacity(pinned && pinHovering ? 0 : 1)
+                                    .rotationEffect(.degrees(pinned && pinHovering ? -35 : 0))
+                                PhosphorIcon(name: "x", size: 14)
+                                    .opacity(pinned && pinHovering ? 1 : 0)
+                                    .rotationEffect(.degrees(pinned && pinHovering ? 0 : 35))
+                            }
+                            .foregroundStyle(pinned ? Theme.text : Theme.muted)
+                            .frame(width: 24, height: 24).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                            .accessibilityIdentifier("outline.pin")
+                            .accessibilityLabel(L10n.text(pinned ? "Unpin outline" : "Pin outline"))
+                            .learningHelp(L10n.text(pinned ? "Unpin outline" : "Pin outline"), shortcut: "⌘4")
+                            .onHover { pinHovering = $0 }
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: pinHovering)
+                    }.padding(.horizontal, panelWidth < 70 ? 2 : 10).padding(.top, 6).padding(.bottom, 4)
                     ScrollViewReader { proxy in
                         ScrollView {
                             LazyVStack(alignment: .leading, spacing: 2) {
                                 if workspace.outline.isEmpty {
-                                    Text("用 = 写下第一个标题").font(.system(size: 11)).foregroundStyle(Theme.muted).padding(14)
+                                    Text(L10n.text("Write your first heading with =")).font(.system(size: 11)).foregroundStyle(Theme.muted).padding(14)
                                 }
                                 ForEach(workspace.outline) { item in
                                     Button { workspace.jump(to: item.offset) } label: {
                                         HStack(spacing: 8) {
                                             Capsule().fill(item.id == current ? Theme.accent.opacity(0.8) : Color.clear).frame(width: 2, height: 11)
-                                            Text(item.title).font(.system(size: 11, weight: item.id == current ? .medium : .regular))
-                                                .lineLimit(2).multilineTextAlignment(.leading)
+                                            if panelWidth >= 70 {
+                                                Text(item.title).font(.system(size: 11, weight: item.id == current ? .medium : .regular))
+                                                    .lineLimit(2).multilineTextAlignment(.leading)
+                                            }
                                             Spacer(minLength: 0)
                                         }.foregroundStyle(item.id == current ? Theme.text : Theme.secondary)
-                                            .padding(.leading, CGFloat(12 + min(item.level - 1, 3) * 8)).padding(.trailing, 12).padding(.vertical, 9)
+                                            .padding(.leading, panelWidth < 70 ? 3 : CGFloat(8 + min(item.level - 1, 3) * 5)).padding(.trailing, 6).padding(.vertical, 9)
                                             .contentShape(Rectangle())
 
                                     }.buttonStyle(.plain).id(item.id)
@@ -47,10 +85,10 @@ struct FloatingOutline: View {
                                     .frame(width: item.level == 1 ? 16 : 9, height: 2)
                             }
                         }.padding(.horizontal, 7).padding(.vertical, 15).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityLabel("展开文章脉络")
+                    }.buttonStyle(.plain).accessibilityLabel(L10n.text("Show outline"))
                 }
             }
-            .frame(width: expanded ? min(224, max(180, availableMargin - 28)) : 30, alignment: .leading)
+            .frame(width: expanded ? panelWidth : 30, alignment: .leading)
             .background {
                 if expanded {
                     // Opaque beside the text on narrow windows, blending into the
@@ -62,6 +100,8 @@ struct FloatingOutline: View {
                 dismissTask?.cancel()
                 if inside { hovering = true }
                 else {
+                    suppressedUntilExit = false
+                    pinHovering = false
                     dismissTask = Task {
                         do { try await Task.sleep(for: .milliseconds(180)) } catch { return }
                         hovering = false

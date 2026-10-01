@@ -60,7 +60,7 @@ private func universeDirectory() throws -> URL {
     #expect(request.url == UniverseCatalogStore.indexURL)
     #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
     #expect(request.timeoutInterval == 20)
-    #expect(snapshot.search("minimal").first?.license == "未注明")
+    #expect(snapshot.search("minimal").first?.license == L10n.text("Unspecified"))
 }
 
 @Test func universeCacheOfflineRefreshAndRecovery() async throws {
@@ -133,9 +133,9 @@ private func universeDirectory() throws -> URL {
         let package = try JSONDecoder().decode(UniversePackage.self, from: data)
         #expect(throws: UniverseError.self) { try package.pinnedImport() }
     }
-    #expect(UniverseError.invalidIndex.localizedDescription.contains("索引"))
-    #expect(UniverseError.invalidPackage.localizedDescription.contains("版本"))
-    #expect(UniverseError.unavailable.localizedDescription.contains("网络"))
+    #expect(UniverseError.invalidIndex.localizedDescription == L10n.text("The Universe index is invalid. Please refresh again later."))
+    #expect(UniverseError.invalidPackage.localizedDescription == L10n.text("The package name or version is invalid, so an import cannot be generated."))
+    #expect(UniverseError.unavailable.localizedDescription == L10n.text("Cannot reach Typst Universe. Refresh when connected; the cached index is still available."))
 }
 
 @Test func universeCancelledRefreshDoesNotReportOfflineSuccess() async throws {

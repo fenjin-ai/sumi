@@ -4,7 +4,7 @@ set -euo pipefail
 set +x
 cd "$(dirname "$0")/.."
 source scripts/environment.sh
-for variable in SIGNING_CERTIFICATE_P12 SIGNING_CERTIFICATE_PASSWORD APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_PRIVATE_KEY APPLE_TEAM_ID; do
+for variable in SIGNING_CERTIFICATE_P12 SIGNING_CERTIFICATE_PASSWORD APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_PRIVATE_KEY APPLE_TEAM_ID ICLOUD_PROVISIONING_PROFILE; do
   if [ -z "${!variable:-}" ]; then echo "Missing release credential: $variable" >&2; exit 1; fi
 done
 test "$(uname -m)" = arm64 || { echo 'Public releases support Apple Silicon only.' >&2; exit 1; }
@@ -31,6 +31,7 @@ import base64, os, pathlib, sys
 folder = pathlib.Path(sys.argv[1])
 (folder / "certificate.p12").write_bytes(base64.b64decode(os.environ["SIGNING_CERTIFICATE_P12"], validate=True))
 (folder / "notary.p8").write_text(os.environ["APP_STORE_CONNECT_PRIVATE_KEY"])
+(folder / "icloud.provisionprofile").write_bytes(base64.b64decode(os.environ["ICLOUD_PROVISIONING_PROFILE"], validate=True))
 PY
 security create-keychain -p "$keychain_password" "$keychain"
 security set-keychain-settings -lut 21600 "$keychain"
@@ -43,14 +44,26 @@ security import "$signing_dir/certificate.p12" -k "$keychain" -P "$SIGNING_CERTI
 security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain" >/dev/null
 # codesign also needs the identity and intermediate certificates in its search list.
 set_keychain_search_list "$keychain"
-unset SIGNING_CERTIFICATE_P12 SIGNING_CERTIFICATE_PASSWORD APP_STORE_CONNECT_PRIVATE_KEY
+unset SIGNING_CERTIFICATE_P12 SIGNING_CERTIFICATE_PASSWORD APP_STORE_CONNECT_PRIVATE_KEY ICLOUD_PROVISIONING_PROFILE
 identities=$(security find-identity -v -p codesigning "$keychain" | awk '/"Developer ID Application:/ {print $2}')
 test "$(printf '%s\n' "$identities" | awk 'NF {n++} END {print n+0}')" = 1 || { echo 'Expected exactly one valid Developer ID Application identity.' >&2; exit 1; }
 scripts/build.sh release
 app=build/Sumi.app
+python3 scripts/prepare-icloud-profile.py --profile "$signing_dir/icloud.provisionprofile" --team "$APPLE_TEAM_ID" --identity "$identities" --output "$signing_dir/icloud.entitlements"
+cp "$signing_dir/icloud.provisionprofile" "$app/Contents/embedded.provisionprofile"
 codesign --force --options runtime --timestamp --keychain "$keychain" --sign "$identities" "$app/Contents/Helpers/tinymist"
-codesign --force --options runtime --timestamp --keychain "$keychain" --sign "$identities" "$app"
+codesign --force --options runtime --timestamp --keychain "$keychain" --sign "$identities" "$app/Contents/Helpers/SumiMCP"
+codesign --force --options runtime --timestamp --keychain "$keychain" --sign "$identities" --entitlements "$signing_dir/icloud.entitlements" "$app"
 codesign --verify --deep --strict "$app"
+codesign -d --entitlements :- "$app" > "$signing_dir/signed-entitlements.plist" 2>/dev/null
+python3 - "$signing_dir" <<'PY'
+import pathlib, plistlib, sys
+root = pathlib.Path(sys.argv[1])
+expected = plistlib.loads((root / "icloud.entitlements").read_bytes())
+actual = plistlib.loads((root / "signed-entitlements.plist").read_bytes())
+if any(actual.get(key) != value for key, value in expected.items()):
+    raise SystemExit("Signed app is missing required iCloud entitlements.")
+PY
 actual_team=$(codesign -d --verbose=4 "$app" 2>&1 | sed -n 's/^TeamIdentifier=//p')
 test "$actual_team" = "$APPLE_TEAM_ID" || { echo 'Signing certificate team does not match APPLE_TEAM_ID.' >&2; exit 1; }
 mkdir -p build/notarization build/release

@@ -4,9 +4,9 @@ public enum ServiceError: LocalizedError {
     case unavailable, disconnected, timeout, remote(String)
     public var errorDescription: String? {
         switch self {
-        case .unavailable: "没有找到排版服务，请重新构建应用或检查 Tinymist 路径。"
-        case .disconnected: "排版服务已断开。文稿仍可编辑和保存。"
-        case .timeout: "排版服务响应超时，请重试或重新连接。"
+        case .unavailable: L10n.text("The typesetting service could not be found. Rebuild the app or check the Tinymist path.")
+        case .disconnected: L10n.text("The typesetting service disconnected. You can still edit and save your writing.")
+        case .timeout: L10n.text("The typesetting service timed out. Try again or reconnect.")
         case .remote(let message):
             if let start = message.range(of: "error: ") {
                 String(message[start.upperBound...].components(separatedBy: "\\n")[0]).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -69,7 +69,7 @@ public final class TinymistClient {
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.generation == session else { return }
                 self.stop()
-                self.onDisconnect?("排版服务已退出（\(status)）。你的文字仍然保留。")
+                self.onDisconnect?(L10n.format("The typesetting service exited (%@). Your writing is still safe.", String(status)))
             }
         }
         self.process = process
@@ -77,6 +77,8 @@ public final class TinymistClient {
         self.output = stdout.fileHandleForReading
         self.errorOutput = stderr.fileHandleForReading
         try process.run()
+        let packageCache = outputDirectory.deletingLastPathComponent().appendingPathComponent("PackageCache")
+        try BundledPackages.prepare(in: packageCache)
         _ = try await request("initialize", [
             "processId": ProcessInfo.processInfo.processIdentifier,
             "rootUri": root.absoluteString,
@@ -85,7 +87,7 @@ public final class TinymistClient {
                 "window": ["showDocument": ["support": true]],
                 "textDocument": ["publishDiagnostics": ["versionSupport": true], "completion": ["completionItem": ["snippetSupport": false]]]
             ],
-            "initializationOptions": ["exportPdf": "never", "outputPath": outputDirectory.appendingPathComponent("$name").path, "compileStatus": "enable"]
+            "initializationOptions": ["exportPdf": "never", "outputPath": outputDirectory.appendingPathComponent("$name").path, "compileStatus": "enable", "typstExtraArgs": ["--package-cache-path", packageCache.path]]
         ])
         guard generation == session else { throw ServiceError.disconnected }
         try notify("initialized", [:])
@@ -147,7 +149,7 @@ public final class TinymistClient {
         let response = try await command("tinymist.doStartPreview", arguments: [[
             "--task-id=sumi", "--data-plane-host=127.0.0.1:0", "--control-plane-host=127.0.0.1:0", "--no-open", "--partial-rendering=true", "--invert-colors=never", url.path
         ]])
-        guard let port = response["staticServerPort"].int, let preview = URL(string: "http://127.0.0.1:\(port)/") else { throw ServiceError.remote("预览服务没有返回有效地址。") }
+        guard let port = response["staticServerPort"].int, let preview = URL(string: "http://127.0.0.1:\(port)/") else { throw ServiceError.remote(L10n.text("The preview service did not return a valid address.")) }
         return preview
     }
 
@@ -173,13 +175,13 @@ public final class TinymistClient {
                     } else { onNotification?(method, message["params"]) }
                 } else if let id = message["id"].int, let continuation = pending.removeValue(forKey: id) {
                     timeouts.removeValue(forKey: id)?.cancel()
-                    if !message["error"].isNull { continuation.resume(throwing: ServiceError.remote(message["error"]["message"].string ?? "排版服务发生错误。")) }
+                    if !message["error"].isNull { continuation.resume(throwing: ServiceError.remote(message["error"]["message"].string ?? L10n.text("The typesetting service encountered an error."))) }
                     else { continuation.resume(returning: message["result"]) }
                 }
             }
         } catch {
             stop()
-            onDisconnect?("排版服务通信中断：\(error.localizedDescription)")
+            onDisconnect?(L10n.format("Typesetting connection interrupted: %@", error.localizedDescription))
         }
     }
 }

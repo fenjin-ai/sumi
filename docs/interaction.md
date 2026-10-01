@@ -1,35 +1,35 @@
-# 交互与性能 · 0.3.0
+# Interaction and performance · 0.3
 
-## 行为约定
+## Behavior
 
-- 常用功能有一个组合键；which-key 提供组织与发现，不要求用户每次走完整路径。直接快捷键由命令目录声明，工具栏、命令列表、说明区及新菜单项使用相同元数据。文章脉络同时支持 ⌘4 与 ⌘J → v → o。
-- 106 个命令分别映射到 Phosphor Regular 图标；12 个分组各有独立图标。文稿排版作用于 Typst 文档，工作空间作用于应用界面；编辑与代码包含编辑操作、语法、模块与 Universe。
-- 工具栏与小按钮默认使用紧凑原生 hover 提示，延迟 300ms，显示功能名和最短组合键。按内容计算气泡尺寸，不让 SwiftUI 默认尺寸扩成大卡片。
-- 文章脉络是独立覆盖层，不参与正文宽度计算。收起时只显示细小标记；悬停展开、离开 180ms 后收起。⌘4 可固定展开，Esc 或再次 ⌘4 收起。无外框、阴影、整行色块和 X；窄窗口用编辑区底色渐变保证文字可读。
-- 命令区固定为 320pt 的底部面板。分类、搜索结果、空结果和参数表单使用相同外部尺寸。右侧固定说明语法及快捷方式；鼠标 hover 只改变行背景，不改变键盘选择或触发滚动。键盘滚动仅让目标可见，不强制反复居中。
-- 参数字段采用两列并可内部滚动，验证到 820×540pt 窗口。根分组的四个方向键按三列网格导航。
+- Frequent actions have one-chord shortcuts. Which-key organizes discovery without requiring the complete path every time. The catalog supplies shared metadata to toolbar, command list, guide and native menus. Outline supports both `⌘4` and `⌘J → v → o`.
+- The 0.3 catalog has 106 commands with individually assigned Phosphor Regular icons and 12 distinct category icons. Typesetting changes the document; Workspace changes the application interface; Editing & Code covers editing, syntax, modules and Universe.
+- Compact actions show native hover help after 300 ms, with the name and shortest shortcut. The popover sizes to its content rather than expanding into a large card.
+- The outline is an independent margin overlay that does not change text width. Fine marks expand on hover and collapse 180 ms after leaving. `⌘4` pins it; Esc or another `⌘4` dismisses it. The 0.3 design removed a separate border, shadow, full-row highlight and close control. Narrow windows use a subtle editor-color fade for readability.
+- Command discovery occupies a fixed 320 pt bottom panel. Categories, search results, empty state and parameter forms share the same outer geometry. A fixed guide shows syntax and shortcuts. Pointer hover changes row background without moving keyboard selection or scrolling. Keyboard navigation only brings the target into view.
+- Forms use two columns with internal scrolling, verified at an 820×540 pt window. The category grid supports directional navigation in three columns.
 
-## 性能处理
+## Performance work
 
-- Phosphor PDF 图标按名称缓存一次，避免每次 SwiftUI 更新重新打开、解析磁盘文件。
-- 命令搜索预先规范化索引；查询和分组不变时复用结果。示例源码与 which-key 路径同样缓存；列表按索引遍历，删除逐行重复搜索。
-- 每份文本修订只构建一次字数与 UTF-16 行索引，光标位置用二分查找。查询和选择变化不会重扫全文。
-- 源码高亮保留原始与阅读样式快照。光标仍在同一段落时不做属性修改；跨段落只恢复前后段落。正文、字号或样式设置变化时才重建快照；语法正则预编译，排除区间使用二分查找。
-- 编辑器单独记录已应用字号，避免用混合样式文本的 `font` 属性判断是否需要全文高亮。保留原生撤销和组合输入保护。
+- Phosphor PDF images are cached by name rather than repeatedly opened and parsed during view updates.
+- Search uses a normalized index and reuses result sets while query/group remain unchanged. Examples and discovery paths are cached. Indexed row iteration removes repeated searches.
+- Each source revision builds word metrics and a UTF-16 line index once. Caret positions use binary search. Query and selection changes do not rescan the whole document.
+- Source highlighting retains source-style and reading-style snapshots. Movement within one paragraph does no attribute work; crossing paragraphs restores only the previous and current ranges. Source, font or styling changes rebuild snapshots. Regexes are compiled once and excluded ranges use binary search.
+- The editor tracks its applied font separately instead of using a mixed attributed string's font property to decide whether to restyle everything. Native undo and marked-text protection remain intact.
 
-本轮没有加入自定义 Metal 渲染。测到的瓶颈是 CPU 重复计算、磁盘读取和不必要的布局联动，先移除这些工作更直接。
+No custom Metal renderer was added. The measured bottlenecks were repeated CPU work, file reads and unnecessary layout coupling.
 
-## 基准与回归
+## Benchmarks and regression checks
 
-在同一台 Apple Silicon Mac、Swift Debug 构建、100,500 UTF-16 字符的原生 NSTextView 文稿上测量。500 次命令选择同时读取搜索结果、字数和光标位置；30 次光标移动跨段落刷新真实 attributed text。测量不包含服务启动和首次缓存建立，也不是显示帧率。
+Measurements used the same Mac, a Swift Debug build, and a real `NSTextView` document of 100,500 UTF-16 units. One test performed 500 command selections while reading search results, word count and caret position. Another moved the caret across paragraphs 30 times and refreshed real attributed text. Service startup and initial cache construction are excluded; these are not frame-rate measurements.
 
-| 路径 | 改动前 | 改动后首次复测 |
+| Path | Before | First measurement after changes |
 |---|---:|---:|
-| 500 次命令选择相关计算 | 17.549 s | 0.0035 s |
-| 30 次段落样式刷新 | 13.438 s | 0.189 s |
+| 500 command-selection computations | 17.549 s | 0.0035 s |
+| 30 paragraph-style refreshes | 13.438 s | 0.189 s |
 
-功能集成回归断言目录展开前后正文 frame/inset 相同；搜索结果数、键盘选择与参数表单变化时编辑区 frame 相同；菜单组合键和 which-key 路径产生相同效果；缓存随插入、撤销、字号和 UTF-16 选区更新；全部命令图标实际可加载；hover 内容高度不超过 48pt。性能门槛使用宽松的 1s / 3s，容忍覆盖率插桩和共享 CI runner。
+Functional tests assert identical manuscript frames/insets with the outline expanded or collapsed, stable editor geometry through search/selection/forms, equivalent native shortcuts and discovery paths, cache updates after insertion/undo/font/Unicode selection changes, loadable icons and hover content no taller than 48 pt. Loose 1 s / 3 s performance thresholds allow coverage instrumentation and shared CI runners.
 
-## 标志
+## Identity
 
-应用采用已确认的单色 Σ 字形：象牙白连续笔画与炭灰底色，以求和隐喻想法汇成文章。黄金比例控制骨架，正弦函数控制轻微笔压变化；生成器统一输出应用 ICNS、SVG、GitHub 分享图及网站 favicon。ICNS 包含 16–1024px 各档，小尺寸进行光学校正。详见[构形说明](../design/sigma/README.md)与[品牌资源](../Brand/README.md)。
+The approved monochrome Sigma uses an ivory continuous stroke on charcoal, suggesting separate thoughts coming together into writing. A golden-ratio skeleton and sine pressure envelope generate ICNS, SVG, social previews and favicons from one source. ICNS includes 16–1024 pixel representations, with optical correction at small sizes. See [construction](../design/sigma/README.md) and [brand assets](../Brand/README.md).

@@ -6,7 +6,8 @@ public struct UniversePackage: Codable, Identifiable, Equatable, Sendable {
     public let version: String
     public let description: String
     public let authors: [String]
-    public let license: String
+    private let licenseValue: String
+    public var license: String { licenseValue.isEmpty ? L10n.text("Unspecified") : licenseValue }
     public let keywords: [String]
     public let categories: [String]
     public let disciplines: [String]
@@ -17,7 +18,8 @@ public struct UniversePackage: Codable, Identifiable, Equatable, Sendable {
     public var documentationURL: URL { URL(string: "https://typst.app/universe/package/")!.appendingPathComponent(name, isDirectory: true).appendingPathComponent(version, isDirectory: true) }
 
     private enum CodingKeys: String, CodingKey {
-        case name, version, description, authors, license, keywords, categories, disciplines, compiler
+        case name, version, description, authors, keywords, categories, disciplines, compiler
+        case licenseValue = "license"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -26,7 +28,7 @@ public struct UniversePackage: Codable, Identifiable, Equatable, Sendable {
         version = try values.decode(String.self, forKey: .version)
         description = try values.decodeIfPresent(String.self, forKey: .description) ?? ""
         authors = try values.decodeIfPresent([String].self, forKey: .authors) ?? []
-        license = try values.decodeIfPresent(String.self, forKey: .license) ?? "未注明"
+        licenseValue = try values.decodeIfPresent(String.self, forKey: .licenseValue) ?? ""
         keywords = try values.decodeIfPresent([String].self, forKey: .keywords) ?? []
         categories = try values.decodeIfPresent([String].self, forKey: .categories) ?? []
         disciplines = try values.decodeIfPresent([String].self, forKey: .disciplines) ?? []
@@ -63,18 +65,20 @@ private struct UniverseVersion: Comparable {
 
 public struct UniverseCategory: Identifiable, Sendable {
     public let id: String
-    public let title: String
+    private let titleKey: String
+    public var title: String { L10n.text(titleKey) }
+    public var searchTerms: String { L10n.searchTerms(titleKey) }
     public static let all: [Self] = [
-        .init(id: "", title: "全部包"), .init(id: "visualization", title: "绘图与可视化"),
-        .init(id: "components", title: "组件"), .init(id: "text", title: "文字"),
-        .init(id: "layout", title: "布局"), .init(id: "model", title: "文档结构"),
-        .init(id: "presentation", title: "演示文稿"), .init(id: "paper", title: "论文"),
-        .init(id: "thesis", title: "学位论文"), .init(id: "report", title: "报告"),
-        .init(id: "book", title: "书籍"), .init(id: "poster", title: "海报"),
-        .init(id: "cv", title: "简历"), .init(id: "flyer", title: "传单"),
-        .init(id: "office", title: "办公"), .init(id: "languages", title: "语言"),
-        .init(id: "integration", title: "集成"), .init(id: "scripting", title: "脚本"),
-        .init(id: "utility", title: "实用工具"), .init(id: "fun", title: "趣味")
+        .init(id: "", titleKey: "All Packages"), .init(id: "visualization", titleKey: "Drawing & Visualization"),
+        .init(id: "components", titleKey: "Components"), .init(id: "text", titleKey: "Text"),
+        .init(id: "layout", titleKey: "Layout"), .init(id: "model", titleKey: "Document Structure"),
+        .init(id: "presentation", titleKey: "Presentations"), .init(id: "paper", titleKey: "Papers"),
+        .init(id: "thesis", titleKey: "Theses"), .init(id: "report", titleKey: "Reports"),
+        .init(id: "book", titleKey: "Books"), .init(id: "poster", titleKey: "Posters"),
+        .init(id: "cv", titleKey: "CVs"), .init(id: "flyer", titleKey: "Flyers"),
+        .init(id: "office", titleKey: "Office"), .init(id: "languages", titleKey: "Language"),
+        .init(id: "integration", titleKey: "Integrations"), .init(id: "scripting", titleKey: "Scripting"),
+        .init(id: "utility", titleKey: "Utilities"), .init(id: "fun", titleKey: "Fun")
     ]
     public static func title(for id: String) -> String { all.first { $0.id == id }?.title ?? id }
 }
@@ -89,7 +93,7 @@ public struct UniverseCatalogSnapshot: Sendable {
         let words = Self.normalized(query).split(whereSeparator: \.isWhitespace)
         return packages.filter { package in
             guard category.isEmpty || package.categories.contains(category) else { return false }
-            let translated = package.categories.map(UniverseCategory.title(for:))
+            let translated = package.categories.map { id in UniverseCategory.all.first { $0.id == id }?.searchTerms ?? id }
             let haystack = Self.normalized(([package.name, package.description] + package.keywords + package.categories + translated + package.disciplines).joined(separator: " "))
             return words.allSatisfy { haystack.contains($0) }
         }.sorted { left, right in
@@ -108,9 +112,9 @@ public enum UniverseError: LocalizedError {
     case invalidIndex, invalidPackage, unavailable
     public var errorDescription: String? {
         switch self {
-        case .invalidIndex: "Universe 索引格式无效，请稍后重新刷新。"
-        case .invalidPackage: "包名称或版本无效，无法生成导入语句。"
-        case .unavailable: "暂时无法连接 Typst Universe。连接网络后可重新刷新；已缓存的索引仍可浏览。"
+        case .invalidIndex: L10n.text("The Universe index is invalid. Please refresh again later.")
+        case .invalidPackage: L10n.text("The package name or version is invalid, so an import cannot be generated.")
+        case .unavailable: L10n.text("Cannot reach Typst Universe. Refresh when connected; the cached index is still available.")
         }
     }
 }
