@@ -11,7 +11,7 @@ esac
 archive="tinymist-${arch}-apple-darwin.tar.gz"
 base="https://github.com/Myriad-Dreamin/tinymist/releases/download/v${version}"
 if [ ! -x .tools/tinymist ] || ! .tools/tinymist --version | grep -q "v$version"; then
-  curl --fail --location --retry 3 "$base/$archive" -o ".tools/$archive"
+  curl --fail --location --retry 3 --retry-all-errors --connect-timeout 20 --max-time 180 "$base/$archive" -o ".tools/$archive"
   actual=$(shasum -a 256 ".tools/$archive" | awk '{print $1}')
   test "$actual" = "$expected" || { echo 'Tinymist checksum mismatch' >&2; exit 1; }
   tar -xzf ".tools/$archive" -C .tools
