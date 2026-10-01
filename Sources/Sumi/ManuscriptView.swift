@@ -11,7 +11,15 @@ struct ManuscriptView: NSViewRepresentable {
         scroll.autohidesScrollers = true
         scroll.borderType = .noBorder
         scroll.backgroundColor = NSColor(hex: 0x1C1F23)
-        let editor = ManuscriptTextView(frame: NSRect(origin: .zero, size: scroll.contentSize))
+        // Explicit TextKit 1: native selection/IME plus NSLayoutManager's
+        // drawing-only syntax attributes, with no implicit engine fallback.
+        let storage = NSTextStorage()
+        let manager = NSLayoutManager()
+        manager.allowsNonContiguousLayout = true
+        let container = NSTextContainer(size: NSSize(width: scroll.contentSize.width, height: .greatestFiniteMagnitude))
+        storage.addLayoutManager(manager)
+        manager.addTextContainer(container)
+        let editor = ManuscriptTextView(frame: NSRect(origin: .zero, size: scroll.contentSize), textContainer: container)
         editor.workspace = workspace
         editor.delegate = context.coordinator
         editor.isRichText = false
@@ -82,16 +90,8 @@ final class ManuscriptTextView: NSTextView {
     private var completionItems: [JSONValue] = []
     private var highlighting = false
     private(set) var appliedFontSize: CGFloat = 0
-    private var styledSource = false
-    private var highlightedText: String?
-    private var sourceAttributes: NSAttributedString?
-    private var readingAttributes: NSAttributedString?
-    private var activeParagraph: NSRange?
-    private var appliedSyntaxRevision = -1
-    private static let syntaxPatterns = [
-        "(?m)^={1,6}[ \t]+.*$", "#[A-Za-z][A-Za-z0-9_.-]*",
-        #""(?:[^"\\]|\\.)*""#, #"\$[^$]*\$"#, #"\*[^*\n]+\*"#, "(?m)^//.*$"
-    ].map { try! NSRegularExpression(pattern: $0) }
+    private var styler = ManuscriptStyler()
+    private let readingAnalysis = ReadingAnalysis()
     private weak var observedUndoManager: UndoManager?
 
     override func viewDidMoveToWindow() {
@@ -123,7 +123,8 @@ final class ManuscriptTextView: NSTextView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
-        textContainerInset = NSSize(width: max(36, (newSize.width - 740) / 2), height: 42)
+        let inset = NSSize(width: max(36, (newSize.width - 740) / 2), height: 42)
+        if textContainerInset != inset { textContainerInset = inset }
     }
 
     override func resetCursorRects() {
@@ -153,6 +154,10 @@ final class ManuscriptTextView: NSTextView {
     }
 
     func load(_ content: String, selection: NSRange) {
+        highlightTask?.cancel()
+        layoutManager?.setTemporaryAttributes([:], forCharacterRange: NSRange(location: 0, length: textStorage?.length ?? 0))
+        styler = ManuscriptStyler()
+        styler.prepare(content, decorations: SourcePresentation.decorations(in: content))
         string = content
         placeholders = []
         undoManager?.removeAllActions()
@@ -165,109 +170,40 @@ final class ManuscriptTextView: NSTextView {
         highlightTask?.cancel()
         highlightTask = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-            self?.highlight()
+            guard let self else { return }
+            let source = self.string
+            if self.styler.source != source {
+                // Parsing has no AppKit dependencies. Typing and IME never wait
+                // for this work; a superseded result cannot touch native ranges.
+                guard let decorations = await self.readingAnalysis.decorations(in: source),
+                      !Task.isCancelled, self.string == source else { return }
+                self.styler.prepare(source, decorations: decorations)
+            }
+            self.highlight()
         }
     }
 
     func highlight() {
-        guard !highlighting, !selectingWithMouse, !hasMarkedText(), let storage = textStorage else { return }
+        guard !highlighting, !selectingWithMouse, !hasMarkedText() else { return }
         highlighting = true
         defer { highlighting = false }
         let size = workspace?.fontSize ?? 16
-        let styled = workspace?.styledSource == true
-        let content = string
-        let active = SourcePresentation.activeParagraph(in: content, selection: selectedRange())
-        let syntaxRevision = workspace?.syntaxRevision ?? 0
-        let rebuild = highlightedText != content || appliedFontSize != size || styledSource != styled || appliedSyntaxRevision != syntaxRevision
-        if !rebuild, activeParagraph == active { return }
-        let font = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = 7
-        paragraph.paragraphSpacing = 2
-        let base: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor(hex: 0xD5D9DE), .paragraphStyle: paragraph]
-        if rebuild {
-            let source = NSMutableAttributedString(string: content, attributes: base)
-            let styles: [[NSAttributedString.Key: Any]] = [
-                [.foregroundColor: NSColor(hex: 0xEEE8DA), .font: NSFont.monospacedSystemFont(ofSize: size + 2, weight: .semibold)],
-                [.foregroundColor: NSColor(hex: 0xA5B8C8)], [.foregroundColor: NSColor(hex: 0xA8B89A)],
-                [.foregroundColor: NSColor(hex: 0xD9B97C)],
-                [.foregroundColor: NSColor(hex: 0xEEE8DA), .font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold)],
-                [.foregroundColor: NSColor(hex: 0x7C8793)]
-            ]
-            let whole = NSRange(location: 0, length: source.length)
-            if let snapshot = workspace?.syntaxSnapshot, snapshot.source == content {
-                for token in snapshot.tokens {
-                    source.addAttributes(syntaxAttributes(token, size: size), range: token.range)
-                }
-            } else {
-                for (regex, attributes) in zip(Self.syntaxPatterns, styles) {
-                    for match in regex.matches(in: content, range: whole) { source.addAttributes(attributes, range: match.range) }
-                }
-            }
-            sourceAttributes = source
-            let reading = NSMutableAttributedString(attributedString: source)
-            if styled {
-                for decoration in SourcePresentation.decorations(in: content) {
-                    switch decoration.kind {
-                    case .heading(let level):
-                        reading.addAttributes([.font: NSFont.systemFont(ofSize: size + CGFloat(max(2, 8 - level * 2)), weight: .semibold), .foregroundColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
-                    case .strong:
-                        reading.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold), .foregroundColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
-                    case .emphasis:
-                        reading.addAttribute(.font, value: NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask), range: decoration.range)
-                    case .code:
-                        reading.addAttributes([.foregroundColor: NSColor(hex: 0xA8B89A), .backgroundColor: NSColor(hex: 0x272D32)], range: decoration.range)
-                    }
-                    for marker in decoration.markers {
-                        reading.addAttributes([.font: NSFont.systemFont(ofSize: 0.1), .foregroundColor: NSColor.clear], range: marker)
-                    }
-                }
-            }
-            readingAttributes = reading
-            highlightedText = content
+        if appliedFontSize != size {
+            // Explicit font changes are rare and must take effect immediately.
+            if styler.source != string { styler.prepare(string, decorations: SourcePresentation.decorations(in: string)) }
+            typingAttributes = ManuscriptStyler.baseAttributes(size: size)
+            textColor = ManuscriptStyler.baseColor
             appliedFontSize = size
-            styledSource = styled
-            appliedSyntaxRevision = syntaxRevision
         }
-        storage.beginEditing()
-        func apply(_ snapshot: NSAttributedString?, range: NSRange) {
-            guard let snapshot, range.length > 0 else { return }
-            snapshot.enumerateAttributes(in: range) { attributes, span, _ in
-                storage.setAttributes(attributes, range: span)
-            }
+        if styler.source != string { scheduleHighlight() }
+        let geometryChanged = styler.apply(to: self, size: size, styled: workspace?.styledSource == true,
+            snapshot: workspace?.syntaxSnapshot, revision: workspace?.syntaxRevision ?? 0)
+        if geometryChanged {
+            prepareForPointerInteraction()
+            window?.invalidateCursorRects(for: self)
         }
-        if rebuild { apply(readingAttributes, range: NSRange(location: 0, length: storage.length)) }
-        else if let previous = activeParagraph { apply(readingAttributes, range: previous) }
-        apply(sourceAttributes, range: active)
-        storage.endEditing()
-        activeParagraph = active
-        // Keep native caret geometry and the displayed glyphs in the same layout
-        // after switching a paragraph between source and reading attributes.
-        prepareForPointerInteraction()
-        window?.invalidateCursorRects(for: self)
-        typingAttributes = base
-    }
-
-    private func syntaxAttributes(_ token: HighlightToken, size: CGFloat) -> [NSAttributedString.Key: Any] {
-        let kind = token.kind.replacingOccurrences(of: "hljs-", with: "").components(separatedBy: " ").first ?? token.kind
-        let color: UInt32
-        switch kind {
-        case "comment", "punct", "delim", "meta": color = 0x7C8793
-        case "string", "regexp", "escape": color = 0xA8B89A
-        case "keyword", "operator", "selector-tag": color = 0xBEA4C9
-        case "number", "bool", "literal", "symbol", "bullet": color = 0xD9B97C
-        case "function", "title", "built_in", "type", "namespace", "link", "ref", "label": color = 0x9DBBCD
-        case "heading", "strong": color = 0xEEE8DA
-        case "raw", "code": color = 0xBAC4CF
-        default: color = token.modifiers.contains("math") ? 0xD9B97C : 0xD5D9DE
-        }
-        var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor(hex: color)]
-        if token.modifiers.contains("strong") || kind == "heading" {
-            attributes[.font] = NSFont.monospacedSystemFont(ofSize: size, weight: .semibold)
-        } else if token.modifiers.contains("emph") {
-            attributes[.font] = NSFontManager.shared.convert(NSFont.monospacedSystemFont(ofSize: size, weight: .regular), toHaveTrait: .italicFontMask)
-        }
-        return attributes
+        // Native typing must not inherit a hidden marker or heading font.
+        typingAttributes = ManuscriptStyler.baseAttributes(size: size)
     }
 
     func insertSnippet(_ snippet: Snippet, replacing range: NSRange, focus: Bool = true) {
@@ -315,7 +251,7 @@ final class ManuscriptTextView: NSTextView {
             }
             return
         }
-        if event.keyCode == 53, !placeholders.isEmpty { placeholders = []; setSelectedRange(NSRange(location: NSMaxRange(selectedRange()), length: 0)); return }
+        if !hasMarkedText(), event.keyCode == 53, !placeholders.isEmpty { placeholders = []; setSelectedRange(NSRange(location: NSMaxRange(selectedRange()), length: 0)); return }
         if event.modifierFlags.contains(.control), event.charactersIgnoringModifiers == "." { workspace?.requestCompletion(); return }
         super.keyDown(with: event)
     }

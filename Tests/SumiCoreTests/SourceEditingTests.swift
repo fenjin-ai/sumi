@@ -12,6 +12,59 @@ import Testing
     }
 }
 
+@Test func lineIndexHandlesUnicodeMixedLineEndingsAndBoundaryPositions() {
+    let source = "中文😀\r\nCafé\r👩‍💻\n\nLast"
+    let index = TextLineIndex(source)
+    let lines = ["中文😀", "Café", "👩‍💻", "", "Last"]
+    let starts = [0, 6, 12, 18, 19]
+    for (line, text) in lines.enumerated() {
+        // Native and LSP positions use UTF-16, including offsets inside an emoji.
+        // The index maps units without silently converting them to Characters.
+        for column in 0...text.utf16.count {
+            let position = TextPosition(line: line, character: column)
+            let offset = starts[line] + column
+            #expect(index.offset(at: position) == offset)
+            #expect(index.position(at: offset) == position)
+        }
+    }
+    #expect(index.position(at: 5) == TextPosition(line: 0, character: 4))
+    #expect(index.offset(at: .init(line: 0, character: Int.max)) == 4)
+    #expect(index.offset(at: .init(line: Int.max, character: Int.max)) == source.utf16.count)
+    #expect(index.offset(at: .init(line: -4, character: -10)) == 0)
+    #expect(index.position(at: Int.max) == TextPosition(line: 4, character: 4))
+    #expect(TextPosition(line: 2, character: 5).utf8Column(in: source) == 11)
+    #expect(TextLineIndex("\r\n").position(at: 2) == TextPosition(line: 1, character: 0))
+    #expect(TextLineIndex("").offset(at: .init(line: 0, character: 99)) == 0)
+}
+
+@Test func largeOutlineNavigationUsesOneRevisionIndex() {
+    let paragraph = "= Chapter 中文😀\r\n\nA paragraph with é and 👩‍💻.\n\n"
+    let chapterCount = 12_000
+    let source = String(repeating: paragraph, count: chapterCount)
+    let metrics = DocumentMetrics(source)
+    let width = paragraph.utf16.count
+    let start = ContinuousClock.now
+    var checksum = 0
+    // Real outlines provide LSP line/column positions. Resolve the whole batch,
+    // then move through it repeatedly as the outline selection changes.
+    let headings = (0..<chapterCount).map { metrics.offset(at: .init(line: $0 * 4, character: 0)) }
+    for chapter in 0..<chapterCount {
+        let offset = headings[chapter]
+        #expect(offset == chapter * width)
+        #expect(metrics.position(at: offset) == TextPosition(line: chapter * 4, character: 0))
+        checksum += offset
+    }
+    let duration = start.duration(to: .now)
+    print("SUMI INDEX PERFORMANCE: \(source.utf16.count) UTF16, \(chapterCount) outline positions \(duration)")
+    #expect(checksum == width * chapterCount * (chapterCount - 1) / 2)
+    #expect(duration < .seconds(2))
+    // A new revision must use its own index; old positions remain valid for
+    // asynchronous work on the original snapshot and never mutate underneath it.
+    let changed = DocumentMetrics("前言😀\r\n" + source)
+    #expect(changed.offset(at: .init(line: 1, character: 0)) == 6)
+    #expect(metrics.offset(at: .init(line: 0, character: 0)) == 0)
+}
+
 @Test func sourceDecorationRespectsCodeMathAndIncompleteInput() {
     let source = """
     = 中文😀标题

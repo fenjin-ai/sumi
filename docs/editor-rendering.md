@@ -24,6 +24,14 @@ Sources: [Tinymist semantic tokens](https://github.com/Myriad-Dreamin/tinymist/b
 
 ## Pointer geometry and native selection
 
-Reading attributes can change glyph widths and line heights. Sumi resolves the visible TextKit layout after an attribute update and before mouse-down, so hit testing and displayed glyphs use the same geometry. It postpones reading/source restyling until native mouse tracking ends, preserving word selection and dragging. Cursor rectangles are invalidated after layout changes and editable text uses the native I-beam. This does not replace AppKit selection or IME handling.
+Reading attributes can change glyph widths and line heights. Sumi resolves the visible TextKit layout after a metric change and before mouse-down, so hit testing and displayed glyphs use the same geometry. Syntax colors use temporary layout attributes and never trigger a forced layout pass. It postpones reading/source restyling until native mouse tracking ends, preserving word selection and dragging. Cursor rectangles are invalidated after layout changes and editable text uses the native I-beam. This does not replace AppKit selection or IME handling.
 
 The pointer regression scenarios cover source/reading transitions, single/split layouts, three window widths, wrapped paragraphs, Chinese and emoji. Character rectangles must round-trip to their original insertion offsets, and the real window hit-test must route those points to the editor.
+
+## Stable typing
+
+Semantic colors remain visible while an updated response is pending. The small regex fallback is used before semantic colors arrive; it no longer replaces an entire semantic palette after each key. Only changed temporary color runs are applied, and asynchronous token replies cannot change fonts or paragraph metrics.
+
+Reading analysis runs on a serial actor and applies only to its exact source snapshot. Font changes are diffed independently of colors. The active paragraph's source attributes are included in that comparison, avoiding a hide/reveal cycle in each pass. Native CJK and emoji font substitutions remain intact. Temporary attributes are applied after text-storage edit batches have closed because their display invalidation can request glyph generation.
+
+See [Editor foundations](editor-foundations.md) for the component evaluation, memory model, regression gates and remaining work on incremental edits and persistence.
