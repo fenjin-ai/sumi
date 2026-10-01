@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report and gate instrumented application line coverage, including native UI.
 
-Select every Swift file under Sources/SumiCore and Sources/Sumi; no UI exclusions.
+Select all production implementation targets, including the agent bridge and MCP server; no UI exclusions.
 Count LCOV's executable source-line records once per physical line. SwiftUI's
 nested closure instantiations can inflate LLVM summary line totals beyond the
 actual source length. Raw LLVM JSON and LCOV are retained alongside the report.
@@ -29,6 +29,9 @@ subprocess.run(["xcrun", "llvm-profdata", "merge", "-sparse", *map(str, raw_prof
 binaries = sorted(p for p in binary_dir.glob("*.xctest/Contents/MacOS/*") if p.is_file())
 if not binaries:
     sys.exit("No Swift test bundles found.")
+helper = binary_dir / "SumiMCP"
+if helper.exists():
+    binaries.append(helper)
 objects = [str(binaries[0])]
 for binary in binaries[1:]:
     objects += ["-object", str(binary)]
@@ -45,7 +48,7 @@ for record in lcov.split("end_of_record"):
         if line.startswith("DA:"):
             number, hits, *_ = line[3:].split(",")
             entries[int(number)] = max(entries.get(int(number), 0), int(hits))
-expected = {p.resolve() for folder in ("Sources/SumiCore", "Sources/Sumi") for p in (root / folder).glob("**/*.swift")}
+expected = {p.resolve() for folder in ("Sources/SumiCore", "Sources/Sumi", "Sources/SumiAutomation", "Sources/SumiMCPServer") for p in (root / folder).glob("**/*.swift")}
 by_path = {Path(entry["filename"]).resolve(): entry for data in report["data"] for entry in data["files"] if Path(entry["filename"]).resolve() in expected}
 files = list(by_path.values())
 missing = expected - {Path(entry["filename"]).resolve() for entry in files}
@@ -79,7 +82,7 @@ rows = ["| File | Covered lines | Coverage |", "|---|---:|---:|"]
 for entry in sorted(files, key=lambda f: f["filename"]):
     lines = entry["sourceLineCoverage"]
     rows.append(f"| {Path(entry['filename']).relative_to(root)} | {lines['covered']}/{lines['count']} | {lines['percent']:.1f}% |")
-summary = f"Application source-line coverage: **{percent:.2f}%** ({covered}/{total}), required **{args.minimum:g}%**.\n\nEvery executable source line under `Sources/SumiCore` and `Sources/Sumi` is counted once using LCOV DA records. No UI exclusions.\n\n" + "\n".join(rows) + "\n"
+summary = f"Application source-line coverage: **{percent:.2f}%** ({covered}/{total}), required **{args.minimum:g}%**.\n\nEvery executable implementation line under `Sources/SumiCore`, `Sources/Sumi`, `Sources/SumiAutomation`, and `Sources/SumiMCPServer` is counted once using LCOV DA records. Only the two minimal process launchers are outside the gate. No UI exclusions.\n\n" + "\n".join(rows) + "\n"
 (output / "summary.md").write_text(summary)
 print(summary)
 subprocess.run(["xcrun", "llvm-cov", "show", *objects, f"-instr-profile={profile}", "-format=html", f"-output-dir={output / 'html'}", *map(str, sorted(expected))], check=True, stdout=subprocess.DEVNULL)

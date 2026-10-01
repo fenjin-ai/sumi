@@ -4,83 +4,97 @@
 
 [![CI](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml/badge.svg)](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/fenjin-ai/sumi/branch/main/graph/badge.svg)](https://app.codecov.io/github/fenjin-ai/sumi)
 
-**给想法一点留白。** A quiet space to write.
+**A quiet space to write.**
 
-Sumi 是一个安静的写作空间。简洁的界面、随手可发现的工具与实时成稿，让你专注于文字和思考。
+Sumi gives your words room to breathe. A calm interface, tools you can discover as you go, and a live view of the finished page keep your attention on writing and thinking.
 
-- [产品需求](docs/requirements.md)
-- [技术架构与交互规范](docs/architecture.md)
-- [实施与验收记录](docs/progress.md)
-- [0.2 编辑体验与工程化](docs/editor-evolution.md)
-- [0.3 交互与性能](docs/interaction.md)
-- [品牌资源与 favicon](Brand/README.md)
+- [Product requirements](docs/requirements.md)
+- [Architecture](docs/architecture.md)
+- [Implementation and verification](docs/progress.md)
+- [Writing features](docs/editor-evolution.md)
+- [Interaction and performance](docs/interaction.md)
+- [Brand assets and favicons](Brand/README.md)
+- [Localization](docs/localization.md)
+- [Library and synchronization](docs/library-and-sync.md)
+- [Coding agents and MCP](docs/agents.md)
+- [Code notes](docs/code-notes.md)
+- [Local intelligence evaluation](docs/local-intelligence.md)
+- [Merge evaluation](docs/merge-evaluation.md)
 
-## 使用
+## Getting started
 
-当前为 **0.3.0** 开发预览版。支持搭载 Apple M 系列芯片的 Mac，需要 macOS 14 或更新版本。
+Sumi is a development preview for Macs with an Apple M-series chip, running macOS 14 or later.
 
-打开 `build/Sumi.app`。应用自带 Tinymist，无需另外安装 Typst、Rust 或 Homebrew。入门文稿见 [留白.typ](Examples/留白.typ)。
+Open `build/Sumi.app` after building. The app includes its typesetting service; no separate installation of Typst, Rust or Homebrew is needed to use it. Try the [welcome document](Examples/Welcome.typ).
 
-| 操作 | 快捷键 |
+The app supports English and Simplified Chinese. Choose **Settings → App Language** to follow your system or use either language immediately. Changing the interface language never translates or rewrites your documents.
+
+| Action | Shortcut |
 |---|---|
-| 发现命令 | `⌘J`，设置中可改为 `⌘K` |
-| 命令分组 | `i` 插入内容、`s` 文字样式、`p` 纸张设置、`m` 数学、`l` 文稿排版、`r` 引用与目录、`c` 编辑与代码、`v` 工作空间、`f` 文件 |
-| 搜索命令 | 打开面板后按 `/`，支持中文和英文关键词 |
-| 返回 / 退出面板 | `Esc` |
-| 插入后的占位内容 | `Tab` / `⇧Tab` 切换，`Esc` 结束 |
-| 写作 / 并排 / 成稿 | `⌘1` / `⌘2` / `⌘3` |
-| 文章脉络 / 文稿检查 | `⌘4` / `⌘5` |
-| 新建 / 打开 / 保存 | `⌘N` / `⌘O` / `⌘S` |
-| 另存为 / 导出 PDF | `⇧⌘S` / `⇧⌘E` |
-| Typst 补全 / 查找 | `⌃.` / `⌘F` |
+| Discover commands | `⌘J`, configurable as `⌘K` |
+| Browse categories | `i` Insert, `s` Text Style, `p` Page Setup, `m` Mathematics, `l` Typesetting, `r` References, `c` Editing & Code, `v` Workspace, `f` Documents |
+| Search commands | `/` inside the command panel; English and Chinese queries work in either interface language |
+| Go back or dismiss | `Esc` |
+| Move between inserted placeholders | `Tab` / `⇧Tab`; `Esc` to finish |
+| Writing / side-by-side / preview | `⌘1` / `⌘2` / `⌘3` |
+| Outline / document checks | `⌘4` / `⌘5` |
+| New / library / save | `⌘N` / `⌘O` / `⌘S` |
+| Import a document | `⇧⌘O` |
+| Save as / export PDF | `⇧⌘S` / `⇧⌘E` |
+| Completion / find | `⌃.` / `⌘F` |
+| Universe packages | `⇧⌘U` |
 
-例如：`⌘J → i → t` 打开表格参数，填列数和行数后插入；选中文字后 `⌘J → s → b` 加粗。每次命令插入可以一次撤销。正文、代码和数学仍可直接输入完整 Typst。
+For example, `⌘J → i → t` opens the table form. Choose the row and column counts, insert, then move between cells with Tab. Select text and press `⌘J → s → b` to make it bold. Each insertion is one undoable edit. You can always write Typst directly.
 
-共有 **106 个命令**，其中 **74 个 Typst 插入命令**。数学下有基本运算、公式结构、符号与字形三级发现路径；例如 `⌘J → m → b → f` 插入分式，在公式中自动使用数学语法。列表支持方向键与回车，并显示语法示例、完整键路径和官方文档。
+The command catalog has 109 discoverable commands, including 74 insertion actions. Mathematics has nested categories for basic operations, equation structures and symbols. `⌘J → m → b → f` inserts a fraction, using the appropriate syntax inside an existing equation. Commands show their purpose, example, direct shortcut, discovery path and official reference.
 
-常用操作可以直接按组合键：`⌘1` 写作、`⌘2` 并排、`⌘3` 阅读、`⌘4` 文章脉络、`⌘5` 文稿检查、`⇧⌘U` Universe、`⇧⌘E` 导出。which-key 分组路径仍然有效，同一功能可以有多个入口；列表与语法说明同时展示直接快捷键和发现路径。`⌘]` / `⌘[` 调整缩进，`⌘/` 切换注释，`⌥⇧F` 整理代码。悬停工具栏可看到紧凑的“功能名 + 快捷键”提示。
+Frequent actions have direct shortcuts as well as discoverable paths. `⌘]` / `⌘[` indent and outdent, `⌘/` toggles comments, and `⌥⇧F` formats the source. Hovering a toolbar button shows a compact action name and shortcut.
 
-文章脉络默认以细小标记融入左侧留白，悬停渐进展开；`⌘4` 固定展开，再按一次或 Esc 收起。目录不占正文列宽，不显示独立外框或关闭按钮。命令面板固定高度，搜索、滚动选择和参数表单之间不会带动编辑区域跳动，右侧固定显示语法与快捷键。
+The outline appears in the left margin without moving the text. Hover to explore headings, then use the small pin to keep them visible; hovering the pinned control reveals its close action. `⌘4` also pins or dismisses it. The command panel keeps a stable height through searching, selection and parameter entry; its guide stays in the same place.
 
-`⌘J → c → u` 打开 Universe 包发现，按用途和分类搜索官方索引、查看版本和文档、插入固定版本的导入语句。默认浏览绘图包。索引缓存 24 小时，网络不可用时保留离线浏览；不兼容当前 Typst 引擎的包会提示所需版本。
+## Writing and preview
 
-编辑区默认启用阅读样式：光标离开后，标题、粗体、斜体与行内代码弱化标记；光标回到段落就显示完整源码。源文件、复制和撤销仍使用原始文本，`⌘J → v → t` 可关闭。公式、图表使用旁边的真实成稿预览。`⌘J → c` 还可发现格式化、缩进、取消缩进和注释。
+Editor styling gently emphasizes headings, bold, italics and inline code. Moving the caret into a paragraph reveals its full source. Copying, saving and undo always use the original text. Toggle styling with `⌘J → v → t`.
 
-预览百分比相对于面板适应宽度。双击成稿定位源码；移动源码选区会请求预览定位。预览保留最近成功的成稿，底部状态和“文稿检查”显示当前编译问题。导出遇到编译错误会失败，不会把旧 PDF 当作最新版本。
+The preview shows real typeset pages. Double-click a page to reveal the source; source selection can locate the corresponding preview position. Zoom is relative to the preview pane's fitted width. Dark preview changes screen colors only; images retain their colors and exported PDFs are unchanged.
 
-预览栏的「原色 / 深色」切换仅改变屏幕阅读配色，图片保持原色，导出 PDF 不变。Tinymist 按可见区域渲染以减少显示开销；这不等于错误文稿可以任意局部编译。输入未完成时保留最后成功成稿，并显示等待更新提示。
+While syntax is incomplete or invalid, Sumi retains the last successful preview and marks it as out of date. Rendering only visible page regions reduces display work; it does not mean every invalid document can compile partially. Export fails on a compilation error instead of silently exporting an old PDF.
 
-已有文件停顿约 650ms 后自动保存；未命名文稿保存在本地恢复副本。新建或打开其他文稿会先保存或归档当前草稿。`文件 → 恢复草稿副本` 可找回归档副本。外部程序修改同一文件时，Sumi 停止覆盖并提示重新加载或另存为。
+**Universe** searches the official package index by name, purpose and category. Browse drawing or diagram packages, check their documentation, and insert a pinned version. The index is cached for 24 hours and remains available offline. Packages that need a newer typesetting engine cannot be imported through the browser.
 
-应用状态位于 `~/Library/Application Support/Sumi/`，包括 `recovery.json`、草稿副本和导出缓存；命令入口偏好存于系统 UserDefaults。第一次引用未缓存的外部 Typst 包可能联网下载。
+The library presents document titles and searchable content without requiring you to manage source filenames. Import a document or an entire project folder, rename it, or move it to the recoverable Trash. Source projects remain exportable. The Code notes template includes beautiful, numbered code listings and its pinned packages; code is displayed, not executed. New writing and existing files autosave after a short pause and retain a local recovery copy. Sumi preserves the current draft before switching documents, and refuses to silently overwrite a file changed by another application. **Documents → Recover Draft Copy** reopens preserved drafts.
 
-## 诊断日志
+Local coding agents can use the opt-in MCP bridge to read the live document, make undoable revision-checked edits, browse the library, change writing preferences and export previews. Enable **Settings → Agent Access** and copy the Codex setup command. See [agent setup](docs/agents.md).
 
-遇到异常时，可通过 `视图 → 打开诊断日志` 或 `⌘J → v → g` 在 Finder 中定位日志。日志目录为 `~/Library/Application Support/Sumi/Logs/`，当前文件 `events.jsonl`，最多保留 3 个轮转文件，每个约 1 MiB。
+iCloud support is under development. It requires a properly provisioned release and an iCloud Drive account; local development builds clearly report when unavailable. Real two-Mac delivery and conflict recovery remain release checks. See [sync status and limitations](docs/library-and-sync.md).
 
-日志包含会话 ID、应用版本、毫秒时间、事件序号、快捷键/导航键、命令 ID、插入开始/完成/失败、选区与文稿版本，以及保存/导出和排版服务异常。普通键入只记录 `text` 事件，不记录正文、剪贴板内容、参数值或搜索词；系统错误描述可能包含文件路径。日志只在本机存储。发生崩溃时保留这些文件和 macOS 的崩溃报告即可，不需要记住最后执行的命令。
+## Diagnostic logs
 
-## 构建与测试
+Use **View → Open Diagnostic Logs** or `⌘J → v → g` to reveal `~/Library/Application Support/Sumi/Logs/events.jsonl`. The current log rotates at about 1 MiB and retains three archives.
 
-文稿始终是普通 `.typ` 文件。Swift 负责应用和编辑交互，Tinymist 作为应用管理的独立进程提供 Typst 语言服务与排版预览。界面设计受 Nano Emacs 启发。
+Logs record sessions, versions, event order, command/navigation keys, insertion and save/export outcomes, selection ranges and service failures. Ordinary typing is recorded only as a `text` event. Document text, clipboard contents, search terms and field values are not logged. System error messages may contain file paths. Logs stay on the Mac; keep them alongside a macOS crash report when investigating a problem.
 
-需要 Xcode 的 Swift 6 工具链、macOS SDK，以及已挂载的 `/Volumes/SSD/Developer`。在 SSD 上的仓库或工作树中运行：
+## Building and testing
+
+Sumi uses SwiftUI and AppKit for the app and editing experience, with Tinymist as a managed child process for Typst language services and preview. Documents use ordinary `.typ` source and relative assets. The visual approach was inspired by Nano Emacs.
+
+Use Xcode 26 or later with a Swift 6.2 or later toolchain and the macOS SDK. Local development scripts expect the external development volume at `/Volumes/SSD/Developer`; run from an SSD checkout:
 
 ```sh
 scripts/build.sh release
 scripts/test.sh
 ```
 
-脚本下载并校验固定 SHA-256 的 Tinymist **0.15.8**（Typst 0.15.1），构建 `.app` 并进行本机临时签名，输出为 `build/Sumi.app`。测试运行真实原生窗口、编辑器、Workspace、WKWebView 和 Tinymist，覆盖命令发现、插入/撤销/重做、未保存内容、中文、多文件引用、全部插入命令编译、错误恢复和 PDF 内容。小型边界测试补充覆盖文本范围、协议分帧和索引验证。
+The build downloads Tinymist **0.15.8** (Typst 0.15.1), verifies its pinned SHA-256, and produces `build/Sumi.app` with an ad hoc development signature. Functional tests exercise the real native editor, workspace, windows, WebKit preview and Tinymist process: discovery, insertion, undo/redo, Unicode, recovery, multiple files, compilation errors and PDF output. Small boundary tests cover text ranges, protocol framing and index validation.
 
-`scripts/test.sh` 会生成 `build/coverage/summary.md`、HTML 与原始覆盖率数据，并对**所有应用和核心 Swift 源文件的唯一可执行源码行**执行 **80%** 门槛。SwiftUI 编译器会将同一源码行实例化多次，因此使用 LCOV 按文件/行去重，不排除界面文件。直接运行 `swift test` 会跳过显式启用的集成场景，也不执行覆盖率门槛。
+`scripts/test.sh` writes HTML, raw coverage data and `build/coverage/summary.md`. It requires **80% coverage of unique executable lines across production Swift sources**, including the interface. LCOV records are deduplicated by source file and line to avoid counting SwiftUI generic instantiations repeatedly. Plain `swift test` omits explicitly enabled integration scenarios and does not enforce coverage.
 
-GitHub Actions 对 PR 和 main 运行 Apple Silicon CI 并上传覆盖率与构建产物。推送与应用版本一致的标签（例如 `v0.3.0`）触发测试、打包与 GitHub Release，包含 arm64 ZIP 和 SHA-256。正式发布流程要求 **Developer ID 签名、Apple 公证及票据装订全部成功**，缺少凭据时停止发布；配置和验证方法见 [签名说明](docs/signing.md)。普通 CI 产物仍为临时签名开发包。
+GitHub Actions builds PRs and main, checks coverage and uploads reports and development packages. [Codecov](https://app.codecov.io/github/fenjin-ai/sumi) reports project and patch coverage, including PR comments. A version tag matching `Info.plist` triggers testing and a release ZIP with SHA-256. Public releases require Developer ID signing, successful Apple notarization, ticket stapling and Gatekeeper validation. See [release signing](docs/signing.md); ordinary CI packages remain development builds.
 
-源码划分为 `Sources/SumiLauncher` 启动器、`Sources/Sumi` 可测试的原生应用库、`Sources/SumiCore` 协议与文本/文件逻辑；`Tests/SumiAppTests` 验证应用功能流程。第三方许可证和固定版本记录在 `Resources/ThirdParty.txt`。
+The source is split into the launcher, testable native app, core document logic and local agent integration. Bundled third-party licenses are listed in `Resources/ThirdParty.txt`.
 
-## 当前边界
+## Scope and verification
 
-这是可运行的本地首版：单窗口、一个活动编辑缓冲区，暂无 Vim、云同步、折叠、插件或任意成稿直接编辑。从主文稿预览/诊断跳转子文件时保留编译入口；手动打开或另存为会采用新的入口。
+Sumi remains a development preview. It has one active editing buffer, with the main compilation entry preserved when navigating into included files. It does not provide collaborative accounts, Vim emulation, arbitrary visual editing of typeset pages or an automatic updater.
 
-中文文本、组合输入期间不重设样式、撤销和保存有自动验证；完整拼音候选输入流程仍需人工确认。已验证约 10 万 UTF-16 字符文稿的命令导航与段落样式刷新，结果见[交互与性能记录](docs/interaction.md)。macOS 14 实机和完整 VoiceOver 流程尚未验证。仍属开发预览版；Developer ID 签名、公证及 Gatekeeper 的真实 CI 发布验证已通过。详见[验收记录](docs/progress.md)。
+Unicode editing, marked-text protection, undo and saving have automated coverage. Complete third-party input-method and VoiceOver flows, and a physical Mac running macOS 14, still need manual verification. A roughly 100,000-character editing benchmark is recorded in [interaction and performance](docs/interaction.md). Verification evidence and remaining limitations live in [the progress record](docs/progress.md).

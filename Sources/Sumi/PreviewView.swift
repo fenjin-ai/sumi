@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import SumiCore
 
 struct PreviewView: NSViewRepresentable {
     let url: URL
@@ -28,12 +29,13 @@ struct PreviewView: NSViewRepresentable {
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
         view.underPageBackgroundColor = NSColor(hex: 0x22262B)
-        view.setAccessibilityLabel("Typst 成稿预览")
+        view.setAccessibilityLabel(L10n.text("Document Preview"))
         view.load(URLRequest(url: url))
         context.coordinator.loadedURL = url
         return view
     }
     func updateNSView(_ view: WKWebView, context: Context) {
+        view.setAccessibilityLabel(L10n.text("Document Preview"))
         context.coordinator.zoom = zoom
         context.coordinator.dark = dark
         if context.coordinator.loadedURL != url { context.coordinator.loadedURL = url; view.load(URLRequest(url: url)) }
@@ -80,7 +82,7 @@ struct PreviewView: NSViewRepresentable {
                 if navigationAction.navigationType == .linkActivated, ["https", "http"].contains(target.scheme ?? "") { NSWorkspace.shared.open(target) }
             }
         }
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onError("预览加载失败：\(error.localizedDescription)") }
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { onError("预览暂时不可用：\(error.localizedDescription)") }
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onError(L10n.format("Preview failed to load: %@", error.localizedDescription)) }
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { onError(L10n.format("Preview temporarily unavailable: %@", error.localizedDescription)) }
     }
 }

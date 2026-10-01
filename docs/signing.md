@@ -1,44 +1,49 @@
-# Developer ID 签名与自动发布
+# Developer ID signing and automated releases
 
-Sumi 仅支持 Apple Silicon，直接分发 `.app` ZIP，不经过 Mac App Store，因此使用 **Developer ID Application** 证书。应用与 Tinymist helper 都开启 hardened runtime、使用安全时间戳，再提交 Apple 公证，装订票据并通过 Gatekeeper 校验后才能产出发布 ZIP。
+Sumi distributes a macOS arm64 app ZIP directly, outside the Mac App Store, using a **Developer ID Application** identity. The app and bundled helpers use hardened runtime and secure timestamps. Apple notarization, ticket stapling and Gatekeeper validation must succeed before the public release ZIP is produced.
 
-## 一次性配置
+## One-time setup
 
-本机 Xcode 登录账号不等同于 GitHub runner 持有凭据。需要为 `fenjin-ai/sumi` 配置：
+Signing in to Xcode locally does not give a GitHub runner signing credentials. The repository requires:
 
-| GitHub 配置 | 内容 |
+| GitHub setting | Value |
 |---|---|
-| Secret `SIGNING_CERTIFICATE_P12` | 含 Developer ID Application 私钥的 `.p12`，Base64 编码 |
-| Secret `SIGNING_CERTIFICATE_PASSWORD` | `.p12` 导出密码 |
-| Secret `APP_STORE_CONNECT_PRIVATE_KEY` | 专用于发布的 App Store Connect Team API `.p8` 私钥 |
-| Secret `APP_STORE_CONNECT_KEY_ID` | API Key ID |
-| Secret `APP_STORE_CONNECT_ISSUER_ID` | Team API Issuer ID |
-| Variable `APPLE_TEAM_ID` | 证书对应的开发者 Team ID |
+| Secret `SIGNING_CERTIFICATE_P12` | Base64-encoded `.p12` containing the Developer ID Application private key |
+| Secret `SIGNING_CERTIFICATE_PASSWORD` | Password used to export the `.p12` |
+| Secret `APP_STORE_CONNECT_PRIVATE_KEY` | Dedicated App Store Connect Team API `.p8` private key |
+| Secret `APP_STORE_CONNECT_KEY_ID` | API key ID |
+| Secret `APP_STORE_CONNECT_ISSUER_ID` | Team API issuer ID |
+| Variable `APPLE_TEAM_ID` | The certificate's developer team ID |
+| Secret `ICLOUD_PROVISIONING_PROFILE` | Base64 Developer ID profile authorizing Sumi's iCloud container and KVS |
 
-证书可通过 Xcode → Settings → Apple Accounts → 团队 → Manage Certificates → Developer ID Application 创建。API Key 在 App Store Connect → Users and Access → Integrations 创建，使用满足公证需求的最低权限。私钥只能下载一次，应直接存入密码管理器或受保护的文件；不要贴到 Issue、PR 或聊天中。
+Create the certificate through Xcode → Settings → Apple Accounts → team → Manage Certificates → Developer ID Application. Create the API key under App Store Connect → Users and Access → Integrations, with the least privilege needed for notarization. The private key can be downloaded once; store it in a password manager or protected file, never an issue, PR or chat.
 
-使用 `gh secret set --repo fenjin-ai/sumi NAME` 的标准输入配置秘密，避免命令行参数或日志展开秘密值。证书和私钥不属于源码或构建 artifact。
+Supply secrets to `gh secret set --repo fenjin-ai/sumi NAME` through stdin rather than expanding values in command arguments or logs. Certificates and private keys do not belong in source or build artifacts.
 
-## 验证与发布
+The Sumi App ID and dedicated `iCloud.app.sumi.writer` container were registered and associated on 2026-10-01. The **Sumi Developer ID iCloud** profile was downloaded, validated and stored in the repository secret. `prepare-icloud-profile.py` checks team, App ID, certificate membership, expiration, distribution scope and required capabilities, then emits only the required entitlements. The release embeds the profile and verifies the signed entitlements. Helper processes do not receive iCloud entitlements. Development builds remain ad hoc and cannot use iCloud.
 
-1. 普通 CI 只构建临时签名开发包，不接触发布凭据。
-2. 在 main 手动触发 Release workflow，可验证完整签名/公证并下载 artifact，不创建公开 Release。
-3. 更新 `Resources/Info.plist` 的版本号和构建号，将已验证的提交合入 main。
-4. 推送与版本一致的标签，例如 `v0.2.0`。流水线检查标签指向 main 已包含的提交，通过功能测试和 80% 覆盖率门槛，再签名、公证、装订并发布。
+This setup is complete at the portal and CI-secret level; the new provisioned 0.4 app still needs a release run and native account/two-Mac verification. The prior notarization result below predates this capability.
 
-任何缺失凭据、无效证书、Team 不匹配、公证未通过或超时都会阻止公开发布，不会降级成临时签名包。签名期间将临时钥匙串加入搜索列表，使 codesign 能找到身份和证书链；脚本退出时恢复原搜索列表并清理临时钥匙串、证书与 API 私钥。GitHub 保留公证提交结果，便于查询 Apple 处理状态；私钥不上传为 artifact。
+## Verification and publication
 
-开发构建：`scripts/build.sh release`。正式发布步骤：`scripts/release.sh`，需要上表环境变量；本机临时材料保存在外置 SSD。
+1. Ordinary CI produces development-signed packages and does not access release credentials.
+2. A manual Release workflow on main verifies signing and notarization and saves an artifact without creating a public Release.
+3. Update the version and build number in `Resources/Info.plist`, then merge the verified commit into main.
+4. Push a matching version tag, such as `v0.3.0`. The workflow checks that main contains the tagged commit, runs functional tests and the 80% coverage gate, then signs, notarizes, staples and publishes.
 
-## 已完成的发布验证
+Missing credentials, invalid certificates, team mismatch, rejected notarization or timeout stop public publication. There is no fallback to development signing. The temporary signing keychain joins the search list so codesign can locate the identity and chain. Cleanup restores the old list and removes the temporary keychain, certificate and API key. Notarization submission results remain available for investigation; private keys are never uploaded as artifacts.
 
-2026-10-01 在公开仓库 `fenjin-ai/sumi` 完成全部凭据配置，并通过 [Release 手动验证](https://github.com/fenjin-ai/sumi/actions/runs/36824914236)，提交为 `72f7d8e`、应用版本为 `0.2.0`（构建号 3）。这次只生成 Actions artifact，没有创建公开标签或 Release。
+Development builds use `scripts/build.sh release`. `scripts/release.sh` requires the settings above. Local temporary release material stays on the external SSD.
 
-- 36 项功能与集成测试通过；应用和核心源码的行覆盖率为 88.57%，超过 80% 门槛。
-- 应用和 Tinymist helper 均为 arm64，使用 `Developer ID Application: Fenjin Wang (X6BK42MX95)` 签名，启用 hardened runtime 和安全时间戳。证书有效期至 2031-09-17。
-- Apple 公证提交 `ae76e6c3-2354-4259-8e60-7e6411c5271c` 返回 `Accepted`，票据已经装订到应用。
-- 从 GitHub 下载最终 ZIP 后，独立通过 SHA-256 校验、`codesign --verify --deep --strict`、`stapler validate` 和 Gatekeeper 检查（`source=Notarized Developer ID`）；签名后的 Tinymist 能正常运行。
+## Completed verification
 
-下载本次验证产物时，在上述 workflow 的 Artifacts 中选择 `release-macos-15`，其中包含 `Sumi-0.2.0-macOS-arm64.zip` 和对应的 `.sha256` 文件。Actions artifact 保留 7 天；未来标签触发的公开 Release 使用长期下载附件。
+On 2026-10-01, all release credentials were configured for `fenjin-ai/sumi`, and [a manual release run](https://github.com/fenjin-ai/sumi/actions/runs/36824914236) passed on commit `72f7d8e`, app version **0.2.0**, build **3**. This generated an Actions artifact only, without a public tag or Release.
 
-参考：[Apple 公证工作流](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)、[Apple API Key](https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api)、[GitHub 证书安装](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications)。
+- 36 functional and integration tests passed; production coverage was 88.57%, above the 80% gate.
+- The arm64 app and Tinymist helper were signed by `Developer ID Application: Fenjin Wang (X6BK42MX95)` with hardened runtime and secure timestamps. The certificate expires on 2031-09-17.
+- Apple submission `ae76e6c3-2354-4259-8e60-7e6411c5271c` returned `Accepted`, and its ticket was stapled.
+- An independently downloaded final ZIP passed SHA-256, `codesign --verify --deep --strict`, `stapler validate` and Gatekeeper (`source=Notarized Developer ID`). The signed Tinymist helper ran successfully.
+
+That run's `release-macos-15` artifact contains `Sumi-0.2.0-macOS-arm64.zip` and its `.sha256`. Actions artifacts expire after seven days; tagged public Releases use persistent downloadable attachments. This historical validation does not claim that every later development build is notarized.
+
+References: [Apple notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow), [App Store Connect API keys](https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api), [GitHub signing setup](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications).

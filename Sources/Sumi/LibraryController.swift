@@ -1,0 +1,242 @@
+import AppKit
+import Combine
+import SumiCore
+import UniformTypeIdentifiers
+
+/// Keeps library navigation separate from the live editor buffer. Disk operations
+/// run on the library actor; switching documents always passes through Workspace.
+@MainActor
+final class LibraryController: ObservableObject {
+    @Published private(set) var documents: [LibraryDocument] = []
+    @Published private(set) var busy = false
+    @Published private(set) var error: String?
+    @Published private(set) var cloudEnabled = false
+    @Published private(set) var syncMessage = ""
+    let store: DocumentLibrary
+    private weak var workspace: Workspace?
+    private var monitor: LibraryFileMonitor?
+    private var cloudQuery: LibraryCloudQuery?
+    private var refreshTask: Task<Void, Never>?
+    private var started = false
+    private var accountMonitor: LibraryAccountMonitor?
+    private let locationURL: URL
+    var onSyncChange: ((Bool) -> Void)?
+
+    init(workspace: Workspace) {
+        self.workspace = workspace
+        locationURL = workspace.stateDirectory.appendingPathComponent("library-location.json")
+        store = DocumentLibrary(rootURL: workspace.stateDirectory.appendingPathComponent("Library"))
+    }
+
+    func start() async {
+        guard !started else { return }
+        started = true
+        if (try? Data(contentsOf: locationURL)) == Data("icloud".utf8) {
+            do { _ = try await store.resumeICloud(); cloudEnabled = true; onSyncChange?(true) }
+            catch {
+                self.error = error.localizedDescription
+                // The cached recovery buffer remains open; a stale local backup
+                // must never masquerade as the current cloud library.
+                started = false
+                return
+            }
+        }
+        await refresh()
+        if let workspace, let url = workspace.fileURL { associate(url) }
+        else if let workspace {
+            // One-time adoption of the previous single-draft model.
+            do { try await create(title: L10n.text("Welcome"), text: workspace.text) }
+            catch { self.error = error.localizedDescription }
+        }
+        await observeRoot()
+        accountMonitor = LibraryAccountMonitor { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.syncMessage = L10n.text("iCloud account changed. Check sync in Settings.")
+                self?.onSyncChange?(false)
+                await self?.refresh()
+            }
+        }
+    }
+
+    func refresh() async {
+        do {
+            documents = try await store.list(includeTrashed: true)
+            error = await store.issues.first?.message
+            if let workspace, let url = workspace.fileURL { associate(url) }
+        } catch { self.error = error.localizedDescription }
+    }
+
+    func associate(_ url: URL) {
+        let document = documents.first { $0.sourceURL.standardizedFileURL == url.standardizedFileURL }
+        workspace?.managedDocumentID = document?.id
+        workspace?.managedTitle = document?.title
+    }
+
+    func perform(_ action: @escaping @MainActor () async throws -> Void) {
+        guard !busy else { return }
+        busy = true
+        Task {
+            defer { busy = false }
+            do { try await action(); error = nil }
+            catch { self.error = error.localizedDescription; workspace?.showMessage(error.localizedDescription, persistent: true) }
+        }
+    }
+
+    func create(title: String? = nil, text: String? = nil, template: DocumentTemplate? = nil) async throws {
+        let selected = template ?? workspace?.documentTemplate ?? .blank
+        let content = text ?? selected.source
+        let document = try await store.create(title: title ?? L10n.text(selected == .codeNotes ? "Code notes" : "Untitled"), text: content)
+        await refresh()
+        try await open(document.id)
+    }
+
+    func open(_ id: UUID) async throws {
+        guard let workspace else { return }
+        let result = try await store.read(id)
+        guard result.document.trashedAt == nil else { throw LibraryInteractionError.restoreFirst }
+        guard workspace.open(result.document.sourceURL) else { throw LibraryInteractionError.couldNotOpen }
+        workspace.managedDocumentID = result.document.id
+        workspace.managedTitle = result.document.title
+        workspace.onTitleChange?(workspace.title)
+        workspace.libraryOpen = false
+    }
+
+    func rename(_ id: UUID, title: String) async throws {
+        _ = try await store.rename(id, title: title)
+        await refresh()
+        if workspace?.managedDocumentID == id, let workspace { workspace.onTitleChange?(workspace.title) }
+    }
+
+    func moveToTrash(_ id: UUID) async throws {
+        guard let workspace else { return }
+        if workspace.managedDocumentID == id {
+            workspace.save()
+            guard workspace.text == workspace.savedText else { throw LibraryInteractionError.saveFirst }
+            // Create a safe landing document before trashing the active one.
+            try await create()
+            workspace.libraryOpen = true
+        }
+        _ = try await store.trash(id)
+        await refresh()
+    }
+
+    func restore(_ id: UUID) async throws {
+        _ = try await store.restore(id)
+        await refresh()
+    }
+
+    func importDocument(_ url: URL) async throws {
+        let document = try await store.importDocument(at: url)
+        await refresh()
+        try await open(document.id)
+    }
+
+    func importProject(_ folder: URL, mainFile: URL) async throws {
+        let document = try await store.importProject(at: folder, mainFile: mainFile)
+        await refresh()
+        try await open(document.id)
+    }
+
+    func importPanel(project: Bool = false) {
+        guard let owner = workspace?.editor?.window else { return }
+        let window = owner.attachedSheet ?? owner
+        guard window.attachedSheet == nil else { return }
+        let panel = NSOpenPanel()
+        panel.title = L10n.text(project ? "Import project folder" : "Import a document")
+        panel.canChooseDirectories = project
+        panel.canChooseFiles = !project
+        panel.allowsMultipleSelection = false
+        if !project { panel.allowedContentTypes = [UTType(filenameExtension: "typ") ?? .plainText] }
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let url = panel.url, let self else { return }
+            if project { self.chooseProjectEntry(in: url, window: window) }
+            else { self.perform { try await self.importDocument(url) } }
+        }
+    }
+
+    private func chooseProjectEntry(in folder: URL, window: NSWindow) {
+        let panel = NSOpenPanel()
+        panel.title = L10n.text("Choose the project's main document")
+        panel.directoryURL = folder
+        panel.allowedContentTypes = [UTType(filenameExtension: "typ") ?? .plainText]
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let mainFile = panel.url, let self else { return }
+            self.perform { try await self.importProject(folder, mainFile: mainFile) }
+        }
+    }
+
+    func exportProject(_ id: UUID, to destination: URL) async throws {
+        if workspace?.managedDocumentID == id {
+            workspace?.save()
+            guard workspace?.text == workspace?.savedText else { throw LibraryInteractionError.saveFirst }
+        }
+        try await store.exportProject(id, to: destination)
+    }
+
+    func exportPanel(_ document: LibraryDocument) {
+        guard let owner = workspace?.editor?.window else { return }
+        let window = owner.attachedSheet ?? owner
+        guard window.attachedSheet == nil else { return }
+        let panel = NSSavePanel()
+        panel.title = L10n.text("Export source project")
+        panel.nameFieldStringValue = document.title
+        panel.canCreateDirectories = true
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let url = panel.url, let self else { return }
+            self.perform { try await self.exportProject(document.id, to: url) }
+        }
+    }
+
+    func setCloudEnabled(_ enabled: Bool) async throws {
+        guard let workspace, enabled != cloudEnabled else { return }
+        if workspace.fileURL != nil { workspace.save() }
+        guard workspace.fileURL == nil || workspace.text == workspace.savedText else { throw LibraryInteractionError.saveFirst }
+        let currentID = workspace.managedDocumentID
+        workspace.documentTransitionInProgress = true
+        workspace.editor?.isEditable = false
+        defer {
+            workspace.documentTransitionInProgress = false
+            workspace.editor?.isEditable = workspace.layout != .preview && !workspace.paletteOpen
+        }
+        let report = try await store.setICloudEnabled(enabled)
+        cloudEnabled = report.isICloud
+        try Data(enabled ? "icloud".utf8 : "local".utf8).write(to: locationURL, options: .atomic)
+        onSyncChange?(enabled)
+        syncMessage = enabled ? L10n.text("iCloud Drive manages uploads and downloads.") : L10n.text("Saved on this Mac")
+        await refresh()
+        await observeRoot()
+        if let currentID { try await open(report.idMappings[currentID] ?? currentID) }
+    }
+
+    private func observeRoot() async {
+        monitor?.stop()
+        cloudQuery = nil
+        let root = await store.rootURL
+        let changed: @Sendable () -> Void = { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.refreshTask?.cancel()
+                self.refreshTask = Task {
+                    do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
+                    await self.refresh()
+                    await self.workspace?.refreshFromLibrary()
+                }
+            }
+        }
+        monitor = LibraryFileMonitor(rootURL: root, onChange: changed)
+        if cloudEnabled { cloudQuery = LibraryCloudQuery(rootURL: root, onChange: changed) }
+    }
+
+    func stop() { refreshTask?.cancel(); monitor?.stop(); monitor = nil; accountMonitor = nil; cloudQuery = nil }
+}
+
+enum LibraryInteractionError: LocalizedError {
+    case saveFirst, restoreFirst, couldNotOpen
+    var errorDescription: String? {
+        switch self {
+        case .saveFirst: L10n.text("Resolve the current save conflict before continuing.")
+        case .restoreFirst: L10n.text("Restore this document from Trash before opening it.")
+        case .couldNotOpen: L10n.text("The document could not be opened. Your current writing is preserved.")
+        }
+    }
+}

@@ -39,7 +39,7 @@ struct ManuscriptView: NSViewRepresentable {
         editor.textContainer?.lineFragmentPadding = 0
         editor.minSize = NSSize(width: 0, height: 0)
         editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        editor.setAccessibilityLabel("Typst 文稿编辑区")
+        editor.setAccessibilityLabel(L10n.text("Document Editor"))
         scroll.documentView = editor
         workspace.editor = editor
         editor.load(workspace.text, selection: workspace.selection)
@@ -49,6 +49,7 @@ struct ManuscriptView: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let editor = scroll.documentView as? ManuscriptTextView else { return }
         workspace.editor = editor
+        editor.setAccessibilityLabel(L10n.text("Document Editor"))
         if editor.string != workspace.text, !editor.hasMarkedText() { editor.load(workspace.text, selection: workspace.selection) }
         if editor.appliedFontSize != workspace.fontSize { editor.highlight() }
     }
@@ -205,7 +206,7 @@ final class ManuscriptTextView: NSTextView {
         typingAttributes = base
     }
 
-    func insertSnippet(_ snippet: Snippet, replacing range: NSRange) {
+    func insertSnippet(_ snippet: Snippet, replacing range: NSRange, focus: Bool = true) {
         guard range.location >= 0, range.location <= string.utf16.count,
               range.length >= 0, range.length <= string.utf16.count - range.location else { return }
         observeUndoManager()
@@ -216,13 +217,13 @@ final class ManuscriptTextView: NSTextView {
         insertText(snippet.text, replacementRange: range)
         observeUndoManager()
         undoManager?.endUndoGrouping()
-        undoManager?.setActionName("插入 Typst 内容")
+        undoManager?.setActionName(L10n.text("Insert Content"))
         placeholders = snippet.selections.map { NSRange(location: range.location + $0.location, length: $0.length) }
         placeholderIndex = 0
         setSelectedRange(placeholders.first ?? NSRange(location: range.location + snippet.text.utf16.count, length: 0))
-        scrollRangeToVisible(selectedRange())
+        if focus { scrollRangeToVisible(selectedRange()) }
         highlight()
-        window?.makeFirstResponder(self)
+        if focus { window?.makeFirstResponder(self) }
     }
 
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
@@ -256,11 +257,11 @@ final class ManuscriptTextView: NSTextView {
     }
 
     func presentCompletions(_ items: [JSONValue]) {
-        guard !items.isEmpty else { workspace?.showMessage("当前位置没有补全建议。"); return }
+        guard !items.isEmpty else { workspace?.showMessage(L10n.text("No completions are available here.")); return }
         completionItems = items
         let menu = NSMenu()
         for (index, item) in items.enumerated() {
-            let entry = NSMenuItem(title: item["label"].string ?? "补全", action: #selector(applyCompletion(_:)), keyEquivalent: "")
+            let entry = NSMenuItem(title: item["label"].string ?? L10n.text("Complete"), action: #selector(applyCompletion(_:)), keyEquivalent: "")
             entry.target = self; entry.tag = index; menu.addItem(entry)
         }
         let rect = firstRect(forCharacterRange: selectedRange(), actualRange: nil)

@@ -1,107 +1,97 @@
-# Sumi 第一版产品需求
+# Sumi product requirements
 
-日期：2026-10-01
+Established 2026-10-01. This document records the first release's product contract; later enhancements are documented separately.
 
-## 产品目标
+## Purpose
 
-做一款可以日常使用的 macOS 原生 Typst 编辑器。用户能够专注写作，通过一个入口发现常用操作，用少量交互生成正确的 Typst 语法，并随时查看真实排版结果。
+Build a macOS writing app that can be used every day. Writers can concentrate on their words, discover common actions through one entry point, generate correct source with a few interactions, and see the actual finished pages as they write.
 
-第一版面向中文和英文技术文章、说明文档与报告。成功标准是：用户可以完成一篇包含标题、列表、图片、代码、公式、表格和交叉引用的文章，可靠保存和重新打开，并导出 PDF。
+The initial acceptance document is an article containing headings, lists, images, code, equations, tables and cross-references. Users must be able to save it reliably, reopen it and export it as PDF. Both English and Chinese writing matter.
 
-## 已确认的产品选择
+## Product choices
 
-1. 原生编辑和保存 Typst，不经过 Markdown 转换。
-2. Swift 为主，SwiftUI 组织界面，AppKit 承担文本交互，Tinymist 驱动语言与排版服务。
-3. 深色主题；视觉参考 Nano Emacs 的留白、细窄状态条、有限颜色与按需出现的辅助界面。
-4. 普通 macOS 编辑习惯，保留中文输入法和常规空格行为。
-5. 默认 `⌘J` 呼出分层命令面板；按键可配置，用户不需要背诵整套快捷键。
-6. 源码可见，做克制高亮和结构辅助；写作区域不追求与分页成稿完全一致。
-7. 文件优先，普通 `.typ` 和相对路径资源目录，支持外部编辑工具。
-8. Phosphor Regular 为应用自有操作图标的统一来源。系统原生窗口控件保留系统样式。
+1. Edit and save Typst directly, without a Markdown conversion layer.
+2. Use Swift, SwiftUI for interface composition, AppKit for text editing, and Tinymist for language and typesetting services.
+3. Begin with a dark theme inspired by Nano Emacs: generous space, a fine status bar, restrained color and assistance that appears when needed.
+4. Keep familiar macOS editing, input-method behavior and ordinary spaces.
+5. Use `⌘J` for hierarchical command discovery, with a configurable entry shortcut. Users should not have to memorize every command.
+6. Preserve source access, with restrained highlighting and structural assistance. The writing surface need not look exactly like the paginated output.
+7. Keep ordinary `.typ` source and relative assets compatible with external tools. A managed library may simplify how documents are presented without locking away their source.
+8. Use Phosphor Regular consistently for app actions, while retaining native system window controls.
 
-## 核心使用流程
+## Main workflow
 
-用户打开应用，看到一份可编辑的入门文稿或上次会话。正文是视觉中心，顶部显示文件名和保存状态，底部提供轻量文稿统计和命令入口。
+The app opens a welcome document or the previous session. The writing is the visual center; the title and save status remain quiet, with lightweight statistics and command discovery below.
 
-按下 `⌘J` 后，底部展开命令面板，列出插入、样式、页面、视图和文件等类别。按字母进入下一层，或通过搜索找到命令。选中命令后看到简短说明；必要时填写少量参数，然后插入 Typst 源码并定位到待填写内容。
+`⌘J` opens a panel with categories such as Insert, Text Style, Page Setup, Workspace and Documents. Users enter a category by letter or search for a command. A short explanation and, when needed, a small parameter form lead to an insertion with editable placeholders.
 
-用户可以切换写作、并排预览和预览视图。预览跟随未保存的编辑内容更新，编译失败时仍然可以写作，错误信息可以定位到源码。导出得到由同一编译环境生成的 PDF。
+Users can switch between writing, side-by-side preview and full preview. Unsaved edits update the preview. Compilation errors do not prevent editing and can reveal their source position. PDF export uses the same compilation environment.
 
-## 功能与验收标准
+## Acceptance criteria
 
-### 1 文稿与文件
+### Documents
 
-- 新建、打开、保存、另存为，支持 UTF-8 Typst 文件和中文路径。
-- 对已有文件执行原子自动保存；未命名草稿有恢复副本。
-- 关闭和重启后能恢复最近文稿。写入失败必须明确显示，不能显示虚假的已保存状态。
-- 外部修改与本地修改冲突时保留本地内容，提示重新加载或另存为，不能静默覆盖。
-- 相对路径基于文稿所在目录解析。支持用一个主文稿引入同目录资源与其他 Typst 文件。
-- 大纲列出标题，可跳转到正文。常用文件操作有标准 macOS 菜单和快捷键。
+- Create, open, save and save copies of UTF-8 documents, including Unicode paths.
+- Save existing files atomically and preserve recovery copies for untitled drafts.
+- Restore the recent document after relaunch. Clearly report write failures; never claim that failed writes were saved.
+- Preserve local edits when another application changes the same file. Offer reload or save-as without silently overwriting.
+- Resolve relative images and included documents from the document's directory; support a main compilation entry.
+- Show headings in an outline with source navigation. Keep standard menus and shortcuts for common document actions.
 
-### 2 原生编辑
+### Editing
 
-- 支持键盘输入、选区、复制粘贴、撤销重做、查找与替换、软换行。
-- 中文输入法有标记文本期间，不重新设置全文或执行会破坏组词的格式操作。
-- 高亮只修改视觉属性，不修改实际源码；新增样式不会进入撤销历史。
-- 支持合理的正文行宽、字体大小、行距和左右留白；窗口缩小时仍能编辑。
-- 标题、注释、字符串、Typst 代码与数学表达式有有限且清晰的视觉区分。
-- 长配置块的折叠作为后续增强，第一版先保证所有源码可编辑且定位准确。
+- Support native typing, selection, clipboard, undo/redo, find/replace and soft wrapping.
+- Avoid replacing the buffer or applying disruptive styling while an input method has marked text.
+- Apply highlighting through display attributes only, without changing source or polluting undo.
+- Provide a comfortable line width, adjustable text size, line spacing and margins, including in small windows.
+- Distinguish headings, comments, strings, code and equations with a limited palette.
+- Keep all source editable and accurately mapped before adding folding or visual editing features.
 
-### 3 可发现的命令
+### Discoverable commands
 
-- `⌘J` 打开与关闭面板；`Esc` 返回上一层，再按退出；关闭后恢复编辑焦点。
-- 顶层至少包含插入、样式、页面、视图、文件与命令搜索。
-- 分组显示下一步可用的按键与中文名称，支持键盘和鼠标操作。
-- 搜索支持中文名称与英文关键词。命令有简短帮助和必要的语法示例。
-- 插入标题、列表、链接、图片、代码块、行内和块级公式、表格、标签、引用、脚注。
-- 样式命令可以包裹选区；没有选区时插入可替换的示例内容。
-- 需要参数的命令提供简短表单，例如表格列数、图片路径、页面边距。
-- 插入是一次可撤销操作。占位符支持 Tab 切换或选中首个待填区域，且有清晰的结束方式。
-- 数学和代码上下文中的命令不能无条件套用正文语法；不能安全应用时应给出解释。
+- Toggle the panel with `⌘J`; use `Esc` to return through levels and restore editor focus on dismissal.
+- Include Insert, Text Style, Page Setup, Workspace, Documents and command search.
+- Show available keys and localized names; support keyboard and pointer navigation.
+- Search English and Chinese names and keywords, regardless of the interface language.
+- Insert headings, lists, links, images, code blocks, inline/display equations, tables, labels, references and footnotes.
+- Wrap selected text or insert editable examples when nothing is selected.
+- Validate concise forms such as table dimensions and image paths.
+- Treat each insertion as one undoable edit. Move through placeholders with Tab and Shift-Tab.
 
-### 4 语言辅助
+### Preview and language feedback
 
-- 使用 Tinymist 的诊断、补全和文档符号能力；补全由显式快捷键或合适的触发字符唤起。
-- 错误列表显示位置与说明，点击跳转到文稿。
-- 服务启动、初始化、崩溃或不可用时有可理解的状态，文稿编辑与保存保持可用。
-- 重启服务后同步当前文稿，清除过期诊断，不重复应用过期响应。
+- Use real typesetting output, including unsaved changes.
+- Preserve the last successful preview during temporary errors, clearly identifying stale output.
+- Provide diagnostics with source navigation, explicit completion and an outline.
+- Keep writing and saving available when the language service stops, with a visible reconnect action.
+- Support source-to-preview and preview-to-source navigation, including included files.
 
-### 5 真实预览与导出
+### Export
 
-- 预览由 Tinymist 内置的 Typst 编译能力生成，通过本地 Web/SVG 预览展示。
-- 支持切换与并排两种查看方式；面板打开不改变文本焦点和选区。
-- 未保存文本同步到语言服务和预览，不要求每次编译先覆盖用户文件。
-- 预览支持缩放；正确显示中文、公式、图片和分页。
-- 源码与预览定位接入 Tinymist 提供的协议；集成能力必须经过实际验证。
-- 编译错误时保留上一次可用结果并明确标识当前错误，不能把旧结果当作最新成稿导出。
-- PDF 导出基于当前编辑版本和相同字体/资源环境，支持用户选择目标路径。
+- Export the latest requested document version as PDF.
+- Fail clearly on compilation errors; do not copy a stale PDF and report success.
+- Preserve document colors regardless of the preview's reading theme.
 
-### 6 外观与可访问性
+### Appearance and accessibility
 
-- 主背景为深炭灰，正文高对比但不刺眼，强调色采用低饱和暖金；语法辅助颜色有节制。
-- 使用统一间距、细分隔线和一致的图标尺寸；不堆砌卡片、渐变或大面积装饰。
-- 所有仅有图标的按钮都有可访问性标签和工具提示。
-- 面板可完全通过键盘操作，焦点清晰。正文、菜单和状态信息不能依靠颜色单独表达。
-- 至少人工检查写作视图、分屏预览、命令首页、搜索、参数表单、诊断和窄窗口。
+- Use charcoal surfaces, comfortable high-contrast text and a restrained warm accent.
+- Keep spacing, fine separators and icon sizes consistent, without ornamental cards or large gradients.
+- Give icon-only actions accessibility labels and compact learning hints.
+- Support full keyboard operation and visible focus. Do not communicate state through color alone.
+- Inspect writing, split preview, command categories, search, forms, diagnostics and a narrow window in the running app.
 
-## 第一版边界
+## First-release boundaries
 
-第一版不包含协作账号、云同步服务、AI 代写、插件市场、完整 Vim 模拟、任意 Typst 页面直接可视化编辑、Markdown 双向转换和 App Store 发布。完整源码兼容性依赖附带的 Tinymist/Typst 版本，交互式菜单覆盖常用功能，用户始终可以直接编写更多 Typst。
+The initial release excludes collaborative accounts, hosted cloud services, built-in AI authorship, a plugin marketplace, Vim emulation, arbitrary visual editing of typeset pages, Markdown round-tripping and App Store distribution. These historical boundaries do not prevent later local-agent or iCloud enhancements.
 
-第一版交付本地可运行 `.app`、源码、构建脚本、依赖许可、使用说明和实际验收记录。签名公证和公开发行属于后续发行工作。
+Compatibility follows the bundled Tinymist/Typst version. Command forms cover common features, while direct source editing remains available for everything else. Deliverables include a working app, source, reproducible scripts, dependency licenses, documentation and an honest verification record.
 
-## 完成标准
+## Completion criteria
 
-1. 构建和核心自动化测试通过，重要失败路径有验证。
-2. 实际应用中完成输入、命令插入、保存重开、预览更新和 PDF 导出流程。
-3. 使用真实 Tinymist 验证语言服务和未保存文本预览。
-4. 对应用实际截图进行检查并修复明显布局问题。
-5. 文档明确区分已验证功能、未验证项与剩余限制。
+1. The build and automated tests pass, including significant failure paths.
+2. Real app interactions cover typing, command insertion, save/reopen, preview updates and PDF export.
+3. Real Tinymist verifies language services and unsaved-buffer preview.
+4. Actual screenshots are inspected and obvious layout problems are fixed.
+5. Documentation distinguishes verified behavior from unverified limitations.
 
-## 参考
-
-- Nano Emacs：https://github.com/rougier/nano-emacs
-- Spacemacs which-key：https://www.spacemacs.org/doc/DOCUMENTATION.html#which-key
-- Typst：https://typst.app/docs/
-- Tinymist：https://myriad-dreamin.github.io/tinymist/
-- Phosphor：https://github.com/phosphor-icons/core
+References: [Nano Emacs](https://github.com/rougier/nano-emacs), [Spacemacs which-key](https://www.spacemacs.org/doc/DOCUMENTATION.html#which-key), [Typst](https://typst.app/docs/), [Tinymist](https://myriad-dreamin.github.io/tinymist/), [Phosphor](https://github.com/phosphor-icons/core).

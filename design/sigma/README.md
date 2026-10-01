@@ -1,47 +1,47 @@
-# Sumi · Σ 标志构形
+# Sumi · Σ construction
 
-2026-10-01 确定采用这版 Σ，统一用于应用、GitHub 和网站资源。字形由 Python 标准库计算，不依赖字体轮廓、素材库或图像生成模型。完整交付文件与网站接入方法见 [Brand](../../Brand/README.md)。
+Approved on 2026-10-01 for the app, repository and web assets. Python's standard library computes the shape without font outlines, stock logo artwork or an image-generation model. See [Brand](../../Brand/README.md) for exported assets and website integration.
 
-## 含义
+## Meaning
 
-- **Σ** 保留大写 Sigma 的可辨识轮廓与求和含义。品牌隐喻是“把零散想法汇成文章”，不是声称求和符号本身表示写作。
-- **S** 来自 Sigma 与 Sumi 共用的首字母；不要求用户把 Σ 同时看成拉丁字母 S。
-- **书写** 通过从右上到右下的一条连续路径和轻微笔压变化表达。没有额外拼接笔、光标或纸张符号。
+- **Σ** retains the recognizable outline and summation meaning of capital Sigma. The brand metaphor is separate thoughts coming together into writing; the mathematical symbol itself is not claimed to mean writing.
+- **S** connects Sigma's name with Sumi's initial. Viewers do not need to interpret the mark as a Latin S as well.
+- **Writing** is suggested by a continuous path from the upper right to the lower right, with a slight change in stroke pressure. No pen, caret or paper symbol is attached.
 
-黄金比例用于可调的构形规则，不代表它能自动保证美感。独特性、Dock 尺寸识别和笔画比例仍需视觉判断。
+The golden ratio provides an adjustable construction rule, not a guarantee of beauty. Distinctiveness, small-size recognition and stroke balance still require visual judgment.
 
-## 数学构造
+## Geometry
 
-定义黄金比例 `φ = (1 + √5) / 2`，字形高度 `H = 540`，宽度 `W = H / φ`。以字形左上角为原点，中心路径的五个顶点依次为：
+Let `φ = (1 + √5) / 2`, height `H = 540`, and width `W = H / φ`. Relative to the top-left of the glyph, the center path has five vertices:
 
 ```text
 (W, 0) → (0, 0) → (W/φ, H/2) → (0, H) → (W, H)
 ```
 
-三个内顶点分别使用二次 Bézier 曲线作圆滑过渡，截取长度为 `H / φ⁵`，并限制在相邻线段长度的三分之一内。曲线为：
+The three internal vertices use quadratic Bézier transitions. Each trim length is `H / φ⁵`, limited to a third of the adjoining segment lengths:
 
 ```text
 B(u) = (1-u)² A + 2u(1-u) P + u² C,  0 ≤ u ≤ 1
 ```
 
-`P` 是原顶点，`A`、`C` 是两条相邻线段上的截取点，保证过渡的切线方向连续。基本笔画宽度 `w₀ = H / φ⁶ ≈ 30.09`。
+`P` is the original vertex; `A` and `C` lie on the adjacent segments. This preserves the tangent direction at the joins. The base width is `w₀ = H / φ⁶ ≈ 30.09`.
 
-以**归一化弧长** `t ∈ [0, 1]` 调整笔画宽度：
+Stroke width varies with **normalized arc length** `t ∈ [0, 1]`:
 
 ```text
 w(t) = w₀ · (0.78 + 0.22 sin(πt))
 ```
 
-首尾较轻、中段稍重。这里 π 实际参与轮廓生成，不是附加的装饰符号。沿路径法线向两侧偏移 `w(t)/2`，再封闭首尾，输出独立填充轮廓。
+The ends are lighter and the middle slightly heavier. π participates in the generated outline rather than appearing as an extra decorative symbol. Offsetting along both path normals by `w(t)/2` and closing the ends produces a standalone filled contour.
 
-## 生成
+## Generation
 
 ```sh
 python3 design/sigma/generate.py
-# macOS，需要 librsvg 的 rsvg-convert；同时生成 PNG、ICO 和 ICNS
+# macOS with librsvg's rsvg-convert; also writes PNG, ICO and ICNS
 python3 design/sigma/generate.py --raster
 ```
 
-生成器将正式资源写入 `Brand/` 和 `Resources/AppIcon.svg`；`--raster` 同时更新 `Resources/AppIcon.icns`。SVG 图标的 1024px 坐标系可无损缩放。16/32px 的应用图标和 favicon 使用同一骨架，笔画宽度乘 1.55、字形尺寸乘 1.12 作小尺寸光学校正。浅色与深色透明字形也共用相同轮廓。
+The generator writes `Brand/` and `Resources/AppIcon.svg`; `--raster` also updates `Resources/AppIcon.icns`. SVG uses a scalable 1024-pixel coordinate system. The 16/32-pixel app icons and favicons use the same skeleton with optical corrections of 1.55× stroke width and 1.12× glyph size. Light and dark transparent marks share the same contour.
 
-只修改生成器中的 `HEIGHT`、`WIDTH`、`WEIGHT`、`CORNER` 或笔压函数，再执行完整生成；不要分别手改各处图标。生成临时文件位于仓库的 `build/` 中，结束后自动清理。
+Change `HEIGHT`, `WIDTH`, `WEIGHT`, `CORNER` or the pressure function in the generator, then regenerate all assets. Do not edit individual copies by hand. Temporary files live in the repository's `build/` directory and are cleaned up automatically.

@@ -49,7 +49,7 @@ struct WritingFlowTests {
         #expect(outline.id == "outline")
         #expect(outline.keyPath == "v o")
         #expect(outline.shortcuts.first?.label == "⌘4")
-        #expect(WritingCommand.all.filter { !$0.shortcuts.isEmpty }.count == 25)
+        #expect(WritingCommand.all.filter { !$0.shortcuts.isEmpty }.count == 26)
     }
 
     @Test func discoverInsertUndoRedoAndExport() async throws {
@@ -147,7 +147,7 @@ struct WritingFlowTests {
         try Data("= External change\n".utf8).write(to: renamed)
         editor.insertSnippet(Snippet(text: "Local unsaved\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
         app.workspace.save()
-        #expect(app.workspace.saveStatus == "保存需要处理")
+        #expect(app.workspace.saveStatus == "Save Needs Attention")
         #expect(try String(contentsOf: renamed, encoding: .utf8) == "= External change\n")
         #expect(app.workspace.saveRecovery())
         let recovered = Workspace(stateDirectory: app.workspace.stateDirectory)
@@ -170,23 +170,24 @@ struct WritingFlowTests {
         defer { app.close() }
         try await app.ready()
         app.workspace.newDocument()
+        try await app.wait { app.workspace.managedDocumentID != nil && !app.workspace.library.busy }
         try await app.ready()
-        #expect(app.workspace.fileURL == nil)
-        #expect(app.workspace.title == "未命名文稿")
+        let managedURL = try #require(app.workspace.fileURL)
+        #expect(app.workspace.title == L10n.text("Untitled"))
         let editor = try #require(app.workspace.editor)
         editor.insertSnippet(Snippet(text: "Unsaved draft sentinel"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
         let draft = app.workspace.text
         #expect(app.workspace.open(app.document))
         try await app.ready()
-        let archived = try FileManager.default.contentsOfDirectory(at: app.workspace.stateDirectory, includingPropertiesForKeys: nil).filter { $0.lastPathComponent.hasPrefix("Draft-") }
-        #expect(try archived.contains { try String(contentsOf: $0, encoding: .utf8) == draft })
+        #expect(try String(contentsOf: managedURL, encoding: .utf8) == draft)
         #expect(!app.workspace.open(app.root.appendingPathComponent("missing.typ")))
         #expect(app.workspace.text == "= Existing file\n")
         #expect(app.workspace.message != nil)
         app.workspace.newDocument()
+        try await app.wait { app.workspace.managedDocumentID != nil && !app.workspace.library.busy }
         try await app.ready()
         app.workspace.edited("Recovered after interruption")
-        try await app.wait { app.workspace.saveStatus == "草稿已保存" }
+        try await app.wait { app.workspace.saveStatus == "Saved" }
         let recovered = Workspace(stateDirectory: app.workspace.stateDirectory)
         #expect(recovered.text == "Recovered after interruption")
         recovered.shutdown()
@@ -261,34 +262,34 @@ struct WritingFlowTests {
         defer { NSApp.mainMenu = previousMenu; NSApp.windowsMenu = previousWindowsMenu }
         delegate.installMenu()
         let menu = try #require(NSApp.mainMenu)
-        #expect(menu.items.map(\.title) == ["Sumi", "文件", "编辑", "视图", "窗口"])
+        #expect(menu.items.map(\.title) == ["Sumi", "Documents", "Edit", "View", "Window"].map { L10n.text($0) })
         let entries = menu.items.flatMap { $0.submenu?.items ?? [] }
         func choose(_ title: String) throws {
-            let item = try #require(entries.first { $0.title == title })
+            let item = try #require(entries.first { $0.title == L10n.text(title) })
             let action = try #require(item.action)
             #expect(NSApp.sendAction(action, to: item.target, from: item))
         }
-        try choose("并排预览")
+        try choose("Side-by-side Preview")
         #expect(app.workspace.layout == .split)
-        try choose("阅读成稿")
+        try choose("Read the Preview")
         #expect(app.workspace.layout == .preview)
-        try choose("专注写作")
+        try choose("Focus on Writing")
         #expect(app.workspace.layout == .writing)
         let originalFont = app.workspace.fontSize
-        try choose("放大文字")
+        try choose("Increase Text Size")
         #expect(app.workspace.fontSize == originalFont + 1)
-        try choose("缩小文字")
+        try choose("Decrease Text Size")
         #expect(app.workspace.fontSize == originalFont)
-        try choose("发现命令")
+        try choose("Discover Commands")
         #expect(app.workspace.paletteOpen)
         app.workspace.closePalette()
         let editor = try #require(app.workspace.editor)
         editor.insertSnippet(Snippet(text: "Saved by menu"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
-        try choose("保存")
+        try choose("Save")
         #expect(try String(contentsOf: app.document, encoding: .utf8).contains("Saved by menu"))
-        try choose("新建文稿")
-        #expect(app.workspace.fileURL == nil)
-        #expect(app.workspace.title == "未命名文稿")
+        try choose("New Document")
+        try await app.wait { app.workspace.managedDocumentID != nil && !app.workspace.library.busy }
+        #expect(app.workspace.title == L10n.text("Untitled"))
         try await app.ready()
         #expect(delegate.applicationShouldTerminateAfterLastWindowClosed(NSApp))
         #expect(delegate.applicationShouldTerminate(NSApp) == .terminateNow)

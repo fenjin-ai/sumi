@@ -1,37 +1,37 @@
-# Sumi 品牌资源
+# Sumi brand assets
 
-正式标志为“一笔写成的 Σ”：象牙白 `#ECECE7`，炭灰 `#24282D`。所有字形由同一个[数学构形生成器](../design/sigma/generate.py)输出，[构形说明](../design/sigma/README.md)包含黄金比例与笔压公式。
+The approved mark is a continuous capital **Σ**, in ivory `#ECECE7` on charcoal `#24282D`. Every asset comes from one [geometry generator](../design/sigma/generate.py). The [construction notes](../design/sigma/README.md) describe the golden-ratio skeleton and pressure equation.
 
-品牌文案：**给想法一点留白。** / **A quiet space to write.** 面向写作与思考表达价值；实现技术放在功能说明和开发文档中。
+The public tagline is **A quiet space to write.** Branding speaks to writing and thinking; implementation details belong in feature and developer documentation. The app may use a localized tagline in its interface.
 
 ![Sumi](logo-512.png)
 
-| 文件 | 用途 |
+| Asset | Use |
 |---|---|
-| `logo.svg`、`logo-512.png`、`logo-1024.png` | 带圆角底板的正式图标；PNG 保留四角透明 |
-| `mark-light.svg`、`mark-dark.svg` | 深色或浅色背景上的透明单色字形 |
-| `social-preview.png`、`social-preview.svg` | 1280×640 GitHub / Open Graph 分享预览图 |
-| `../Resources/AppIcon.svg`、`../Resources/AppIcon.icns` | macOS 应用图标，ICNS 包含 16–1024px 各档 |
-| `web/favicon.svg`、`web/favicon.ico` | 网站 favicon；ICO 包含 16、32、48px 图层 |
-| `web/favicon-{16,32,48}x{16,32,48}.png` | 对应尺寸的 PNG favicon |
-| `web/apple-touch-icon.png` | 180×180 Apple Touch 图标，不透明底色 |
-| `web/icon-192.png`、`web/icon-512.png` | Web Manifest 通用图标 |
-| `web/icon-maskable-512.png` | 满版底色，字形处于安全区域的 maskable 图标 |
-| `web/site.webmanifest` | 图标与品牌颜色清单，图标路径相对于清单 |
+| `logo.svg`, `logo-512.png`, `logo-1024.png` | Approved mark on a rounded tile; PNG corners remain transparent |
+| `mark-light.svg`, `mark-dark.svg` | Transparent monochrome mark for dark or light backgrounds |
+| `social-preview.png`, `social-preview.svg` | 1280×640 GitHub / Open Graph card |
+| `../Resources/AppIcon.svg`, `../Resources/AppIcon.icns` | macOS application icon, with ICNS representations from 16 to 1024 pixels |
+| `web/favicon.svg`, `web/favicon.ico` | Website favicon; ICO contains 16, 32 and 48 pixel frames |
+| `web/favicon-16x16.png`, `web/favicon-32x32.png`, `web/favicon-48x48.png` | PNG favicons |
+| `web/apple-touch-icon.png` | Opaque 180×180 Apple Touch icon |
+| `web/icon-192.png`, `web/icon-512.png` | General web manifest icons |
+| `web/icon-maskable-512.png` | Full-bleed background with the mark inside the maskable safe area |
+| `web/site.webmanifest` | Brand colors and icon paths, relative to the manifest |
 
-## 重新生成
+## Regeneration
 
-在 macOS 安装 librsvg 后，从仓库根目录执行：
+With librsvg installed on macOS, run from the repository root:
 
 ```sh
 python3 design/sigma/generate.py --raster
 ```
 
-脚本使用系统 `iconutil` 打包 ICNS，直接封装 PNG 帧生成 ICO；不依赖 Pillow 或 ImageMagick。不带 `--raster` 只生成 SVG 和 manifest。应用构建直接使用已提交资源，不需要安装这些生成工具。
+The script uses system `iconutil` to package ICNS and wraps PNG frames directly into ICO. It does not depend on Pillow or ImageMagick. Without `--raster`, it writes SVG and the manifest only. Building the app uses committed assets and does not require generation tools.
 
-## 网站接入
+## Website integration
 
-将 `web/` 内的文件复制到网站的 `public/` 根目录，HTML 加入：
+Copy the contents of `web/` to the website's `public/` directory, then add:
 
 ```html
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -41,6 +41,6 @@ python3 design/sigma/generate.py --raster
 <meta name="theme-color" content="#24282D">
 ```
 
-子路径部署时同步调整这些地址。分享卡片使用 `social-preview.png`，网站的 `og:image` 应填写实际部署后的完整 HTTPS 地址。manifest 只声明品牌资源，站点的安装行为、起始页面与作用域由未来网站配置。
+Adjust paths for a site deployed below the domain root. Use `social-preview.png` for sharing, with its deployed absolute HTTPS URL in `og:image`. The manifest declares brand assets only; a future website must choose its own installation behavior, start URL and scope.
 
-GitHub 的 Settings → General → Social preview 使用这里的 `social-preview.png`。README 使用 `logo.svg`。本资源不替换 fenjin-ai 组织头像。
+GitHub **Settings → General → Social preview** uses `social-preview.png`. The repository README uses `logo.svg`. These assets do not replace the organization avatar.

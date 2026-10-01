@@ -1,123 +1,92 @@
-# 实施与验收记录
+# Implementation and verification record
 
-日期：2026-10-01。当前开发预览版 0.3.0；以下保留各版本验收记录。
+Date: 2026-10-01. This record preserves evidence from each development iteration. New feature acceptance is recorded separately; historical counts and measurements refer to the stated version.
 
-## 0.3.0 交互收敛与性能
+## 0.4.0 · Library, agent access and languages
 
-- 文章脉络改为左侧独立覆盖层，默认细线标记、悬停渐进展开，⌘4 固定展开，Esc 收起；去掉外框、阴影、整行高亮和关闭按钮。
-- 工具栏 hover 使用按内容收缩的“功能名 + 快捷键”。组合键与 which-key 路径并存，25 个常用功能有直接快捷键，106 个命令可分组或搜索发现；全部命令和分组图标完成单独映射。
-- 固定命令区高度和说明位置；搜索、选中与参数表单不再造成正文区域跳变。鼠标悬停不再触发选择滚动反馈。
-- 删除命令导航时的反复全文统计、图标磁盘解析、重复查询和全文样式更新。约 10 万字符的定向基准及前后数据见 [交互与性能](interaction.md)。
-- 43 项测试通过（23 项核心、20 项应用功能），完整生产源码行覆盖率 **88.97%（2404/2702）**。新增原生窗口几何、窄窗口参数、图标资源、快捷键别名、hover 尺寸、Unicode 缓存与长文性能回归。
-- 签名发布工作流已完成真实 Apple 公证及 Gatekeeper 验证；Codecov 已接入 GitHub OIDC、main 徽章、PR 数字评论和整体/patch 80% checks。实际例子见 [PR #2 覆盖率报告](https://github.com/fenjin-ai/sumi/pull/2#issuecomment-5926250299)。
-- 标志最终确定为一笔写成的 Σ，由黄金比例骨架与正弦笔压函数生成。应用图标、README、GitHub 分享图与未来网站 favicon 统一使用这套资源，生成代码及接入说明保存在仓库。开发版 build 5 包含新图标。
+- The title opens a searchable document library with templates, renaming, recoverable trash, source/project import and export. Stable document identities hide implementation filenames from normal writing.
+- Optional iCloud Drive storage uses native file coordination, change discovery, download states and conflict protection. Independent incoming source edits merge against the editor's saved baseline with native undo, selection and focus preservation. Settings reconcile per field before publishing local changes.
+- The dedicated App ID, iCloud container and Developer ID provisioning profile were configured. The release workflow now validates and embeds the profile before signing. A newly provisioned signed release and real two-Mac delivery have **not** yet been verified; isolated tests do not establish Notes-like sync performance.
+- The bundled MCP helper uses the official Swift SDK. Opt-in local access exposes the live buffer, undoable revision-checked edits, library navigation, bounded settings changes, diagnostics, PDF export and rendered page inspection. Agent access is local to the Mac and never synchronized.
+- Native English and Simplified Chinese resources switch without recreating the editor. Public documentation and brand materials are English. The outline's pin lives in the left margin, becomes a close mark on hover and stays within the margin when pinned.
+- An explicit Code Notes template bundles pinned Codly packages for styled code blocks. It compiles without a first-use package download. Executing code blocks is documented as a separate future feature, not enabled by the template.
+- **69 Swift tests passed**: 36 core, 4 socket/protocol and 29 app flows, plus **3 provisioning-profile checks**. Production source-line coverage was **87.33% (3907/4474)** with an 80% gate. Tests include real Tinymist compilation, native editing/undo, MCP client calls and PDF/page content.
+- Native app acceptance checked document creation, Code Notes rendering, language/menu changes and outline placement. The final release-configuration development build is 0.4.0 (6).
+- Research records cover [three-way merge and Forked](merge-evaluation.md) and [optional local intelligence](local-intelligence.md). A synthetic on-device Foundation Models probe classified four bilingual requests correctly (first request about 1.5 seconds, later requests about 0.4 seconds); this is feasibility evidence, not a quality or responsiveness benchmark. Model suggestions are not part of the shipped editor yet.
 
-## 0.2.0 命令发现、阅读与工程质量
+## 0.3.0 · Interaction, performance and identity
 
-- 97 个可发现命令、9 个根分组、数学三级路径；74 个插入命令及 18 个数学上下文用法全部通过真实 Tinymist 编译，包含图片、文献和多文件夹具。
-- Universe 原生面板支持官方索引搜索、分类、版本与文档、固定版本导入、编译器兼容检查、24 小时缓存和离线回退。真实索引 smoke check 找到 1636 个包，绘图分类 216 个；测试使用隔离的固定索引。
-- 可见区域渲染、最后成功成稿保留与明确的过期状态、可切换深色阅读。导出保留原文稿配色，编译错误不会导出旧成稿。
-- 标题、粗体、斜体和行内代码阅读样式，光标所在段落恢复源码；缩进、注释、格式化和原生撤销。集成测试发现并修复了插入撤销后编辑缓冲区与 Workspace 不同步的问题。
-- 36 项测试全部通过：22 项核心与协议/编译场景，14 项原生应用功能流程。实际使用 NSTextView、Workspace、WKWebView、Tinymist 与 PDF 内容校验。隐藏 WebKit 测试窗口用定时器驱动 animation frame，仍运行真实 WASM 渲染器，断言实际页面保留与页数变化。
-- 全部应用和核心源码整体行覆盖率 **88.65%（2163/2440）**；CI 要求至少 80%，不排除 UI 文件，保留 LCOV、LLVM JSON 和 HTML 报告。
-- 公开仓库为 [fenjin-ai/sumi](https://github.com/fenjin-ai/sumi)，仅支持 Apple Silicon。CI 运行功能测试与覆盖率门槛；正式发布流水线要求 Developer ID 签名、公证、票据装订和 Gatekeeper 校验全部成功。凭据配置与实际发布验证单独记录于 [签名说明](signing.md)。
+- The outline became an independent left-margin overlay: fine marks at rest, gradual hover expansion, `⌘4` to pin and Esc to dismiss. The separate border, shadow, full-row highlight and close button were removed.
+- Toolbar help shrank to the action name and shortcut. Direct shortcuts coexist with discovery paths: 25 frequent actions, 106 discoverable commands and distinct command/category icons.
+- A fixed command-panel height and guide position keep the editor stable through search, keyboard selection and parameter forms. Hover no longer causes a selection/scroll feedback loop.
+- Repeated whole-document metrics, icon decoding, queries and full-buffer style refreshes were removed from command navigation. A roughly 100,000-character benchmark is documented in [interaction and performance](interaction.md).
+- **43 tests passed**: 23 core and 20 app functional tests. Production line coverage was **88.97% (2404/2702)**. Added checks cover native window geometry, narrow forms, icon resources, shortcut aliases, tooltip size, Unicode caches and long-document performance.
+- The signing workflow passed real Apple notarization and Gatekeeper verification. Codecov uses GitHub OIDC, a main badge, numeric PR comments and 80% project/patch checks. See [PR #2's coverage report](https://github.com/fenjin-ai/sumi/pull/2#issuecomment-5926250299).
+- The approved identity is a continuous Sigma generated from a golden-ratio skeleton and sine pressure envelope. App icons, README, social previews and favicons share its source and documented generation process. Development build 5 includes the icon.
 
-用户对 `Examples/留白.typ` 的本地编辑继续保留，不纳入发布提交。
+## 0.2.0 · Discovery, reading and engineering
 
-## 0.1.1 修复与诊断日志
+- 97 commands across nine root groups and nested mathematics paths. All 74 insertions and 18 math-context uses compiled with real Tinymist, including image, bibliography and multiple-file fixtures.
+- The native Universe browser supports official-index search, categories, versions, documentation, pinned imports, compiler compatibility, a 24-hour cache and offline fallback. A live index smoke check found 1,636 packages, including 216 visualization packages; automated tests use isolated fixed indexes.
+- Visible-region rendering, retained successful pages and explicit stale status support uninterrupted writing. Dark reading preserves exported colors. Compilation errors cannot export an old PDF as current.
+- Reading styles for headings, emphasis and inline code reveal source in the active paragraph. Indentation, comments, formatting and native undo are available. Integration testing found and fixed a workspace/editor mismatch after insertion undo.
+- **36 tests passed**: 22 core/protocol/compilation cases and 14 native app flows. They use `NSTextView`, Workspace, `WKWebView`, Tinymist and PDF content checks. Hidden WebKit windows drive animation frames with a timer while still running the real WASM renderer and asserting retained pages and page-count changes.
+- Production line coverage was **88.65% (2163/2440)**. CI requires 80% without excluding interface files and retains LCOV, LLVM JSON and HTML.
+- The public repository is [fenjin-ai/sumi](https://github.com/fenjin-ai/sumi). Release publication requires Developer ID, notarization, stapling and Gatekeeper success. Configuration and real release validation are documented in [signing](signing.md).
 
-2026-10-01 用户报告搜索命令后插入崩溃。提供的堆栈在主线程进入 `AppDelegate` 键盘监听闭包，经 `MainActor.assumeIsolated` 的执行器检查触发 `EXC_BAD_ACCESS`。在旧包测试表格、公式路径时未稳定复现，因此没有把随机崩溃归因于某个具体 Typst 命令或声称已证明系统层根因。
+User edits to an existing local example were preserved and excluded from implementation commits.
 
-改动：
+## 0.1.1 · Crash-path removal and diagnostic logs
 
-- 移除全应用 `NSEvent` 监听器和 `MainActor.assumeIsolated`，改在 `WritingWindow.sendEvent` 的原生事件路径处理命令；`performKeyEquivalent` 记录菜单快捷键；有文件对话框时不截取主窗口命令。
-- 用原生 `NSToolbar.unifiedCompact` 合并顶部文件名与操作按钮，保留系统红黄绿按钮，删除第二行 SUMI 标识栏。
-- 新增本地滚动 JSONL 操作日志、启动会话、控制键与命令/插入/保存/导出/服务事件。增加“打开诊断日志”菜单及可搜索命令，现共 35 个命令。
-- 日志每份约 1 MiB，保留 3 个归档；不记录正文、剪贴板内容、搜索词和参数值。系统错误描述可能带路径。正常输入只标为 text。
+A user reported a crash after command search and insertion. The supplied stack entered an `AppDelegate` keyboard-monitor closure on the main thread and failed an executor check through `MainActor.assumeIsolated`, producing `EXC_BAD_ACCESS`. Testing table and equation paths in the old package did not reproduce the intermittent crash reliably; it was not attributed to a particular Typst command or claimed as a proven operating-system defect.
 
-验证：Release 构建和临时签名通过；自动化测试现为 13 项，包含新增日志持久化、跨会话追加、完整日期/毫秒时间及轮转后逐行 JSON 校验。实际 UI 通过搜索表格、修改参数、回车插入、中文占位、Tab、撤销/重做、搜索加粗直接插入、搜索独立公式等路径，应用保持运行。实际日志记录 `command.selected → command.execute → insertion.begin → insertion.finished`；验证日志没有搜索词和文稿片段。搜索“日志”后回车已在 Finder 选中 `events.jsonl`。
+Changes:
 
-当前证据是针对崩溃栈移除了出问题的执行路径，并完成关键操作回归；原始偶发崩溃没有稳定复现，仍需结合后续真实使用和本地日志观察。用户对示例文稿的编辑保留，不纳入本次代码提交。
+- Removed the application-wide `NSEvent` monitor and `MainActor.assumeIsolated`. Commands now use `WritingWindow.sendEvent`, with menu shortcuts recorded through `performKeyEquivalent`. File dialogs suspend main-window command handling.
+- Unified the document title and actions in `NSToolbar.unifiedCompact`, retaining system traffic lights and removing the second branding row.
+- Added rotating local JSONL logs for sessions, control keys, commands, insertion, saving, export and service failures. A menu item and searchable command reveal the logs.
+- Logs rotate around 1 MiB with three archives. They omit source, clipboard, search terms and parameters. Ordinary typing is only `text`; system errors can include paths.
 
-## 完成范围
+The release build and development signature passed. **13 automated tests passed**, including persistence, cross-session append, timestamps and line-by-line JSON checks after rotation. Real UI checks searched for a table, edited parameters, inserted with Return, moved through Chinese placeholders with Tab, used undo/redo, and searched for bold and display equations without terminating the app. Logs captured `command.selected → command.execute → insertion.begin → insertion.finished` without search terms or manuscript text. Searching for the log action revealed `events.jsonl` in Finder.
 
-- [x] 先完成需求、技术方案和视觉规范，再建立持续实施 goal。
-- [x] 固定 Tinymist 0.15.8，校验官方发布包，使用真实协议验证。
-- [x] SwiftUI + AppKit 原生应用、Nano 风格深色主题、Phosphor Regular 图标与原创应用图标。
-- [x] NSTextView 编辑、克制高亮、系统撤销、查找、占位选区。
-- [x] 34 个可发现命令，包含 20 个 Typst 语法命令、中文/英文搜索和参数表单。
-- [x] 原子自动保存、外部冲突保护、草稿归档与最近会话恢复。
-- [x] Tinymist 诊断、显式补全、标题大纲、服务重启。
-- [x] 真实未保存文本预览、可拖动分隔线、预览缩放、源码与预览定位、PDF 导出。
-- [x] 多文件主文稿编译入口与子文件未保存缓冲区集成验证。
-- [x] 自动化测试、实际 UI 验收、Release 应用和使用文档。
+The evidence supports removal of the failing execution path and regression coverage of important actions. The original intermittent crash was not reproduced reliably, so ongoing use and local logs remain relevant.
 
-## 工作位置
+## 0.1.0 · Initial delivery
 
-- 仓库：`/Volumes/SSD/Developer/github/sumi`
-- 工作树：`/Volumes/SSD/Developer/Codex/checkouts/sumi-v1`
-- 分支：`codex/sumi-v1`
-- 交付应用：`build/Sumi.app`
-- 远程仓库：[fenjin-ai/sumi](https://github.com/fenjin-ai/sumi)。
+The implementation delivered a native dark writing interface, Phosphor actions, original icon, source editing, highlighting, undo, find, placeholders, 34 commands including 20 insertions, bilingual search, forms, atomic autosave, conflict protection, draft recovery, session restoration, diagnostics, completion, outline, reconnect, real unsaved preview, resizing, zoom, source/page navigation, PDF export and multiple-file compilation.
 
-## 0.1.0 自动化验证记录
+Verification used macOS 27, Xcode Swift 6.4 and an arm64 Mac, targeting macOS 14. Build and test temporary files stayed on the SSD. No database, Hurl or containers were used.
 
-环境为 Apple Silicon、macOS 27、Xcode Swift 6.4，编译目标 macOS 14。构建和测试的临时目录位于 SSD。未使用数据库、Hurl 或容器。
-
-| 命令 | 结果 |
+| Check | Result |
 |---|---|
-| `scripts/build.sh release` | Release 构建成功，应用包含 arm64 Tinymist |
-| `scripts/test.sh` | Swift Testing 共 11 项通过，0 失败 |
-| `codesign --verify --deep --strict --verbose=2 build/Sumi.app` | 本机临时签名验证通过 |
-| `git diff --check` | 无空白错误 |
+| `scripts/build.sh release` | Passed; app includes arm64 Tinymist |
+| `scripts/test.sh` | 11 tests passed, none failed |
+| `codesign --verify --deep --strict --verbose=2 build/Sumi.app` | Development signature passed |
+| `git diff --check` | No whitespace errors |
 
-10 项核心测试覆盖 UTF-16 中文/emoji/CRLF 位置、逐字节 JSON-RPC 分帧、畸形报头、Typst 参数校验与字符串转义、保留用户字面量、代码围栏、段落分隔、页面规则顺序、外部修改/删除保护、命令查找及恢复数据。
+Ten core tests covered UTF-16/emoji/CRLF positions, byte-boundary framing, malformed headers, parameter validation, string escaping, literal preservation, code fences, paragraph separation, preamble order, external modification/deletion protection, discovery and recovery data.
 
-1 项真实集成测试启动与产品相同的 Swift `TinymistClient`，验证：
+One real integration flow launched the production `TinymistClient` and verified:
 
-- 本地预览 HTTP 返回实际前端，未保存文稿可编译，PDF 包含中文和缓冲区内容，源文件磁盘内容不被编译覆盖。
-- markup、math、raw、code 上下文，大纲、补全、预览定位命令。
-- 无效源码产生诊断和 compileError，PDF 导出明确失败，不复制旧成稿。
-- 20 个插入/样式/页面命令逐个成功编译，包括真实 SVG 图片与有效编号目标的交叉引用。
-- 服务停止和重启后重新同步；子文稿的未保存修改进入主文稿 PDF。
+- Local preview served the real frontend. Unsaved text compiled into PDF, including Unicode, without overwriting the source file on disk.
+- Markup, math, raw and code contexts, document symbols, completion and preview navigation worked.
+- Invalid source produced diagnostics and `compileError`; export failed instead of copying stale output.
+- All 20 initial insertion/style/page commands compiled, including a real SVG and numbered cross-reference targets.
+- Stop/restart restored synchronization, and unsaved edits to an included document appeared in the main PDF.
 
-## 实际 UI 验收
+## Real app acceptance
 
-通过真实原生窗口完成以下操作，并在实现过程中修复发现的问题：
+The initial native UI checks covered launch, writing/split/preview views, command categories/search/forms, fast search typing isolated from the manuscript, tables, selection wrapping, placeholders, single-step undo, rejected body commands inside math, Unicode save paths, relaunch restoration, PDF export, deliberate compilation errors and recovery, double-click preview navigation, 100%→110% zoom, split resizing and a compact window around 961×526 pt.
 
-| 流程 | 结果 |
-|---|---|
-| 首次启动、写作、并排与成稿视图 | 原生窗口、图标、中文、公式和实际排版可见 |
-| `⌘J` 分组、`/` 搜索、参数表单 | 键盘可操作；快速输入搜索不会写入正文；搜索结果同步 |
-| 表格插入与中文选区加粗 | 生成有效源码，选区/占位可见，一次撤销恢复正文 |
-| 数学上下文执行正文样式 | 显示解释并保留源码 |
-| 中文路径保存、关闭重启 | 文件内容和最近文稿恢复正常 |
-| 原生导出对话框 | 成功导出一页 PDF，显示明确成功状态 |
-| 故意加入未知函数 | 显示文件名、行号及错误；点击定位；撤销后状态恢复 |
-| 双击预览标题 | 回到对应源码行和字符 |
-| 预览 100% → 110% | 实际页面字号增大，超出宽度可水平滚动 |
-| 分隔线拖动 | 两侧宽度和换行同步调整 |
-| 系统四分之一窗口布局 | 约 961×526 pt，正文、预览和六项命令入口仍可用 |
+Historical app screenshots remain in `docs/screenshots/`. They record the running application, including its then-selected Chinese interface; they are not current marketing mockups. The purple corner indicator came from macOS screen-control status. The current public sample is [Welcome.typ](../Examples/Welcome.typ).
 
-验收用文稿 `.scratch/验收文稿.typ` 和导出 PDF 留在当前工作树的忽略目录。可分享的入门示例位于 `Examples/留白.typ`。
+## Known limits and unverified areas
 
-### 实际截图
-
-截图取自运行中的应用，不是设计稿。左上角紫色标记来自系统的屏幕控制提示。
-
-![命令发现界面](screenshots/commands.jpg)
-
-![真实排版预览](screenshots/preview.jpg)
-
-![紧凑窗口](screenshots/compact.jpg)
-
-## 明确的限制与未验证项
-
-- 完整中文拼音候选输入、候选切换与第三方输入法仍需人工确认。已实现 marked-text 保护，验证过中文粘贴、选区变换、保存和编译。
-- macOS 14 实机与 VoiceOver 完整流程未验证。长文已覆盖约 10 万 UTF-16 字符的命令导航与段落样式基准，更大文稿的持续输入和排版性能尚未验证。仅支持 Apple Silicon，不提供 Intel 构建。
-- 单窗口、单活动编辑缓冲区；通过预览或诊断打开子文件可保留主入口，暂无独立项目管理器和主文件选择器。
-- 页面命令处理文件开头连续 `#set` 规则，不改写任意函数或 `#show` 作用域；后续规则可能覆盖前面设置。
-- 语法高亮是有限的视觉辅助。参数化正文命令保守检查选区两端上下文，不替代完整语义重构。
-- Tinymist 部分诊断通知不带文档版本，快速输入时可能短暂显示上一轮诊断。
-- Developer ID 签名与公证流水线已实现，实际配置状态见签名说明；暂无 App Store 沙盒配置或自动更新。
-- 编辑字号、分屏比例和预览缩放暂不跨启动保存；命令入口快捷键、窗口尺寸及最近文稿会保存。
+- Complete Pinyin candidate selection and third-party input methods still need manual checks. Marked-text protection, Chinese paste, selection transformations, saving and compilation have tests.
+- A physical Mac running macOS 14 and a complete VoiceOver workflow have not been verified. Benchmarks cover roughly 100,000 UTF-16 units; sustained typing/typesetting in substantially larger documents remains unverified. Intel builds are not supplied.
+- One active editor buffer preserves the main compilation entry when navigating included files. General project configuration and arbitrary main-file switching remain limited.
+- Page commands handle contiguous initial `#set` rules, not arbitrary functions or `#show` scopes; later rules may override earlier settings.
+- Source highlighting is a visual aid. Context checks at selection endpoints are conservative, not semantic refactoring.
+- Some Tinymist diagnostics lack document versions and can briefly trail fast typing.
+- The release pipeline is signed and notarized as recorded separately. App Store distribution and automatic updating are not implemented.
+- Preferences and document-management behavior evolve after 0.3; consult current feature documentation instead of assuming historical limits still apply.

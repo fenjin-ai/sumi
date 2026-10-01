@@ -16,6 +16,8 @@ jobs:
   package:
     name: Sign and notarize (Apple Silicon)
     runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -38,6 +40,7 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          ICLOUD_PROVISIONING_PROFILE: ${{ secrets.ICLOUD_PROVISIONING_PROFILE }}
         run: scripts/release.sh
       - name: Notarization result
         if: always()
@@ -71,4 +74,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "$GITHUB_REF_NAME" release/* --verify-tag --title "Sumi $GITHUB_REF_NAME" --generate-notes --notes 'Native macOS app for Apple Silicon. Signed with Developer ID, notarized by Apple, and stapled for offline verification. SHA-256 checksum included. Unzip and drag Sumi.app to Applications.'
+          gh release create "$GITHUB_REF_NAME" release/* --verify-tag --title "Sumi $GITHUB_REF_NAME" --generate-notes --notes 'Download, unzip and drag Sumi.app to Applications. Requires a Mac with an Apple M-series chip and macOS 14 or later.'

@@ -1,0 +1,2 @@
+# Preserve the published package archives byte-for-byte, including upstream whitespace.
+Resources/Packages/preview/** -whitespace linguist-vendored=true

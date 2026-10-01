@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SumiCore
 import SwiftUI
 
@@ -18,6 +19,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let workspace: Workspace
     private var window: NSWindow!
     private var windowToolbar: WindowToolbar?
+    private var settingsWindow: NSWindow?
+    private var settingsController: WorkspaceSettings?
+    private var languageObserver: AnyCancellable?
 
     init(workspace: Workspace = Workspace()) {
         self.workspace = workspace
@@ -45,7 +49,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
         workspace.onTitleChange = { [weak self] title in self?.window.title = title + " — Sumi" }
         workspace.onShortcutChange = { [weak self] in self?.installMenu() }
+        settingsController = WorkspaceSettings(workspace: workspace)
+        languageObserver = NotificationCenter.default.publisher(for: .sumiLanguageChanged).sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.installMenu()
+                self?.settingsWindow?.title = L10n.text("Settings")
+                if let self { self.window.title = self.workspace.title + " — Sumi" }
+            }
+        }
         workspace.startService()
+        Task { await workspace.library.start() }
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.async { [weak self] in
             guard let self, !self.workspace.paletteOpen, let editor = self.workspace.editor else { return }
@@ -60,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
     func applicationWillTerminate(_ notification: Notification) {
+        settingsController?.stop()
         workspace.shutdown()
     }
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
@@ -93,46 +107,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             menu.addItem(entry)
         }
         let app = section("Sumi")
-        item("关于 Sumi", #selector(about), "", app, target: self)
-        item("设置…", #selector(settings), ",", app, target: self)
+        item(L10n.text("About Sumi"), #selector(about), "", app, target: self)
+        item(L10n.text("Settings…"), #selector(settings), ",", app, target: self)
         app.addItem(.separator())
-        item("隐藏 Sumi", #selector(NSApplication.hide(_:)), "h", app)
-        item("退出 Sumi", #selector(NSApplication.terminate(_:)), "q", app)
-        let file = section("文件")
-        item("新建文稿", #selector(newDocument), "n", file, target: self)
-        item("打开…", #selector(openDocument), "o", file, target: self)
+        item(L10n.text("Hide Sumi"), #selector(NSApplication.hide(_:)), "h", app)
+        item(L10n.text("Quit Sumi"), #selector(NSApplication.terminate(_:)), "q", app)
+        let file = section(L10n.text("Documents"))
+        item(L10n.text("New Document"), #selector(newDocument), "n", file, target: self)
+        item(L10n.text("Your writing…"), #selector(openLibrary), "o", file, target: self)
+        item(L10n.text("Import a document…"), #selector(importDocument), "o", file, modifiers: [.command, .shift], target: self)
+        item(L10n.text("Open external file…"), #selector(openDocument), "", file, target: self)
         file.addItem(.separator())
-        item("保存", #selector(saveDocument), "s", file, target: self)
-        item("另存为…", #selector(saveAs), "s", file, modifiers: [.command, .shift], target: self)
-        item("恢复草稿副本…", #selector(recoverDraft), "", file, target: self)
-        item("导出 PDF…", #selector(exportPDF), "e", file, modifiers: [.command, .shift], target: self)
+        item(L10n.text("Save"), #selector(saveDocument), "s", file, target: self)
+        item(L10n.text("Save As…"), #selector(saveAs), "s", file, modifiers: [.command, .shift], target: self)
+        item(L10n.text("Recover Draft Copy…"), #selector(recoverDraft), "", file, target: self)
+        item(L10n.text("Export PDF…"), #selector(exportPDF), "e", file, modifiers: [.command, .shift], target: self)
         file.addItem(.separator())
-        item("关闭窗口", #selector(NSWindow.performClose(_:)), "w", file)
-        let edit = section("编辑")
-        item("撤销", Selector(("undo:")), "z", edit)
-        item("重做", Selector(("redo:")), "z", edit, modifiers: [.command, .shift])
+        item(L10n.text("Close Window"), #selector(NSWindow.performClose(_:)), "w", file)
+        let edit = section(L10n.text("Edit"))
+        item(L10n.text("Undo"), Selector(("undo:")), "z", edit)
+        item(L10n.text("Redo"), Selector(("redo:")), "z", edit, modifiers: [.command, .shift])
         edit.addItem(.separator())
-        item("剪切", #selector(NSText.cut(_:)), "x", edit)
-        item("复制", #selector(NSText.copy(_:)), "c", edit)
-        item("粘贴", #selector(NSText.paste(_:)), "v", edit)
-        item("全选", #selector(NSText.selectAll(_:)), "a", edit)
+        item(L10n.text("Cut"), #selector(NSText.cut(_:)), "x", edit)
+        item(L10n.text("Copy"), #selector(NSText.copy(_:)), "c", edit)
+        item(L10n.text("Paste"), #selector(NSText.paste(_:)), "v", edit)
+        item(L10n.text("Select All"), #selector(NSText.selectAll(_:)), "a", edit)
         edit.addItem(.separator())
-        item("查找…", #selector(find), "f", edit, target: self)
-        item("补全 Typst", #selector(completion), ".", edit, modifiers: .control, target: self)
+        item(L10n.text("Find…"), #selector(find), "f", edit, target: self)
+        item(L10n.text("Complete Syntax"), #selector(completion), ".", edit, modifiers: .control, target: self)
         for id in ["indent", "outdent", "comment", "format"] { commandItem(id, in: edit) }
-        let view = section("视图")
-        item("发现命令", #selector(palette), workspace.commandKey, view, target: self)
-        item("打开诊断日志", #selector(revealLogs), "", view, target: self)
-        item("专注写作", #selector(writing), "1", view, target: self)
-        item("并排预览", #selector(split), "2", view, target: self)
-        item("阅读成稿", #selector(preview), "3", view, target: self)
+        let view = section(L10n.text("View"))
+        item(L10n.text("Discover Commands"), #selector(palette), workspace.commandKey, view, target: self)
+        item(L10n.text("Open Diagnostic Logs"), #selector(revealLogs), "", view, target: self)
+        item(L10n.text("Focus on Writing"), #selector(writing), "1", view, target: self)
+        item(L10n.text("Side-by-side Preview"), #selector(split), "2", view, target: self)
+        item(L10n.text("Read the Preview"), #selector(preview), "3", view, target: self)
         for id in ["outline", "diagnostics", "universe"] { commandItem(id, in: view) }
         view.addItem(.separator())
-        item("放大文字", #selector(increaseFont), "+", view, target: self)
-        item("缩小文字", #selector(decreaseFont), "-", view, target: self)
-        let windowMenu = section("窗口")
-        item("最小化", #selector(NSWindow.performMiniaturize(_:)), "m", windowMenu)
-        item("缩放", #selector(NSWindow.performZoom(_:)), "", windowMenu)
+        item(L10n.text("Increase Text Size"), #selector(increaseFont), "+", view, target: self)
+        item(L10n.text("Decrease Text Size"), #selector(decreaseFont), "-", view, target: self)
+        let windowMenu = section(L10n.text("Window"))
+        item(L10n.text("Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m", windowMenu)
+        item(L10n.text("Zoom"), #selector(NSWindow.performZoom(_:)), "", windowMenu)
         NSApp.windowsMenu = windowMenu
         NSApp.mainMenu = menu
     }
@@ -143,21 +159,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc private func about() {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: version, .credits: NSAttributedString(string: "给想法一点留白。\nA quiet space to write.")])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: version, .credits: NSAttributedString(string: L10n.text("A quiet space to write."))])
     }
     @objc private func settings() {
-        let alert = NSAlert()
-        alert.messageText = "写作习惯"
-        alert.informativeText = "选择发现命令的快捷键。正文空格和常规 macOS 编辑快捷键始终保留。"
-        let selector = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 250, height: 28))
-        selector.addItems(withTitles: ["⌘J · 发现命令", "⌘K · 发现命令"])
-        selector.selectItem(at: workspace.commandKey == "k" ? 1 : 0)
-        selector.setAccessibilityLabel("命令入口快捷键")
-        alert.accessoryView = selector
-        alert.addButton(withTitle: "完成")
-        alert.addButton(withTitle: "取消")
-        if alert.runModal() == .alertFirstButtonReturn { workspace.commandKey = selector.indexOfSelectedItem == 1 ? "k" : "j" }
+        if settingsController == nil { settingsController = WorkspaceSettings(workspace: workspace) }
+        guard let settingsController else { return }
+        if settingsWindow == nil {
+            let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 530, height: 640), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            panel.isReleasedWhenClosed = false
+            panel.contentView = NSHostingView(rootView: WritingSettingsView(workspace: workspace, settings: settingsController, library: workspace.library))
+            panel.center()
+            settingsWindow = panel
+        }
+        settingsWindow?.title = L10n.text("Settings")
+        settingsWindow?.makeKeyAndOrderFront(nil)
     }
+    @objc private func openLibrary() { workspace.libraryOpen = true }
+    @objc private func importDocument() { workspace.library.importPanel() }
     @objc private func newDocument() { workspace.newDocument() }
     @objc private func openDocument() { workspace.openPanel() }
     @objc private func recoverDraft() { workspace.openPanel(recovery: true) }
