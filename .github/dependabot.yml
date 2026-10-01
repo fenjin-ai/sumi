@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      time: '09:00'
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 1
+    groups:
+      github-actions:
+        patterns: ['*']
+      github-actions-security:
+        applies-to: security-updates
+        patterns: ['*']
+  - package-ecosystem: swift
+    directory: /
+    schedule:
+      interval: monthly
+      time: '09:00'
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 1
+    groups:
+      swift-packages:
+        patterns: ['*']
+      swift-packages-security:
+        applies-to: security-updates
+        patterns: ['*']

@@ -60,7 +60,8 @@ struct PreviewView: NSViewRepresentable {
             .observe(root, {attributes: true, attributeFilter: ['class']});
         """
         config.userContentController.addUserScript(WKUserScript(source: css, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
-        let view = WKWebView(frame: .zero, configuration: config)
+        let view = PreviewWebView(frame: .zero, configuration: config)
+        view.onWillLoad = { [weak coordinator = context.coordinator] in coordinator?.onLoading() }
         view.navigationDelegate = context.coordinator
         view.underPageBackgroundColor = NSColor(hex: 0x22262B)
         view.setAccessibilityLabel(L10n.text("Document Preview"))
@@ -141,5 +142,19 @@ struct PreviewView: NSViewRepresentable {
         }
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onError(L10n.format("Preview failed to load: %@", error.localizedDescription)) }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { onError(L10n.format("Preview temporarily unavailable: %@", error.localizedDescription)) }
+    }
+}
+
+/// Invalidate navigation readiness synchronously. WebKit's provisional-load
+/// callback arrives later; a source jump in that gap would reach the old page.
+final class PreviewWebView: WKWebView {
+    var onWillLoad: (() -> Void)?
+    override func load(_ request: URLRequest) -> WKNavigation? {
+        onWillLoad?()
+        return super.load(request)
+    }
+    override func reload() -> WKNavigation? {
+        onWillLoad?()
+        return super.reload()
     }
 }
