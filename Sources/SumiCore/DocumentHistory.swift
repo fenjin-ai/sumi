@@ -109,11 +109,14 @@ public struct HistoryComparison: Sendable {
     public let identical: Bool
     public let abbreviated: Bool
     public let firstLine: Int
+    public let removedRanges: [NSRange]
+    public let addedRanges: [NSRange]
 
     public init(before: String, after: String, limit: Int = 24_000) {
         identical = before == after
         guard !identical else {
             self.before = ""; self.after = ""; abbreviated = false; firstLine = 1
+            removedRanges = []; addedRanges = []
             return
         }
         let old = before.split(separator: "\n", omittingEmptySubsequences: false)
@@ -142,6 +145,8 @@ public struct HistoryComparison: Sendable {
         }
         let left = excerpt(old), right = excerpt(new)
         self.before = left.0; self.after = right.0
+        let highlights = HistoryHighlights(before: left.0, after: right.0)
+        removedRanges = highlights.removed; addedRanges = highlights.added
         abbreviated = left.1 || right.1
     }
 }

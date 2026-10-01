@@ -82,8 +82,8 @@ struct DocumentHistoryView: View {
                             .font(.system(size: 11)).foregroundStyle(Theme.secondary)
                     }
                     HStack(alignment: .top, spacing: 16) {
-                        sourceColumn(L10n.text("Snapshot"), source: comparison.before)
-                        sourceColumn(L10n.text("Current writing"), source: comparison.after)
+                        sourceColumn(L10n.text("Snapshot"), source: comparison.before, ranges: comparison.removedRanges, removed: true)
+                        sourceColumn(L10n.text("Current writing"), source: comparison.after, ranges: comparison.addedRanges, removed: false)
                     }.frame(maxHeight: .infinity)
                 }.padding(20)
             }
@@ -96,11 +96,28 @@ struct DocumentHistoryView: View {
         }
     }
 
-    private func sourceColumn(_ title: String, source: String) -> some View {
+    private func highlighted(_ source: String, ranges: [NSRange], removed: Bool) -> AttributedString {
+        var text = AttributedString(source)
+        for range in ranges {
+            guard let sourceRange = Range(range, in: source),
+                  let start = AttributedString.Index(sourceRange.lowerBound, within: text),
+                  let end = AttributedString.Index(sourceRange.upperBound, within: text) else { continue }
+            text[start..<end].backgroundColor = (removed ? Theme.red : Theme.green).opacity(0.18)
+            if removed { text[start..<end].strikethroughStyle = .single }
+        }
+        return text
+    }
+
+    private func sourceColumn(_ title: String, source: String, ranges: [NSRange], removed: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.secondary)
+            HStack {
+                Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.secondary)
+                Spacer()
+                Text(L10n.text(removed ? "Removed" : "Added"))
+                    .font(.system(size: 10)).foregroundStyle(removed ? Theme.red : Theme.green)
+            }
             ScrollView([.vertical, .horizontal]) {
-                Text(source).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
+                Text(highlighted(source, ranges: ranges, removed: removed)).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .topLeading).padding(12)
             }.background(Theme.background, in: RoundedRectangle(cornerRadius: 8))
         }.frame(maxWidth: .infinity, maxHeight: .infinity)

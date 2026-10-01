@@ -82,3 +82,46 @@ import SumiTestSupport
     #expect(HistoryComparison(before: book, after: book).identical)
     #expect(HistoryComparison(before: "", after: "x").after.contains("x"))
 }
+
+@Test func historyHighlightsSeparateIndependentEditsAndKeepContextUnmarked() {
+    let before = "= Notes\n\nHello world.\n\nKeep this paragraph.\n\nDelete me.\n"
+    let after = "= Notes\n\nHello brave world.\n\nKeep this paragraph.\n\n"
+    let comparison = HistoryComparison(before: before, after: after)
+    let added = comparison.addedRanges.map { (comparison.after as NSString).substring(with: $0) }.joined()
+    let removed = comparison.removedRanges.map { (comparison.before as NSString).substring(with: $0) }.joined()
+    #expect(added == "brave ")
+    #expect(removed.contains("Delete me."))
+    #expect(!removed.contains("Keep"))
+    #expect(!removed.contains("Hello"))
+    #expect(comparison.before.contains("Keep this paragraph."))
+    #expect(comparison.after.contains("Keep this paragraph."))
+}
+
+@Test func historyHighlightsTypstPunctuationAndWholeUnicodeCharacters() {
+    let before = "#set text(size: 11pt)\n$alpha + beta$\n\n思考😀Cafe\u{301}👨‍👩‍👧‍👦"
+    let after = "#set text(size: 12pt)\n$alpha - beta$\n\n思考😀Café👩‍💻"
+    let comparison = HistoryComparison(before: before, after: after)
+    let removed = comparison.removedRanges.map { (comparison.before as NSString).substring(with: $0) }.joined()
+    let added = comparison.addedRanges.map { (comparison.after as NSString).substring(with: $0) }.joined()
+    #expect(removed.contains("1")); #expect(removed.contains("+"))
+    #expect(added.contains("2")); #expect(added.contains("-"))
+    #expect(removed.contains("👨‍👩‍👧‍👦")); #expect(added.contains("👩‍💻"))
+    #expect(!removed.contains("思考😀")); #expect(!added.contains("思考😀"))
+    for range in comparison.removedRanges { #expect(Range(range, in: comparison.before) != nil) }
+    for range in comparison.addedRanges { #expect(Range(range, in: comparison.after) != nil) }
+}
+
+@Test func historyHighlightsBoundExtensiveRewritesAndEmptyDocuments() {
+    let start = ContinuousClock.now
+    let rewritten = HistoryComparison(before: String(repeating: "old content\n", count: 40_000), after: String(repeating: "new words\n", count: 40_000))
+    #expect(rewritten.abbreviated)
+    #expect(rewritten.removedRanges.count == 1)
+    #expect(rewritten.addedRanges.count == 1)
+    let longLine = HistoryComparison(before: String(repeating: "a", count: 24_000), after: String(repeating: "b", count: 24_000))
+    #expect(longLine.removedRanges.count == 1)
+    #expect(longLine.addedRanges.count == 1)
+    #expect(HistoryComparison(before: "", after: "😀").removedRanges.isEmpty)
+    #expect(HistoryComparison(before: "😀", after: "").addedRanges.isEmpty)
+    // A rewrite must take the bounded path, not diff tens of thousands of tokens.
+    #expect(start.duration(to: .now) < .seconds(2))
+}

@@ -15,7 +15,16 @@ Select a date to compare its source with current writing. The comparison shows
 the changed span and nearby context in two selectable columns. Whole-book
 comparisons run away from the main actor, trim shared context and cap each column
 at 24 KB. The UI labels abbreviated output. Restoration always uses the complete,
-verified source, regardless of the displayed excerpt.
+verified source, regardless of the displayed excerpt. Removed text has a muted
+red background and a strike-through; additions have a muted green background.
+Each column also has a text label, so color is not the only distinction.
+
+Highlighting uses Swift's `CollectionDifference` on at most 512 excerpt lines.
+Small one-line replacements get grapheme-level detail (1,024 UTF-16 units per
+pair, 8,192 units total); larger replacements retain line-level highlights.
+Larger line counts use a linear prefix/suffix scan. These limits keep full
+rewrites bounded as well as small edits in large books. No diff runs on the
+main actor or in the typing path. See [the TextDiffing evaluation](text-diff-evaluation.md).
 
 Restoring first writes a safety snapshot of current writing, then replaces the
 editor contents as one undoable edit. If that safety write fails, the current
