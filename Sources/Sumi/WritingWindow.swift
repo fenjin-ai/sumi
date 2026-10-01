@@ -20,7 +20,9 @@ final class WritingWindow: NSWindow {
                 return
             }
             if workspace.handlePaletteKey(event) { return }
-            if event.keyCode == 53, workspace.sidePanel != nil, (firstResponder as? NSTextView)?.hasMarkedText() != true {
+            if event.keyCode == 53, workspace.sidePanel != nil,
+               (firstResponder as? NSTextView)?.isFieldEditor != true,
+               (firstResponder as? NSTextView)?.hasMarkedText() != true {
                 workspace.sidePanel = nil
                 return
             }

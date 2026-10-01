@@ -71,8 +71,14 @@ struct ContentView: View {
                     Button(main.lastPathComponent) { workspace.open(main) }.buttonStyle(.plain).font(.system(size: 10)).help(L10n.text("Return to Main Document"))
                 }
                 Spacer()
-                Button(workspace.previewDark ? L10n.text("Dark") : L10n.text("Original")) { workspace.previewDark.toggle() }
-                    .buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(workspace.previewDark ? Theme.accent : Theme.secondary)
+                Button { workspace.previewDark.toggle() } label: {
+                    Text(workspace.previewDark ? L10n.text("Dark") : L10n.text("Original"))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(workspace.previewDark ? Theme.accent : Theme.secondary)
+                        .frame(width: 68, height: 28, alignment: .center)
+                        .background(Theme.border.opacity(0.35), in: RoundedRectangle(cornerRadius: 5))
+                        .contentShape(Rectangle())
+                }.buttonStyle(.plain).fixedSize().accessibilityIdentifier("preview-colors")
                     .learningHelp(L10n.text("Preview Colors"), shortcut: "⌘\(workspace.commandKey.uppercased()) → v n", detail: L10n.text("Only changes preview colors. Exported PDFs are unchanged."))
                 Button("−") { workspace.previewZoom = max(0.5, workspace.previewZoom - 0.1) }.buttonStyle(.plain).learningHelp(L10n.text("Zoom Out"))
                 Text("\(Int((workspace.previewZoom * 100).rounded()))%").font(.system(size: 10, design: .monospaced)).frame(width: 38)

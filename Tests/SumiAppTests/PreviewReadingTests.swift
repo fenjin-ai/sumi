@@ -6,9 +6,7 @@ import WebKit
 @testable import SumiApp
 import SumiCore
 
-@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
-@MainActor
-struct PreviewReadingTests {
+extension WritingFlowTests {
     @Test func readingStylesRevealSourceWithoutChangingUndoOrText() async throws {
         let source = "= 中文😀标题\n\n*bold* and _italic_ and `code`.\n\nEnd\n"
         let app = try WritingFixture(text: source, startService: false)

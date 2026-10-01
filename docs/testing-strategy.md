@@ -4,7 +4,7 @@ Sumi's primary automated checks are feature integration tests, with an 80% produ
 
 ## Running today
 
-Run `scripts/test.sh` from an SSD checkout. It exercises the real AppKit editor, SwiftUI hosting views, document storage, undo, Tinymist compilation, WebKit preview, the local MCP socket and an MCP client process. Tests use isolated document directories and injected cloud stores, never a personal iCloud account. CI also builds the final app bundle and verifies its development signature. Codecov publishes project and changed-line coverage on each PR.
+Run `scripts/test.sh` from an SSD checkout. It exercises the real AppKit editor, SwiftUI hosting views, document storage, undo, Tinymist compilation, WebKit preview, the local MCP socket and an MCP client process. Tests use isolated document directories and injected cloud stores, never a personal iCloud account. CI also builds the final app bundle, verifies its development signature and cold-launches a relocated copy with the build-directory resource bundle hidden. The launch check uses a fresh library and verifies Chinese starter content plus a ready Tinymist service. Its isolated logs are retained as artifacts. All native UI scenarios share one serialized suite because AppKit menus, field editors and sheet presentation are process-wide. Codecov publishes project and changed-line coverage on each PR.
 
 For build-system-specific resource failures, the native SwiftPM builder can be reproduced separately on toolchains that still support it:
 
@@ -44,6 +44,8 @@ Real iCloud delivery remains a two-Mac acceptance check: offline edits, nonoverl
 - Swift 6.2.4 crashed while converting an actor-isolated setting method to a SwiftUI binding closure; explicit closures compile successfully in the hosted toolchain.
 - The native SwiftPM builder emitted `zh-hans.lproj` while the newer builder preserved `zh-Hans.lproj`. Bundle lookup is case-sensitive; localization now selects the actual bundled identifier. The failure and fix were reproduced locally with the native builder.
 - Native menu labels ignored the SwiftUI image frame and used the PDF icon's 256-point artboard. The shared template images now have a compact intrinsic size, with a resource regression check.
+- A packaged native SwiftPM app could still depend on the build checkout for localized resources. App-bundle resource lookup and the relocated launch gate remove that dependency.
+- Managed-document titles support single-click inline rename and double-click navigation; the library exposes direct trash/restore actions. Preview colors keep a fixed 68 × 28 hit target in both states.
 - Managed-document export dialogs now suggest the document title instead of the internal `main` filename.
 
 The first two were caught by CI and the icon defect by a real-window visual check. This is why Sumi needs complementary behavior and visual checks, in addition to its line-coverage target.

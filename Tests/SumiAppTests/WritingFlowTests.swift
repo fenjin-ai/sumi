@@ -8,6 +8,8 @@ import SumiCore
 
 /// These tests exercise the production window, editor, document controller and
 /// actual Tinymist process together. No alternate editor or fake LSP is used.
+/// All native UI scenarios share this serialized suite: NSApplication, menus,
+/// field editors and sheet presentation are process-wide, even across windows.
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
 @MainActor
 struct WritingFlowTests {

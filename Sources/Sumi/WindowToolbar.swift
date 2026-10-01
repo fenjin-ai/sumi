@@ -43,17 +43,24 @@ private struct DocumentTitle: View {
     @ObservedObject var workspace: Workspace
     @ObservedObject private var localization = AppLocalization.shared
     var body: some View {
-        Button { workspace.libraryOpen = true } label: {
-          HStack(spacing: 8) {
-            PhosphorIcon(name: "books", size: 16).foregroundStyle(Theme.muted)
-            Text(workspace.title).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
+        HStack(spacing: 8) {
+            Button { workspace.libraryOpen = true } label: {
+                PhosphorIcon(name: "books", size: 16).foregroundStyle(Theme.muted).frame(width: 26, height: 30)
+            }.buttonStyle(.plain).accessibilityLabel(L10n.text("Your writing"))
+                .learningHelp(L10n.text("Your writing"), shortcut: "⌘O")
+            EditableDocumentName(title: workspace.title, documentID: workspace.managedDocumentID,
+                onOpen: { workspace.libraryOpen = true },
+                onRename: { [id = workspace.managedDocumentID] title in
+                    guard let id else { return }
+                    workspace.library.perform { try await workspace.library.rename(id, title: title) }
+                },
+                onFinish: { workspace.editor?.window?.makeFirstResponder(workspace.editor) })
+                .frame(height: 16).frame(height: 30)
+                .learningHelp(L10n.text("Click to rename. Double-click to open your writing."))
             if workspace.text != workspace.savedText, workspace.fileURL != nil {
                 Circle().fill(Theme.accent).frame(width: 5, height: 5).accessibilityLabel(L10n.text("Unsaved"))
             }
-            Spacer(minLength: 0)
-          }.frame(height: 30).contentShape(Rectangle())
-        }.buttonStyle(.plain).foregroundStyle(Theme.text).preferredColorScheme(.dark)
-            .learningHelp(L10n.text("Your writing"), shortcut: "⌘O")
+        }.frame(height: 30).foregroundStyle(Theme.text).preferredColorScheme(.dark)
     }
 }
 

@@ -4,9 +4,7 @@ import Testing
 @testable import SumiApp
 import SumiCore
 
-@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
-@MainActor
-struct UniverseBrowserFlowTests {
+extension WritingFlowTests {
     private static let index = Data(#"[{"name":"cetz","version":"0.5.2","description":"Draw diagrams with CeTZ","categories":["visualization"],"keywords":["diagram"],"license":"LGPL-3.0-or-later","authors":["CeTZ contributors"],"compiler":"0.14.0"},{"name":"fletcher","version":"0.5.8","description":"Flowcharts and diagrams","categories":["visualization"],"license":"MIT","compiler":"0.14.0"}]"#.utf8)
 
     @Test func cachedPackageBrowserRendersWithoutNetwork() async throws {

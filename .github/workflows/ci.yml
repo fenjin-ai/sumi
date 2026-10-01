@@ -51,6 +51,8 @@ jobs:
           scripts/build.sh release
           codesign --verify --deep --strict build/Sumi.app
           build/Sumi.app/Contents/Helpers/tinymist --version
+          source scripts/environment.sh
+          python3 scripts/smoke-app.py --development-resources "$(swift build -c release --show-bin-path)/Sumi_SumiCore.bundle"
           ditto -c -k --sequesterRsrc --keepParent build/Sumi.app build/Sumi-CI.zip
       - name: Upload runnable app
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -72,4 +74,12 @@ jobs:
           name: coverage-macos-15
           path: build/coverage
           if-no-files-found: warn
+          retention-days: 14
+      - name: Packaged launch diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: launch-smoke-macos-15
+          path: build/launch-smoke
+          if-no-files-found: ignore
           retention-days: 14

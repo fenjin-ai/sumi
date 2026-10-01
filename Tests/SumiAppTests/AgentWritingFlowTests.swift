@@ -6,9 +6,7 @@ import SumiCore
 import Testing
 @testable import SumiApp
 
-@Suite("Agent writing flow", .serialized, .enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
-@MainActor
-struct AgentWritingFlowTests {
+extension WritingFlowTests {
     @Test func agentReadsLiveBufferAppliesCASAndNativeUndoRestoresSource() async throws {
         let app = try WritingFixture(text: "= Notes\n\nHello 😀", startService: false)
         defer { app.close() }

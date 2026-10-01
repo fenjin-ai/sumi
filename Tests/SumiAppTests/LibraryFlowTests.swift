@@ -6,6 +6,56 @@ import Testing
 import SumiCore
 
 extension WritingFlowTests {
+    @Test func titleClickRenamesAndDoubleClickOpensLibraryWithoutChangingWriting() async throws {
+        let app = try WritingFixture(text: "= Keep the manuscript\n", startService: false)
+        defer { app.close() }
+        try await app.workspace.library.create(title: "Notebook", text: "= Keep the manuscript\n")
+        await app.layout()
+        func fields(_ view: NSView) -> [DocumentTitleField] {
+            (view as? DocumentTitleField).map { [$0] } ?? view.subviews.flatMap(fields)
+        }
+        let field = try #require(app.window.toolbar?.items.compactMap(\.view).flatMap(fields).first)
+        let editor = try #require(app.workspace.editor)
+        editor.insertSnippet(Snippet(text: "Unsaved thought 👋\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        let text = editor.string, selection = editor.selectedRange(), source = app.workspace.fileURL
+        let id = try #require(app.workspace.managedDocumentID)
+        func click(_ count: Int) throws {
+            field.mouseDown(with: try #require(NSEvent.mouseEvent(with: .leftMouseDown,
+                location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: app.window.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1)))
+        }
+        try click(1)
+        try await app.wait { field.renaming }
+        let input = try #require(field.currentEditor() as? NSTextView)
+        input.insertText("Field notes 中文", replacementRange: NSRange(location: 0, length: input.string.utf16.count))
+        app.window.sendEvent(app.key("\r", code: 36))
+        try await app.wait { app.workspace.title == "Field notes 中文" && !app.workspace.library.busy }
+        #expect(!field.renaming)
+        #expect(editor.string == text)
+        #expect(editor.selectedRange() == selection)
+        #expect(app.workspace.fileURL == source)
+        #expect(try await app.workspace.library.store.read(id).document.title == "Field notes 中文")
+
+        try click(1)
+        try await app.wait { field.renaming }
+        let cancelled = try #require(field.currentEditor() as? NSTextView)
+        cancelled.insertText("Discard this title", replacementRange: NSRange(location: 0, length: cancelled.string.utf16.count))
+        app.workspace.sidePanel = .outline
+        app.window.sendEvent(app.key("\u{1b}", code: 53))
+        #expect(!field.renaming)
+        #expect(field.stringValue == "Field notes 中文")
+        #expect(app.workspace.sidePanel == .outline)
+
+        try click(1)
+        try click(2)
+        #expect(app.workspace.libraryOpen)
+        // Let the cancelled single-click deadline pass; it must not steal focus.
+        try await Task.sleep(for: .seconds(NSEvent.doubleClickInterval + 0.05))
+        #expect(!field.renaming)
+        #expect(app.workspace.title == "Field notes 中文")
+        #expect(editor.string == text)
+    }
+
     @Test func libraryCreateRenameSearchTrashRestoreAndExportPreserveWriting() async throws {
         let app = try WritingFixture(text: "= External\n", startService: false)
         defer { app.close() }

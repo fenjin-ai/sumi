@@ -96,26 +96,39 @@ struct LibraryBrowser: View {
     }
 
     private func row(_ document: LibraryDocument) -> some View {
-        Button {
-            if showingTrash { library.perform { try await library.restore(document.id) } }
-            else { library.perform { try await library.open(document.id) } }
-        } label: {
-            HStack(alignment: .top, spacing: 14) {
-                Capsule().fill(workspace.managedDocumentID == document.id ? Theme.accent.opacity(0.8) : .clear)
-                    .frame(width: 2, height: 24).padding(.top, 3)
+        HStack(alignment: .top, spacing: 14) {
+            Capsule().fill(workspace.managedDocumentID == document.id ? Theme.accent.opacity(0.8) : .clear)
+                .frame(width: 2, height: 24).padding(.top, 3)
+            VStack(alignment: .leading, spacing: 7) {
+                if showingTrash {
+                    Text(document.title).font(.system(size: 14, weight: .medium)).lineLimit(1)
+                } else {
+                    EditableDocumentName(title: document.title, documentID: document.id, fontSize: 14,
+                        identifier: "library-title-\(document.id)",
+                        help: "Click to rename. Double-click to open.",
+                        onOpen: { library.perform { try await library.open(document.id) } },
+                        onRename: { title in library.perform { try await library.rename(document.id, title: title) } })
+                        .frame(height: 20)
+                        .learningHelp(L10n.text("Click to rename. Double-click to open."))
+                }
                 VStack(alignment: .leading, spacing: 7) {
-                    Text(document.title).font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.text).lineLimit(1)
                     Text(document.snippet.isEmpty ? L10n.text("Empty document") : document.snippet)
                         .font(.system(size: 11)).foregroundStyle(Theme.secondary).lineLimit(2)
                     Text(document.modifiedAt, style: .relative).font(.system(size: 10)).foregroundStyle(Theme.muted)
+                }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                    .onTapGesture(count: 2) {
+                        if !showingTrash { library.perform { try await library.open(document.id) } }
+                    }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+            QuietButton(icon: showingTrash ? "arrow-counter-clockwise" : "trash",
+                        help: L10n.text(showingTrash ? "Restore" : "Move to Trash")) {
+                library.perform {
+                    if showingTrash { try await library.restore(document.id) }
+                    else { try await library.moveToTrash(document.id) }
                 }
-                Spacer(minLength: 0)
-                if showingTrash {
-                    PhosphorIcon(name: "arrow-counter-clockwise", size: 16).foregroundStyle(Theme.secondary)
-                }
-            }.padding(.vertical, 16).padding(.horizontal, 12).frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-        }.buttonStyle(.plain)
+            }.accessibilityIdentifier("library-\(showingTrash ? "restore" : "trash")-\(document.id)")
+        }.padding(.vertical, 16).padding(.horizontal, 12).frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         .contextMenu {
             if showingTrash {
                 Button(L10n.text("Restore")) { library.perform { try await library.restore(document.id) } }

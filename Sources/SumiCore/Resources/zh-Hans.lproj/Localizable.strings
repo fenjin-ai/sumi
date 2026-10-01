@@ -552,3 +552,6 @@
 "iCloud has conflicting versions of this document. Your changes are preserved; resolve the versions before overwriting it." = "iCloud 中存在这篇文稿的冲突版本。你的修改已保留，请先处理版本冲突，再覆盖文件。";
 "⌘J · Discover Commands" = "⌘J · 发现命令";
 "⌘K · Discover Commands" = "⌘K · 发现命令";
+
+"Click to rename. Double-click to open your writing." = "单击改名，双击打开文稿列表。";
+"Click to rename. Double-click to open." = "单击改名，双击打开文稿。";

@@ -3,9 +3,7 @@ import Testing
 import SumiCore
 @testable import SumiApp
 
-@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
-@MainActor
-struct InteractionPerformanceTests {
+extension WritingFlowTests {
     @Test func longManuscriptCommandNavigation() async throws {
         let source = String(repeating: "= Chapter\n\nA paragraph with *strong*, _emphasis_ and `code`. 中文😀\n\n", count: 1500)
         let app = try WritingFixture(text: source, startService: false)
@@ -154,11 +152,12 @@ struct InteractionPerformanceTests {
         await app.layout()
         let toolbar = try #require(app.window.toolbar)
         let anchors = toolbar.items.flatMap { descendants($0.view) }.compactMap { $0 as? HelpAnchor }
-        #expect(anchors.count == 5)
+        #expect(anchors.count == 6)
+        #expect(anchors.filter { $0.shortcut != nil }.count == 5)
         for anchor in anchors {
             #expect(anchor.bounds.width >= 25)
             #expect(anchor.bounds.height >= 25)
-            #expect(anchor.shortcut?.isEmpty == false)
+            #expect(!anchor.title.isEmpty)
             anchor.showHelp()
             let size = try #require(anchor.popover?.contentSize)
             #expect(size.height <= 48 && size.height >= 24, "Help must hug its single line, not expand into a card")
@@ -166,6 +165,15 @@ struct InteractionPerformanceTests {
             anchor.dismiss()
         }
         #expect(app.workspace.text == "= Learn\n")
+        app.workspace.layout = .split
+        for dark in [false, true, false] {
+            app.workspace.previewDark = dark
+            await app.layout()
+            let colors = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }
+                .first { $0.title == L10n.text("Preview Colors") })
+            #expect(colors.bounds.width == 68)
+            #expect(colors.bounds.height == 28)
+        }
     }
 }
 
