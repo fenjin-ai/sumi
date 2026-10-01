@@ -50,6 +50,9 @@ final class WorkspaceSettings: ObservableObject {
         NotificationCenter.default.publisher(for: .sumiLanguageChanged).sink { [weak self] _ in
             Task { @MainActor [weak self] in self?.persist() }
         }.store(in: &subscriptions)
+        workspace.$historyInterval.dropFirst().sink { [weak self] _ in
+            Task { @MainActor [weak self] in self?.persist() }
+        }.store(in: &subscriptions)
         workspace.$documentTemplate.dropFirst().sink { [weak self] _ in
             Task { @MainActor [weak self] in self?.persist() }
         }.store(in: &subscriptions)
@@ -64,6 +67,8 @@ final class WorkspaceSettings: ObservableObject {
         if workspace.previewDark != value.previewDark { workspace.previewDark = value.previewDark }
         if workspace.styledSource != value.styledSource { workspace.styledSource = value.styledSource }
         if workspace.commandKey != value.commandKey { workspace.commandKey = value.commandKey }
+        let historyInterval = HistoryInterval(rawValue: value.historyInterval ?? "hourly") ?? .hourly
+        if workspace.historyInterval != historyInterval { workspace.historyInterval = historyInterval }
         let template = DocumentTemplate(rawValue: value.documentTemplate ?? "blank") ?? .blank
         if workspace.documentTemplate != template { workspace.documentTemplate = template }
         if let language = AppLanguage(rawValue: value.language), L10n.language != language { L10n.setLanguage(language) }
@@ -71,7 +76,7 @@ final class WorkspaceSettings: ObservableObject {
 
     private func persist() {
         guard !applying, let workspace else { return }
-        let next = SyncedPreferences(language: L10n.language.rawValue, commandKey: workspace.commandKey, fontSize: workspace.fontSize, previewDark: workspace.previewDark, styledSource: workspace.styledSource, documentTemplate: workspace.documentTemplate.rawValue)
+        let next = SyncedPreferences(language: L10n.language.rawValue, commandKey: workspace.commandKey, fontSize: workspace.fontSize, previewDark: workspace.previewDark, styledSource: workspace.styledSource, documentTemplate: workspace.documentTemplate.rawValue, historyInterval: workspace.historyInterval.rawValue)
         if next != preferences.values { preferences.update(next) }
     }
 
@@ -108,6 +113,12 @@ struct WritingSettingsView: View {
                 Stepper(L10n.format("Editor text size: %d", Int(workspace.fontSize)), value: $workspace.fontSize, in: 12...28)
                 Toggle(L10n.text("Style headings and emphasis in the editor"), isOn: $workspace.styledSource)
                 Toggle(L10n.text("Dark preview"), isOn: $workspace.previewDark)
+                Picker(L10n.text("Keep edited versions"), selection: $workspace.historyInterval) {
+                    Text(L10n.text("Every hour")).tag(HistoryInterval.hourly)
+                    Text(L10n.text("Every day")).tag(HistoryInterval.daily)
+                }
+                Text(L10n.text("Keep the latest 7 source snapshots on this Mac. No snapshots are created while a document is unchanged."))
+                    .font(.footnote).foregroundStyle(Theme.secondary)
             } header: { Text(L10n.text("Writing")) }
             Section {
                 Toggle(L10n.text("Sync with iCloud"), isOn: Binding(get: { library.cloudEnabled }, set: { enabled in

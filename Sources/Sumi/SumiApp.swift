@@ -73,10 +73,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    var replyToTermination: (Bool) -> Void = { NSApp.reply(toApplicationShouldTerminate: $0) }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         window?.makeFirstResponder(nil)
-        return workspace.prepareToClose() ? .terminateNow : .terminateCancel
+        guard workspace.prepareToClose() else { return .terminateCancel }
+        guard workspace.history.hasPendingWrites else { return .terminateNow }
+        // Autosave queues history off the main actor. Allow the final checkpoint
+        // to finish before exiting, including a quit immediately after typing.
+        Task { @MainActor in
+            await workspace.history.drain()
+            replyToTermination(true)
+        }
+        return .terminateLater
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
     func applicationWillTerminate(_ notification: Notification) {
@@ -127,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         file.addItem(.separator())
         item(L10n.text("Save"), #selector(saveDocument), "s", file, target: self)
         item(L10n.text("Save As…"), #selector(saveAs), "s", file, modifiers: [.command, .shift], target: self)
+        item(L10n.text("Document History…"), #selector(documentHistory), "", file, target: self)
         item(L10n.text("Recover Draft Copy…"), #selector(recoverDraft), "", file, target: self)
         item(L10n.text("Export PDF…"), #selector(exportPDF), "e", file, modifiers: [.command, .shift], target: self)
         file.addItem(.separator())
@@ -187,6 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func openDocument() { workspace.openPanel() }
     @objc private func recoverDraft() { workspace.openPanel(recovery: true) }
     @objc private func saveDocument() { workspace.save() }
+    @objc private func documentHistory() { workspace.openHistory() }
     @objc private func saveAs() { workspace.saveAs() }
     @objc private func exportPDF() { workspace.exportPDF() }
     @objc private func palette() { workspace.togglePalette() }

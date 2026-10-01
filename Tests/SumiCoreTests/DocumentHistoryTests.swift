@@ -1,0 +1,76 @@
+import Foundation
+import Testing
+import SumiCore
+import SumiTestSupport
+
+@Test func documentHistoryKeepsSevenEditedCheckpointsAndSurvivesRestart() async throws {
+    let root = TestPaths.temporaryDirectory.appendingPathComponent("history-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = DocumentHistory(root: root), start = Date(timeIntervalSince1970: 1_000_000)
+    #expect(try await store.revisions(for: "book").isEmpty)
+    #expect(try await store.recordEdit(key: "book", previous: "same", current: "same", at: start, interval: .hourly) == nil)
+    let first = try #require(try await store.recordEdit(key: "book", previous: "draft 0", current: "draft 1", at: start, interval: .hourly))
+    #expect(try await store.source(for: first, key: "book") == "draft 0")
+    #expect(try await store.recordEdit(key: "book", previous: "draft 1", current: "draft 2", at: start.addingTimeInterval(100), interval: .hourly) == nil)
+    for hour in 1...10 {
+        try await store.recordEdit(key: "book", previous: "draft \(hour)", current: "draft \(hour + 1)", at: start.addingTimeInterval(Double(hour) * 3600), interval: .hourly)
+    }
+    let restarted = DocumentHistory(root: root)
+    let revisions = try await restarted.revisions(for: "book")
+    #expect(revisions.count == 7)
+    #expect(try await restarted.source(for: revisions[0], key: "book") == "draft 10")
+    #expect(try await restarted.source(for: revisions[6], key: "book") == "draft 4")
+    let contents = try FileManager.default.subpathsOfDirectory(atPath: root.path)
+    #expect(contents.filter { $0.hasSuffix(".typ") }.count == 7)
+    #expect(try await restarted.revisions(for: "different").isEmpty)
+    await #expect(throws: HistoryError.unavailable) { try await restarted.source(for: first, key: "book") }
+}
+
+@Test func historyDailyCadenceAndRestorationSafety() async throws {
+    let root = TestPaths.temporaryDirectory.appendingPathComponent("history-daily-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = DocumentHistory(root: root), start = Date(timeIntervalSince1970: 1_000_000)
+    try await store.recordEdit(key: "book", previous: "α 😀", current: "after", at: start, interval: .daily)
+    #expect(try await store.recordEdit(key: "book", previous: "after", current: "later", at: start.addingTimeInterval(3600), interval: .daily) == nil)
+    try await store.recordEdit(key: "book", previous: "later", current: "today", at: start.addingTimeInterval(86400), interval: .daily)
+    #expect(try await store.revisions(for: "book").count == 2)
+    let safety = try await store.preserveBeforeRestore("unsaved today", key: "book", at: start.addingTimeInterval(86500))
+    #expect(safety.reason == .beforeRestore)
+    #expect(try await store.source(for: safety, key: "book") == "unsaved today")
+    #expect(try await store.preserveBeforeRestore("unsaved today", key: "book", at: start.addingTimeInterval(86501)) == safety)
+    #expect(try await store.revisions(for: "book").count == 3)
+    let payload = try #require(FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)?.allObjects.compactMap { $0 as? URL }.first { $0.lastPathComponent == "\(safety.id).typ" })
+    try Data("corrupted".utf8).write(to: payload)
+    await #expect(throws: HistoryError.damaged) { try await store.source(for: safety, key: "book") }
+}
+
+@Test func historyWriteFailureDoesNotPublishAnIncompleteSnapshot() async throws {
+    let root = TestPaths.temporaryDirectory.appendingPathComponent("history-failure-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: root) }
+    try Data("blocked".utf8).write(to: root)
+    let store = DocumentHistory(root: root)
+    await #expect(throws: (any Error).self) {
+        try await store.recordEdit(key: "book", previous: "original", current: "changed", at: Date(), interval: .hourly)
+    }
+    try FileManager.default.removeItem(at: root)
+    #expect(try await store.revisions(for: "book").isEmpty)
+    try await store.recordEdit(key: "book", previous: "original", current: "changed", at: Date(), interval: .hourly)
+    #expect(try await store.revisions(for: "book").count == 1)
+}
+
+@Test func wholeBookHistoryComparisonIsBoundedAndPreservesUnicode() {
+    let book = (1...30_000).map { "Line \($0): 中文 and equations α 😀" }.joined(separator: "\n")
+    let changed = book.replacingOccurrences(of: "Line 28000:", with: "Edited line 28000:")
+    let comparison = HistoryComparison(before: book, after: changed)
+    #expect(comparison.firstLine == 27998)
+    #expect(comparison.before.contains("Line 28000"))
+    #expect(comparison.after.contains("Edited line 28000"))
+    #expect(comparison.abbreviated)
+    #expect(comparison.before.utf8.count < 1000)
+    let large = HistoryComparison(before: book, after: String(repeating: "汉字😀\n", count: 40_000))
+    #expect(large.before.utf8.count <= 24_000)
+    #expect(large.after.utf8.count <= 24_000)
+    #expect(large.abbreviated)
+    #expect(HistoryComparison(before: book, after: book).identical)
+    #expect(HistoryComparison(before: "", after: "x").after.contains("x"))
+}
