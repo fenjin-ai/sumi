@@ -45,7 +45,7 @@ jobs:
         run: |
           source scripts/environment.sh
           export SUMI_MCP_HELPER="$(swift build --show-bin-path)/SumiMCP"
-          LIBDISPATCH_COOPERATIVE_POOL_STRICT=1 swift test --skip-build --enable-code-coverage --filter AutomationIntegrationTests
+          python3 scripts/test-cooperative-pool.py
       - name: Upload application coverage to Codecov
         if: ${{ !cancelled() && hashFiles('build/coverage/codecov.lcov') != '' }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
