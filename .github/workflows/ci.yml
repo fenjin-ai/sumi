@@ -69,6 +69,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
       - name: Release build and signature validation
+        if: github.event_name != 'pull_request'
         run: |
           scripts/build.sh release
           codesign --verify --deep --strict build/Sumi.app
@@ -77,6 +78,7 @@ jobs:
           python3 scripts/smoke-app.py --development-resources "$(swift build -c release --show-bin-path)/Sumi_SumiCore.bundle"
           ditto -c -k --sequesterRsrc --keepParent build/Sumi.app build/Sumi-CI.zip
       - name: Upload runnable app
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: app-macos-15
@@ -101,7 +103,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
       - name: Packaged launch diagnostics
-        if: always()
+        if: ${{ always() && github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: launch-smoke-macos-15
