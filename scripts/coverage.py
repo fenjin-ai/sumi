@@ -64,6 +64,16 @@ output = root / "build/coverage"
 output.mkdir(parents=True, exist_ok=True)
 (output / "llvm-coverage.json").write_bytes(raw)
 (output / "coverage.lcov").write_text(lcov)
+# Publish the same unique production source lines used by the 80% gate.
+# Keep raw LLVM reports above for diagnosis; test and generated sources must
+# not inflate the hosted report, and repository-relative paths work on any CI.
+codecov_records = []
+for path in sorted(expected):
+    lines = source_lines[path]
+    codecov_records.append(f"SF:{path.relative_to(root)}")
+    codecov_records.extend(f"DA:{number},{hits}" for number, hits in sorted(lines.items()))
+    codecov_records.extend((f"LF:{len(lines)}", f"LH:{sum(hits > 0 for hits in lines.values())}", "end_of_record"))
+(output / "codecov.lcov").write_text("\n".join(codecov_records) + "\n")
 (output / "coverage.json").write_text(json.dumps({"covered": covered, "total": total, "percent": percent, "files": files}, indent=2))
 rows = ["| File | Covered lines | Coverage |", "|---|---:|---:|"]
 for entry in sorted(files, key=lambda f: f["filename"]):
