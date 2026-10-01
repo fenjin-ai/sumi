@@ -14,6 +14,12 @@ Date: 2026-10-01. This record preserves evidence from each development iteration
 - Native app acceptance checked document creation, Code Notes rendering, language/menu changes and outline placement. The final release-configuration development build is 0.4.0 (6).
 - Research records cover [three-way merge and Forked](merge-evaluation.md) and [optional local intelligence](local-intelligence.md). A synthetic on-device Foundation Models probe classified four bilingual requests correctly (first request about 1.5 seconds, later requests about 0.4 seconds); this is feasibility evidence, not a quality or responsiveness benchmark. Model suggestions are not part of the shipped editor yet.
 
+### 0.4 acceptance follow-up
+
+Real-window checks covered command search and table insertion, undo/redo, Unicode, library content search, rename, trash/restore, retained preview after a syntax error and PDF export. The exported PDF was independently opened with PDFKit and checked for the document title, table and Chinese text. Visual inspection found oversized native menu icons; their intrinsic PDF size is now bounded. Managed exports suggest the document's title.
+
+Hosted CI exposed a Swift 6.2.4 compiler crash and a case-sensitive localized-resource lookup difference. Both were fixed. A fixed-delay form assertion was replaced with a wait for the expected accessible fields; existing text fields also refresh their localized labels. The complete **69-test** suite passed locally under both build systems, with **88.07% (3951/4486)** production coverage in the instrumented run. See [the testing strategy](testing-strategy.md) for current checks and proposed UI/screenshot layers.
+
 ## 0.3.0 · Interaction, performance and identity
 
 - The outline became an independent left-margin overlay: fine marks at rest, gradual hover expansion, `⌘4` to pin and Esc to dismiss. The separate border, shadow, full-row highlight and close button were removed.

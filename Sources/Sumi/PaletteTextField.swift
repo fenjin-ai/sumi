@@ -28,6 +28,8 @@ struct PaletteTextField: NSViewRepresentable {
     func updateNSView(_ field: FocusTextField, context: Context) {
         context.coordinator.parent = self
         if field.stringValue != text { field.stringValue = text }
+        field.placeholderString = placeholder
+        field.setAccessibilityLabel(label)
     }
     @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: PaletteTextField

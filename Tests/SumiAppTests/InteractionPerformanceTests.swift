@@ -106,9 +106,15 @@ struct InteractionPerformanceTests {
         #expect(IconStore.image("missing-icon") == nil)
         for command in WritingCommand.all.filter({ !$0.fields.isEmpty }) {
             app.workspace.selectCommand(command)
-            await app.layout()
+            // SwiftUI may retain the previous form for more than one frame on
+            // a shared runner. Wait for the actual form, not a fixed delay.
+            try await app.wait {
+                app.window.contentView?.layoutSubtreeIfNeeded()
+                let current = descendants(app.window.contentView).compactMap { $0 as? FocusTextField }
+                return current.compactMap { $0.accessibilityLabel() }.sorted() == command.fields.map(\.title).sorted()
+            }
             let fields = descendants(app.window.contentView).compactMap { $0 as? FocusTextField }
-            #expect(fields.count == command.fields.count)
+            #expect(fields.count == command.fields.count, "Parameter form: \(command.id)")
             for field in fields {
                 let frame = field.convert(field.bounds, to: nil)
                 #expect(frame.minX >= 0 && frame.maxX <= app.window.frame.width)

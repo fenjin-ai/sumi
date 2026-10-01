@@ -5,7 +5,7 @@ import Testing
 import SumiCore
 
 extension WritingFlowTests {
-    @Test func languageSwitchUpdatesExistingCommandsAndPreservesTheDocument() throws {
+    @Test func languageSwitchUpdatesExistingCommandsAndPreservesTheDocument() async throws {
         let originalLanguage = L10n.language
         let originalPreference = UserDefaults.standard.object(forKey: L10n.preferenceKey)
         let localization = AppLocalization.shared
@@ -26,7 +26,21 @@ extension WritingFlowTests {
         #expect(table.title == "Table")
         #expect(table.fields[0].title == "Columns · 1–8")
         #expect(table.example?.contains("Heading 1") == true)
+        func fieldLabels(_ view: NSView?) -> [String] {
+            guard let view else { return [] }
+            return (view as? FocusTextField).flatMap { $0.accessibilityLabel() }.map { [$0] } ?? view.subviews.flatMap { fieldLabels($0) }
+        }
+        app.workspace.togglePalette()
+        app.workspace.selectCommand(table)
+        try await app.wait {
+            app.window.contentView?.layoutSubtreeIfNeeded()
+            return fieldLabels(app.window.contentView).contains("Columns · 1–8")
+        }
         localization.select(.simplifiedChinese)
+        try await app.wait {
+            app.window.contentView?.layoutSubtreeIfNeeded()
+            return fieldLabels(app.window.contentView).contains("列数 · 1–8")
+        }
         #expect(localization.language == .simplifiedChinese)
         #expect(UserDefaults.standard.string(forKey: L10n.preferenceKey) == "zh-Hans")
         #expect(table.title == "表格")
