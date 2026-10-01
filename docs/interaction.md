@@ -46,3 +46,30 @@ Four commands are available from Editing & Code, the Edit menu and the native ed
 - Go Back: Control-Command-[, or leader `c b`.
 
 Explanations combine Tinymist documentation and active function parameters. Actions include heading depth and equation layout transformations. Requests are explicit, operate on unsaved writing and never block text input; moving the cursor, typing or switching documents invalidates pending help. Applied actions are one native undo operation. Help and action surfaces have bounded widths and scroll when necessary.
+
+## Reading long documents
+
+Outlines with at most 24 headings initially show every section. Longer outlines
+start with top-level headings and the ancestors of the current editing section.
+A chevron folds an individual branch; clicking its title navigates. The two
+small header actions expand or collapse all headings, also discoverable through
+`⌘J → v → e` and `⌘J → v → c`. Manual folds are saved locally per document using
+ancestry/title identities, so prose edits and reopening preserve them. Renaming a
+heading or moving it to a different parent gives that branch a new identity.
+
+The margin minimap divides the **entire** heading list into at most 18 marks.
+Scrolling away from the caret tracks the first visible source text; the active
+bucket stays gold even at the end of a book. The open outline highlights the
+nearest visible ancestor when the active section is folded. Scrolling never
+moves the insertion caret or silently reopens a manually folded branch.
+
+Writing and preview labels now sit in small overlays, without a reserved header
+row. Hovering or activating the label reveals controls; hovering away fades them
+back. Preview color and zoom, retained-preview notices and return-to-main actions
+never reduce the page viewport. The native document title measures its text and
+uses available toolbar width before truncating, preserving click-to-rename and
+double-click-to-open-library behavior.
+
+The SICP fixture has natural prose wrapping; its original code newlines remain.
+The editor keeps its centered 740 pt maximum writing width and 36 pt minimum
+margins. Width changes reflow prose rather than doubling source hard wraps.

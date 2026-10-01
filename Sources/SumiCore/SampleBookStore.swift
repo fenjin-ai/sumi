@@ -5,10 +5,10 @@ public enum SampleBook: String, Sendable {
     case sicp
 
     public var title: String { "Structure and Interpretation of Computer Programs" }
-    public var sha256: String { "1029feb2c88758999d95b8b3820d04c702b60a733b4066dc7c562e014e8222d4" }
+    public var sha256: String { "4000daf0000ac5b92586fa111e08e6bd10c7f303f022170cdc5704a1fe18bd85" }
     public var archiveName: String { "sicp-" + sha256.prefix(12) + ".zip" }
     public var downloadURL: URL { URL(string: "https://raw.githubusercontent.com/fenjin-ai/sumi/main/Examples/Books/SICP/" + archiveName)! }
-    public var downloadBytes: Int { 1_879_406 }
+    public var downloadBytes: Int { 1_864_400 }
     public var sourceURL: URL { URL(string: "https://github.com/sarabander/sicp")! }
 
     public func matches(_ query: String) -> Bool {

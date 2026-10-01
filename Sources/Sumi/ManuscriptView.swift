@@ -54,6 +54,7 @@ struct ManuscriptView: NSViewRepresentable {
         editor.setAccessibilityLabel(L10n.text("Document Editor"))
         scroll.documentView = editor
         workspace.editor = editor
+        editor.observeViewport(scroll.contentView)
         editor.load(workspace.text, selection: workspace.selection)
         return scroll
     }
@@ -107,6 +108,37 @@ final class ManuscriptTextView: NSTextView {
     private var loading = false
     private var characterEditCount = 0
     private var characterEdit: TextReplacement?
+
+    private var viewportTask: Task<Void, Never>?
+
+    func observeViewport(_ clip: NSClipView) {
+        clip.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(viewportChanged), name: NSView.boundsDidChangeNotification, object: clip)
+    }
+
+    @objc private func viewportChanged(_ notification: Notification) {
+        guard viewportTask == nil else { return }
+        // Clip notifications also occur during TextKit layout. Coalesce them and
+        // inspect settled geometry outside the layout callback.
+        viewportTask = Task { [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.viewportTask = nil
+            self.updateOutlineForViewport()
+        }
+    }
+
+    func updateOutlineForViewport() {
+        guard !loading, let workspace, !workspace.outline.isEmpty,
+              let manager = layoutManager, let container = textContainer else { return }
+        let rect = visibleRect.offsetBy(dx: -textContainerOrigin.x, dy: -textContainerOrigin.y)
+        let glyphs = manager.glyphRange(forBoundingRect: rect, in: container)
+        let characters = manager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+        let caret = selectedRange().location
+        // Keep the editing section while the caret is visible. Once scrolling
+        // carries it off screen, follow the first visible text instead.
+        workspace.trackOutline(at: NSLocationInRange(caret, characters) ? caret : characters.location)
+    }
 
     func recordCharacterEdit(in storage: NSTextStorage, range: NSRange, delta: Int) {
         guard !loading else { return }

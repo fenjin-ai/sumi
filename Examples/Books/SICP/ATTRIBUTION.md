@@ -16,7 +16,7 @@ Unofficial Texinfo edition and the original MIT Press HTML edition.
 Changes by the Sumi project: converted HTML/MathML to Typst using Pandoc;
 converted web endnotes into page footnotes; joined cross-page references;
 removed web navigation and source syntax-highlight spans; labeled Scheme
-blocks; adapted figure dimensions and added book typography and an outline.
+blocks; removed source-only prose line wrapping; adapted figure dimensions and added book typography and an outline.
 The adapted book remains under CC BY-SA 4.0. No author endorsement is implied.
 All Scheme examples remain source text and are never executed.
 

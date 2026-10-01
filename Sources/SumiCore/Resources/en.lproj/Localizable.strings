@@ -673,3 +673,13 @@
 "Add to my writing" = "Add to my writing";
 "1.9 MB · downloads once" = "1.9 MB · downloads once";
 "The example could not be downloaded or verified. Please try again." = "The example could not be downloaded or verified. Please try again.";
+"Expand All Headings" = "Expand All Headings";
+"Collapse All Headings" = "Collapse All Headings";
+"Expand section" = "Expand section";
+"Collapse section" = "Collapse section";
+"Show every section in the outline." = "Show every section in the outline.";
+"Show only top-level sections in the outline." = "Show only top-level sections in the outline.";
+"Preview" = "Preview";
+"Expanded" = "Expanded";
+"Collapsed" = "Collapsed";
+"Preview stopped unexpectedly. Reconnect typesetting to try again." = "Preview stopped unexpectedly. Reconnect typesetting to try again.";

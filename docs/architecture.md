@@ -128,3 +128,16 @@ References: [Tinymist preview](https://myriad-dreamin.github.io/tinymist/feature
 The library actor owns UUID-based folders and coordinated filesystem operations; LibraryController connects navigation to the live Workspace. UI titles are metadata, while source and assets retain stable relative paths. A conservative background three-way diff incorporates non-overlapping remote edits through native undo. Native iCloud conflicts block overwrites. See [library and sync](library-and-sync.md) and [merge evaluation](merge-evaluation.md).
 
 An opt-in, same-user socket connects the app to a separate official-SDK MCP helper. Revision-checked edits use the same buffer and undo mechanism. See [agent integration](agents.md). Localization uses native resource bundles and observable language changes without replacing the editor. Explicit package imports in the [Code notes template](code-notes.md) keep exported source portable. [Local intelligence](local-intelligence.md) remains a research prototype outside the app build.
+
+### Book-length WebKit preview
+
+The pinned Tinymist 0.15.8 frontend combines partial SVG pages with an optional
+canvas fallback inside SVG foreignObjects. With SICP this creates hundreds of
+canvas surfaces under a root SVG over a million CSS pixels tall at wide-window
+zoom. Real-window acceptance exposed incorrect/blank composition. Sumi disables
+that optional `feat$canvas` mixin on registered preview documents and retains
+Tinymist's viewport-driven SVG patches, source mapping and continuous scrolling.
+This is a version-specific frontend adapter; the complete-book preview integration
+test checks the pinned DOM contract, zero canvas fallback surfaces, distant-page
+SVG content and WebKit snapshots. Revalidate the adapter on engine upgrades. A terminated WebKit content process
+gets one automatic reload; a repeat failure displays a reconnect message.

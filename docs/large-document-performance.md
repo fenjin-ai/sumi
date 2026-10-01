@@ -15,18 +15,18 @@ Neither book is repeated to manufacture a larger buffer.
 
 | Book | Source bytes | Open (s) | Typing median / max (ms) | Navigate + draw median (ms) | Scroll + draw p95 (ms) |
 |---|---:|---:|---:|---:|---:|
-| war-and-peace | 3,302,718 | 2.02 | 3.38 / 7.40 | 1.61 | 0.88 |
-| sicp | 1,448,258 | 1.70 | 1.96 / 4.20 | 2.17 | 0.80 |
+| war-and-peace | 3,302,718 | 4.09 | 9.29 / 52.23 | 4.20 | 5.04 |
+| sicp | 1,446,633 | 3.32 | 6.70 / 10.88 | 6.07 | 3.89 |
 
-SICP exported to **448 pages** in 1.44 seconds after engine startup.
-The test/editor process ended at 290.3 MiB for War and Peace and
-297.8 MiB for SICP. These are process physical-footprint snapshots,
+SICP exported to **448 pages** in 2.41 seconds after engine startup.
+The test/editor process ended at 290.7 MiB for War and Peace and
+287.8 MiB for SICP. These are process physical-footprint snapshots,
 not peak memory and not total application memory: Tinymist and WebKit are separate
 processes. Each current report comes from its own fresh test process.
 
 The earlier War and Peace run had a 619.3 ms median / 628.1 ms maximum synchronous
-typing path. The current run measures 3.38 / 7.40 ms. Opening the
-buffer increased from 1.37 to 2.02 seconds because contiguous layout was
+typing path. The current run measures 9.29 / 52.23 ms. Opening the
+buffer increased from 1.37 to 4.09 seconds because contiguous layout was
 restored for reliable pointer geometry. The earlier run failed distant pointer
 round-trip checks; current checks pass. Its scrolling measurement only included
 layout, so it is not directly comparable to the new draw measurement.
@@ -79,6 +79,11 @@ Each scenario uses production Workspace, NSTextView and real Tinymist:
 4. Insert 16 mixed Latin/CJK/emoji characters through the native editor, include
    metric reads, then undo and verify the original source exactly.
 5. For SICP, export through Tinymist and require more than 400 PDF pages.
+6. Open the 448-page book in a 1920 × 1300 pt WebKit preview. Jump to pages
+   1, 224, 448 and back to 1; require visible SVG glyphs and snapshots with
+   actual painted text, with no canvas fallback surfaces. CI retains page
+   snapshots alongside timing reports. Real-window acceptance also covers
+   scrolling from the cover to page 448 and back to page 340.
 
 The test uses a hidden native window and CPU bitmap rendering. It does not
 measure physical display refresh, GPU compositing, human typing latency,

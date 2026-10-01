@@ -166,6 +166,17 @@ extension WritingFlowTests {
         }
         #expect(app.workspace.text == "= Learn\n")
         app.workspace.layout = .split
+        await app.layout()
+        app.window.orderFront(nil)
+        await app.layout()
+        let reveal = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }.first { $0.title == L10n.text("Preview") })
+        let center = reveal.convert(NSPoint(x: reveal.bounds.midX, y: reveal.bounds.midY), to: nil)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            app.window.sendEvent(try #require(NSEvent.mouseEvent(with: type, location: center, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: app.window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: 1)))
+        }
+        await app.layout()
         for dark in [false, true, false] {
             app.workspace.previewDark = dark
             await app.layout()

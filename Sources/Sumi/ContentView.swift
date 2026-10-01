@@ -74,49 +74,20 @@ struct ContentView: View {
     }
 
     private var manuscript: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("MANUSCRIPT").font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(2.5).foregroundStyle(Theme.muted)
-                Spacer()
-                Text("TYPST").font(.system(size: 9, weight: .regular, design: .monospaced)).tracking(1.8).foregroundStyle(Theme.muted)
-            }.padding(.horizontal, 36).padding(.top, 25).padding(.bottom, 12)
-            ManuscriptView(workspace: workspace).clipped()
-        }.background(Theme.editor)
+        ManuscriptView(workspace: workspace).clipped().background(Theme.editor)
+            .overlay(alignment: .topTrailing) {
+                FloatingPaneControls(title: L10n.text("Writing"), icon: "pencil-simple") {
+                    QuietButton(icon: "sparkle", help: L10n.text("Toggle Editor Styling"),
+                                shortcut: "⌘\(workspace.commandKey.uppercased()) → v t", active: workspace.styledSource) {
+                        workspace.styledSource.toggle()
+                    }
+                }.padding(8)
+            }
     }
 
     private var preview: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("PREVIEW").font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(2.5).foregroundStyle(Theme.muted)
-                if let main = workspace.mainFileURL {
-                    Button(main.lastPathComponent) { workspace.open(main) }.buttonStyle(.plain).font(.system(size: 10)).help(L10n.text("Return to Main Document"))
-                }
-                Spacer()
-                Button { workspace.previewDark.toggle() } label: {
-                    Text(workspace.previewDark ? L10n.text("Dark") : L10n.text("Original"))
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(workspace.previewDark ? Theme.accent : Theme.secondary)
-                        .frame(width: 68, height: 28, alignment: .center)
-                        .background(Theme.border.opacity(0.35), in: RoundedRectangle(cornerRadius: 5))
-                        .contentShape(Rectangle())
-                }.buttonStyle(.plain).fixedSize().accessibilityIdentifier("preview-colors")
-                    .learningHelp(L10n.text("Preview Colors"), shortcut: "⌘\(workspace.commandKey.uppercased()) → v n", detail: L10n.text("Only changes preview colors. Exported PDFs are unchanged."))
-                Button("−") { workspace.previewZoom = max(0.5, workspace.previewZoom - 0.1) }.buttonStyle(.plain).learningHelp(L10n.text("Zoom Out"))
-                Text("\(Int((workspace.previewZoom * 100).rounded()))%").font(.system(size: 10, design: .monospaced)).frame(width: 38)
-                Button("+") { workspace.previewZoom = min(2, workspace.previewZoom + 0.1) }.buttonStyle(.plain).learningHelp(L10n.text("Zoom In"))
-            }.foregroundStyle(Theme.secondary).padding(.horizontal, 24).frame(height: 48)
+        Group {
             if let url = workspace.previewURL {
-                if workspace.previewStale {
-                    HStack(spacing: 8) {
-                        Circle().fill(Theme.accent).frame(width: 4, height: 4)
-                        Text(workspace.hasSuccessfulPreview ? L10n.text("Showing the last successful preview while your changes are typeset") : L10n.text("Waiting for the first successful preview"))
-                            .font(.system(size: 10)).foregroundStyle(Theme.secondary)
-                        Spacer()
-                        if workspace.diagnostics.contains(where: { $0.severity == 1 }) {
-                            Button(L10n.text("Check Source")) { workspace.checksOpen = true }.buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(Theme.accent)
-                        }
-                    }.padding(.horizontal, 24).padding(.bottom, 10)
-                }
                 PreviewView(url: url, zoom: workspace.previewZoom, dark: workspace.previewDark) { workspace.showMessage($0, persistent: true) }
             } else {
                 VStack(spacing: 16) {
@@ -129,6 +100,45 @@ struct ContentView: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }.background(Theme.panel)
+            .overlay(alignment: .topTrailing) {
+                FloatingPaneControls(title: L10n.text("Preview"), icon: "eye") {
+                    Button { workspace.previewDark.toggle() } label: {
+                        Text(workspace.previewDark ? L10n.text("Dark") : L10n.text("Original"))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(workspace.previewDark ? Theme.accent : Theme.secondary)
+                            .frame(width: 68, height: 28).contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityIdentifier("preview-colors")
+                        .learningHelp(L10n.text("Preview Colors"), shortcut: "⌘\(workspace.commandKey.uppercased()) → v n", detail: L10n.text("Only changes preview colors. Exported PDFs are unchanged."))
+                    Button { workspace.previewZoom = max(0.5, workspace.previewZoom - 0.1) } label: {
+                        Text("−").frame(width: 22, height: 28).contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityLabel(L10n.text("Zoom Out")).learningHelp(L10n.text("Zoom Out"))
+                    Text("\(Int((workspace.previewZoom * 100).rounded()))%")
+                        .font(.system(size: 10, design: .monospaced)).frame(width: 32)
+                    Button { workspace.previewZoom = min(2, workspace.previewZoom + 0.1) } label: {
+                        Text("+").frame(width: 22, height: 28).contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityLabel(L10n.text("Zoom In")).learningHelp(L10n.text("Zoom In"))
+                }.padding(8)
+            }
+            .overlay(alignment: .bottomLeading) {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let main = workspace.mainFileURL {
+                        Button { workspace.open(main) } label: {
+                            Label(L10n.text("Return to Main Document"), systemImage: "arrow.uturn.backward")
+                        }.buttonStyle(.plain).font(.system(size: 10))
+                    }
+                    if workspace.previewStale, workspace.previewURL != nil {
+                        Button { workspace.checksOpen = true } label: {
+                            HStack(spacing: 6) {
+                                Circle().fill(Theme.accent).frame(width: 4, height: 4)
+                                Text(workspace.hasSuccessfulPreview ? L10n.text("Showing the last successful preview while your changes are typeset") : L10n.text("Waiting for the first successful preview"))
+                                    .font(.system(size: 10)).lineLimit(2)
+                            }
+                        }.buttonStyle(.plain).learningHelp(L10n.text("Check Source"))
+                    }
+                }.foregroundStyle(Theme.secondary).padding(8)
+                    .background(Theme.panel.opacity(0.94), in: RoundedRectangle(cornerRadius: 7)).padding(8)
+                    .opacity(workspace.previewStale || workspace.mainFileURL != nil ? 1 : 0)
+            }
     }
 
     private func messageBar(_ message: String) -> some View {

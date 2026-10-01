@@ -126,6 +126,56 @@ extension WritingFlowTests {
         #expect(throws: CommandError.self) { try app.workspace.importPackage(newer) }
     }
 
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SUMI_BOOK_PREVIEW"] == "1"))
+    func completeBookPreviewRemainsUsableInLargeWindow() async throws {
+        let app = try WritingFixture(text: "", startService: false)
+        defer { app.close() }
+        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        #expect(app.workspace.open(repository.appendingPathComponent("Examples/Books/SICP/main.typ")))
+        app.window.setContentSize(NSSize(width: 1920, height: 1300))
+        try await app.ready()
+        app.workspace.layout = .preview
+        await app.layout()
+        let web = try #require(findWebView(app.window.contentView))
+        web.configuration.preferences.inactiveSchedulingPolicy = .none
+        web.configuration.userContentController.addUserScript(WKUserScript(source: "window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16); window.cancelAnimationFrame = clearTimeout;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        web.reload()
+        try await waitForJavaScript(web, condition: "document.querySelectorAll('#typst-app .typst-doc > g.typst-page').length === 448")
+        #expect(try await web.evaluateJavaScript("document.querySelectorAll('canvas').length") as? Int == 0)
+        for page in [0, 223, 447, 0] {
+            _ = try await web.evaluateJavaScript("document.querySelector('.typst-doc > g.typst-page[data-page-number=\"\(page)\"]').scrollIntoView({block:'start'})")
+            try await waitForJavaScript(web, condition: "(() => { const page = document.querySelector('.typst-doc > g.typst-page[data-page-number=\"\(page)\"]'); return page && page.querySelectorAll('use').length > 20 && page.getBoundingClientRect().top < innerHeight && page.getBoundingClientRect().bottom > 0; })()")
+            let snapshot = try await web.takeSnapshot(configuration: nil)
+            #expect(snapshot.size.width >= 1800)
+            let bitmap = try #require(NSBitmapImageRep(data: try #require(snapshot.tiffRepresentation)))
+            var darkPixels = 0, lightPixels = 0
+            for y in stride(from: 0, to: bitmap.pixelsHigh, by: 16) {
+                for x in stride(from: 0, to: bitmap.pixelsWide, by: 16) {
+                    guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { continue }
+                    let luminance = (color.redComponent + color.greenComponent + color.blueComponent) / 3
+                    if luminance < 0.3 { darkPixels += 1 }
+                    if luminance > 0.9 { lightPixels += 1 }
+                }
+            }
+            #expect(darkPixels > 10 && lightPixels > 100, "The WebKit snapshot must contain painted page content, not a blank surface")
+            let artifacts = repository.appendingPathComponent("build/benchmarks")
+            try FileManager.default.createDirectory(at: artifacts, withIntermediateDirectories: true)
+            try bitmap.representation(using: .png, properties: [:])?.write(to: artifacts.appendingPathComponent("book-preview-\(page + 1).png"))
+            #expect(try await web.evaluateJavaScript("document.querySelectorAll('canvas').length") as? Int == 0)
+        }
+        #expect(try await web.evaluateJavaScript("document.querySelectorAll('#typst-app .typst-doc > g.typst-page').length") as? Int == 448)
+    }
+
+    @Test func previewProcessTerminationRecoversOnceThenReportsFailure() async throws {
+        var errors: [String] = []
+        let coordinator = PreviewView.Coordinator { errors.append($0) }
+        let web = WKWebView()
+        coordinator.webViewWebContentProcessDidTerminate(web)
+        #expect(errors.isEmpty)
+        coordinator.webViewWebContentProcessDidTerminate(web)
+        #expect(errors.count == 1)
+    }
+
     @Test func realPreviewRetainsPagesOnErrorThenRecoversAndTogglesDark() async throws {
         let app = try WritingFixture(text: "= Preview sentinel\n\nA short paragraph.\n")
         defer { app.close() }
