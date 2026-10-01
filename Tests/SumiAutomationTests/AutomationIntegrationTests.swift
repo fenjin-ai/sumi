@@ -78,34 +78,39 @@ struct AutomationIntegrationTests {
             }
         }
         defer { server.stop() }
-        try await Task.detached {
-            let session = try MCPWireSession(stateDirectory: root)
-            defer { session.close() }
-            let initialization = try session.request("initialize", ["protocolVersion": "2025-11-25", "capabilities": [:], "clientInfo": ["name": "Sumi integration test", "version": "1"]])
-            #expect(initialization["result"]["serverInfo"]["name"].string == "Sumi")
-            try session.notify("notifications/initialized")
-            let tools = try session.request("tools/list")["result"]["tools"].array
-            #expect(tools.count == 9)
-            #expect(tools.contains { $0["name"].string == "sumi_apply_edits" })
-            let read = try session.request("tools/call", ["name": "sumi_get_document"])
-            #expect(read["result"]["structuredContent"]["text"].string == "= Live unsaved source")
-            let conflict = try session.request("tools/call", ["name": "sumi_apply_edits", "arguments": [:]])
-            #expect(conflict["result"]["structuredContent"]["code"].string == "revision_conflict")
-            #expect(try session.request("resources/list")["result"]["resources"].array.count == 2)
-            let resource = try session.request("resources/read", ["uri": "sumi://settings"])
-            #expect(resource["result"]["contents"].array.first?["text"].string?.contains("writing") == true)
-            #expect(try session.request("prompts/list")["result"]["prompts"].array.count == 1)
-            let prompt = try session.request("prompts/get", ["name": "write_in_sumi", "arguments": ["task": "Write a note"]])
-            #expect(prompt["result"]["messages"].array.first?["content"]["text"].string?.contains("Write a note") == true)
-            let export = try session.request("tools/call", ["name": "sumi_export_pdf"])
-            #expect(export["result"]["content"].array.count == 2)
-            #expect(export["result"]["content"].array.last?["type"].string == "image")
-            #expect(export["result"]["structuredContent"]["image_png"].isNull)
-            server.stop()
-            let disabled = try session.request("tools/call", ["name": "sumi_get_document"])
-            #expect(disabled["result"]["structuredContent"]["code"].string == "access_unavailable")
-            #expect(try session.request("tools/call", ["name": "sumi_shell"])["error"]["code"].int == -32602)
-        }.value
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let session = try MCPWireSession(stateDirectory: root)
+                    defer { session.close() }
+                    let initialization = try session.request("initialize", ["protocolVersion": "2025-11-25", "capabilities": [:], "clientInfo": ["name": "Sumi integration test", "version": "1"]])
+                    #expect(initialization["result"]["serverInfo"]["name"].string == "Sumi")
+                    try session.notify("notifications/initialized")
+                    let tools = try session.request("tools/list")["result"]["tools"].array
+                    #expect(tools.count == 9)
+                    #expect(tools.contains { $0["name"].string == "sumi_apply_edits" })
+                    let read = try session.request("tools/call", ["name": "sumi_get_document"])
+                    #expect(read["result"]["structuredContent"]["text"].string == "= Live unsaved source")
+                    let conflict = try session.request("tools/call", ["name": "sumi_apply_edits", "arguments": [:]])
+                    #expect(conflict["result"]["structuredContent"]["code"].string == "revision_conflict")
+                    #expect(try session.request("resources/list")["result"]["resources"].array.count == 2)
+                    let resource = try session.request("resources/read", ["uri": "sumi://settings"])
+                    #expect(resource["result"]["contents"].array.first?["text"].string?.contains("writing") == true)
+                    #expect(try session.request("prompts/list")["result"]["prompts"].array.count == 1)
+                    let prompt = try session.request("prompts/get", ["name": "write_in_sumi", "arguments": ["task": "Write a note"]])
+                    #expect(prompt["result"]["messages"].array.first?["content"]["text"].string?.contains("Write a note") == true)
+                    let export = try session.request("tools/call", ["name": "sumi_export_pdf"])
+                    #expect(export["result"]["content"].array.count == 2)
+                    #expect(export["result"]["content"].array.last?["type"].string == "image")
+                    #expect(export["result"]["structuredContent"]["image_png"].isNull)
+                    server.stop()
+                    let disabled = try session.request("tools/call", ["name": "sumi_get_document"])
+                    #expect(disabled["result"]["structuredContent"]["code"].string == "access_unavailable")
+                    #expect(try session.request("tools/call", ["name": "sumi_shell"])["error"]["code"].int == -32602)
+                    continuation.resume()
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
     }
 
     private func directory() throws -> URL {
@@ -136,7 +141,7 @@ private final class MCPWireSession {
         id += 1
         try write(["jsonrpc": "2.0", "id": id, "method": method, "params": params])
         while true {
-            let response = try JSONDecoder().decode(JSONValue.self, from: line())
+            let response = try JSONDecoder().decode(JSONValue.self, from: line(method: method))
             if response["id"].int == id { return response }
         }
     }
@@ -144,13 +149,13 @@ private final class MCPWireSession {
     private func write(_ value: [String: Any]) throws {
         try input.fileHandleForWriting.write(contentsOf: JSONSerialization.data(withJSONObject: value) + Data([10]))
     }
-    private func line() throws -> Data {
+    private func line(method: String) throws -> Data {
         while true {
             if let newline = buffer.firstIndex(of: 10) {
                 let line = Data(buffer[..<newline]); buffer.removeSubrange(...newline); return line
             }
             var descriptor = pollfd(fd: output.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0)
-            guard poll(&descriptor, 1, 10_000) > 0 else { throw AutomationFailure("test_timeout", "MCP response timed out.") }
+            guard poll(&descriptor, 1, 10_000) > 0 else { throw AutomationFailure("test_timeout", "MCP response timed out while waiting for \(method).") }
             let data = output.fileHandleForReading.availableData
             guard !data.isEmpty else { throw AutomationFailure("helper_closed", "MCP helper exited without a response.") }
             buffer.append(data)

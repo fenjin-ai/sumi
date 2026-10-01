@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import CoreFoundation
 
 extension JSONValue {
@@ -42,6 +43,12 @@ final class JSONRPCWriter: @unchecked Sendable {
     init(handle: FileHandle, onFailure: @escaping @Sendable (Error) -> Void) {
         self.handle = handle
         self.onFailure = onFailure
+        // A service can exit between isRunning and the queued write. Keep that
+        // broken pipe as an EPIPE error instead of terminating the whole editor.
+        if fcntl(handle.fileDescriptor, F_SETNOSIGPIPE, 1) == -1 {
+            closed = true
+            onFailure(POSIXError(POSIXErrorCode(rawValue: errno) ?? .EINVAL))
+        }
     }
 
     func send(_ message: JSONValue) throws {
