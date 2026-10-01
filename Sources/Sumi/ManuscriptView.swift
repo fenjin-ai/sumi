@@ -74,6 +74,8 @@ struct ManuscriptView: NSViewRepresentable {
 @MainActor
 final class ManuscriptTextView: NSTextView {
     weak var workspace: Workspace?
+    var assistancePopover: NSPopover?
+    private var selectingWithMouse = false
     private var highlightTask: Task<Void, Never>?
     private var placeholders: [NSRange] = []
     private var placeholderIndex = 0
@@ -95,6 +97,7 @@ final class ManuscriptTextView: NSTextView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         observeUndoManager()
+        window?.invalidateCursorRects(for: self)
     }
 
     private func observeUndoManager() {
@@ -123,6 +126,32 @@ final class ManuscriptTextView: NSTextView {
         textContainerInset = NSSize(width: max(36, (newSize.width - 740) / 2), height: 42)
     }
 
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        if isEditable { addCursorRect(visibleRect, cursor: .iBeam) }
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        if isEditable { NSCursor.iBeam.set() }
+        else { super.cursorUpdate(with: event) }
+    }
+
+    /// Attribute-only reading styles can invalidate glyph geometry between
+    /// events. Resolve the visible layout before AppKit interprets a pointer.
+    func prepareForPointerInteraction() {
+        guard let container = textContainer, let manager = layoutManager else { return }
+        let visible = visibleRect.offsetBy(dx: -textContainerOrigin.x, dy: -textContainerOrigin.y)
+        manager.ensureLayout(forBoundingRect: visible, in: container)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        workspace?.dismissAssistance()
+        prepareForPointerInteraction()
+        selectingWithMouse = true
+        defer { selectingWithMouse = false; scheduleHighlight() }
+        super.mouseDown(with: event)
+    }
+
     func load(_ content: String, selection: NSRange) {
         string = content
         placeholders = []
@@ -141,7 +170,7 @@ final class ManuscriptTextView: NSTextView {
     }
 
     func highlight() {
-        guard !highlighting, !hasMarkedText(), let storage = textStorage else { return }
+        guard !highlighting, !selectingWithMouse, !hasMarkedText(), let storage = textStorage else { return }
         highlighting = true
         defer { highlighting = false }
         let size = workspace?.fontSize ?? 16
@@ -212,6 +241,10 @@ final class ManuscriptTextView: NSTextView {
         apply(sourceAttributes, range: active)
         storage.endEditing()
         activeParagraph = active
+        // Keep native caret geometry and the displayed glyphs in the same layout
+        // after switching a paragraph between source and reading attributes.
+        prepareForPointerInteraction()
+        window?.invalidateCursorRects(for: self)
         typingAttributes = base
     }
 

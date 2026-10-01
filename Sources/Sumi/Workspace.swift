@@ -12,7 +12,7 @@ struct DiagnosticItem: Identifiable {
 }
 
 enum EditorLayout: String { case writing, split, preview }
-enum SidePanel { case outline, diagnostics }
+enum SidePanel { case outline }
 
 @MainActor
 final class Workspace: ObservableObject {
@@ -28,6 +28,7 @@ final class Workspace: ObservableObject {
     @Published var layout: EditorLayout = .writing {
         didSet {
             recordOperation("layout.changed", ["layout": layout.rawValue])
+            dismissAssistance()
             editor?.isEditable = layout != .preview && !paletteOpen && !documentTransitionInProgress
             if !paletteOpen {
                 editor?.window?.makeFirstResponder(layout == .preview ? nil : editor)
@@ -35,10 +36,15 @@ final class Workspace: ObservableObject {
         }
     }
     @Published var sidePanel: SidePanel? {
-        didSet { recordOperation("sidebar.changed", ["panel": sidePanel == .outline ? "outline" : (sidePanel == .diagnostics ? "diagnostics" : "closed")]) }
+        didSet { recordOperation("sidebar.changed", ["panel": sidePanel == .outline ? "outline" : "closed"]) }
+    }
+    @Published var checksOpen = false {
+        didSet { recordOperation("checks.visibility", ["open": String(checksOpen)]) }
     }
     @Published var fontSize: CGFloat = 16
-    @Published var selection = NSRange(location: 0, length: 0)
+    @Published var selection = NSRange(location: 0, length: 0) {
+        didSet { if selection != oldValue { dismissAssistance() } }
+    }
     @Published var message: String?
     @Published var paletteOpen = false
     @Published var paletteGroup: String?
@@ -68,6 +74,10 @@ final class Workspace: ObservableObject {
     @Published var commandKey: String = UserDefaults.standard.string(forKey: "commandKey") ?? "j" {
         didSet { UserDefaults.standard.set(commandKey, forKey: "commandKey"); onShortcutChange?() }
     }
+    @Published private(set) var assistance: WritingAssistance?
+    private var assistanceTask: Task<Void, Never>?
+    private var assistanceRequest = UUID()
+    private var navigationHistory: [(URL, TextPosition)] = []
     weak var editor: ManuscriptTextView?
     weak var window: NSWindow?
     var onTitleChange: ((String) -> Void)?
@@ -157,6 +167,8 @@ final class Workspace: ObservableObject {
     func startService() {
         guard !isLibraryHome else { return }
         recordOperation("service.start")
+        checksOpen = false
+        dismissAssistance()
         let generation = UUID()
         serviceGeneration = generation
         syntaxTask?.cancel(); syntaxTask = nil; syntaxSnapshot = nil; syntaxRevision += 1
@@ -199,6 +211,7 @@ final class Workspace: ObservableObject {
 
     func edited(_ newText: String) {
         guard !isLibraryHome else { return }
+        dismissAssistance()
         text = newText
         documentVersion += 1
         previewStale = true
@@ -379,6 +392,7 @@ final class Workspace: ObservableObject {
 
     /// No replacement draft is created when the last document is trashed.
     func showLibraryHome() {
+        dismissAssistance()
         saveTask?.cancel(); syncTask?.cancel(); syntaxTask?.cancel(); syntaxTask = nil; messageTask?.cancel()
         syntaxSnapshot = nil; syntaxRevision += 1
         serviceGeneration = UUID()
@@ -391,7 +405,7 @@ final class Workspace: ObservableObject {
         editor?.isEditable = false
         previewURL = nil; diagnostics = []; diagnosticsByURI = [:]; outline = []
         serviceReady = false; hasSuccessfulPreview = false; previewStale = true
-        paletteOpen = false; sidePanel = nil; message = nil; libraryOpen = false
+        paletteOpen = false; checksOpen = false; sidePanel = nil; message = nil; libraryOpen = false
         saveRecovery(); onTitleChange?(title)
         recordOperation("library.home")
     }
@@ -448,6 +462,8 @@ final class Workspace: ObservableObject {
     }
 
     func togglePalette() {
+        dismissAssistance()
+        checksOpen = false
         guard !isLibraryHome else { return }
         recordOperation("palette.toggle")
         if paletteOpen { closePalette() } else {
@@ -536,7 +552,7 @@ final class Workspace: ObservableObject {
         case "split": layout = .split; closePalette()
         case "preview": layout = .preview; closePalette()
         case "outline": sidePanel = sidePanel == .outline ? nil : .outline; closePalette()
-        case "diagnostics": sidePanel = sidePanel == .diagnostics ? nil : .diagnostics; closePalette()
+        case "diagnostics": closePalette(); checksOpen.toggle()
         case "restart": closePalette(); startService()
         case "revealPreview": closePalette(); revealPreview()
         case "logs": closePalette(); revealLogs()
@@ -548,6 +564,10 @@ final class Workspace: ObservableObject {
         case "outdent": closePalette(); editLines(.outdent)
         case "comment": closePalette(); editLines(.comment)
         case "completion": closePalette(); requestCompletion()
+        case "quickHelp": closePalette(); requestAssistance(.help)
+        case "contextActions": closePalette(); requestAssistance(.actions)
+        case "definition": closePalette(); goToDefinition()
+        case "navigateBack": closePalette(); navigateBack()
         default: insert(command)
         }
     }
@@ -686,13 +706,13 @@ final class Workspace: ObservableObject {
 
     func requestCompletion() {
         guard serviceReady, !paletteOpen, layout != .preview, editor?.hasMarkedText() != true else { return }
-        let version = documentVersion
+        let version = documentVersion, generation = serviceGeneration
         let caret = selection
         Task {
             do {
                 try flushChanges()
                 let result = try await client.request("textDocument/completion", ["textDocument": ["uri": documentURL.absoluteString], "position": position.json, "context": ["triggerKind": 1]])
-                guard version == documentVersion, caret == selection, !paletteOpen, layout != .preview, editor?.hasMarkedText() != true else { return }
+                guard version == documentVersion, generation == serviceGeneration, caret == selection, !paletteOpen, layout != .preview, editor?.hasMarkedText() != true else { return }
                 let candidates = result.array.isEmpty ? result["items"].array : result.array
                 editor?.presentCompletions(Array(candidates.prefix(12)))
             } catch { showMessage(error.localizedDescription) }
@@ -738,6 +758,7 @@ final class Workspace: ObservableObject {
     }
 
     func showDiagnostic(_ item: DiagnosticItem) {
+        checksOpen = false
         if item.url != documentURL, !open(item.url, preservingMain: true) { return }
         jump(to: item.position.offset(in: text))
     }
@@ -765,7 +786,7 @@ final class Workspace: ObservableObject {
         return false
     }
 
-    func shutdown() { recordOperation("session.end"); saveTask?.cancel(); syncTask?.cancel(); syntaxTask?.cancel(); library.stop(); client.stop() }
+    func shutdown() { dismissAssistance(); recordOperation("session.end"); saveTask?.cancel(); syncTask?.cancel(); syntaxTask?.cancel(); library.stop(); client.stop() }
 
     func recordOperation(_ event: String, _ fields: [String: String] = [:]) {
         var context = fields
@@ -792,4 +813,107 @@ final class Workspace: ObservableObject {
     }
 
     static var welcome: String { WelcomeDocument.source() }
+}
+
+extension Workspace {
+    func dismissAssistance() {
+        assistanceRequest = UUID()
+        assistanceTask?.cancel(); assistanceTask = nil
+        assistance = nil
+        editor?.dismissAssistance()
+    }
+
+    func requestAssistance(_ kind: WritingAssistance.Kind) {
+        guard serviceReady, !paletteOpen, !isLibraryHome, layout != .preview,
+              let editor, !editor.hasMarkedText() else { return }
+        dismissAssistance()
+        let requestID = assistanceRequest, generation = serviceGeneration
+        let version = documentVersion, source = text, url = documentURL, caret = selection
+        let start = TextPosition(offset: caret.location, in: source)
+        let end = TextPosition(offset: NSMaxRange(caret), in: source)
+        assistanceTask = Task {
+            do {
+                try flushChanges()
+                var hover: LanguageHover?, signature: LanguageSignature?, actions: [SourceCodeAction] = []
+                let params: [String: Any] = ["textDocument": ["uri": url.absoluteString], "position": start.json]
+                if kind == .help {
+                    if client.supports("hoverProvider") {
+                        hover = LanguageAssistance.hover(try await client.request("textDocument/hover", params))
+                    }
+                    guard !Task.isCancelled else { return }
+                    if client.supports("signatureHelpProvider") {
+                        signature = LanguageAssistance.signatureHelp(try await client.request("textDocument/signatureHelp", params))
+                    }
+                } else if client.supports("codeActionProvider") {
+                    let result = try await client.request("textDocument/codeAction", ["textDocument": ["uri": url.absoluteString],
+                        "range": ["start": start.json, "end": end.json], "context": ["diagnostics": [], "triggerKind": 1]])
+                    actions = LanguageAssistance.codeActions(result, source: source, documentURL: url, version: version)
+                }
+                guard !Task.isCancelled, requestID == assistanceRequest, generation == serviceGeneration,
+                      version == documentVersion, url == documentURL, caret == selection,
+                      !paletteOpen, layout != .preview, !editor.hasMarkedText() else { return }
+                let result = WritingAssistance(kind: kind, source: source, documentURL: url, revision: version,
+                                               hover: hover, signature: signature, actions: actions)
+                assistance = result
+                editor.presentAssistance(result)
+                recordOperation("assistance.presented", ["kind": kind.rawValue, "actions": String(actions.count)])
+            } catch {
+                guard requestID == assistanceRequest, generation == serviceGeneration else { return }
+                showMessage(error.localizedDescription)
+            }
+        }
+    }
+
+    func applyContextAction(_ action: SourceCodeAction) {
+        guard let context = assistance, context.source == text, context.documentURL == documentURL,
+              action.documentURL == documentURL, action.sourceVersion == documentVersion,
+              let editor, editor.isEditable, !editor.hasMarkedText(), !paletteOpen, !documentTransitionInProgress else {
+            dismissAssistance(); return
+        }
+        do {
+            let updated = try TextEditing.applying(action.edits, to: text)
+            let start = action.edits.map(\.range.location).min() ?? 0
+            let end = action.edits.map { NSMaxRange($0.range) }.max() ?? start
+            let length = end - start + updated.utf16.count - text.utf16.count
+            let replacement = (updated as NSString).substring(with: NSRange(location: start, length: length))
+            dismissAssistance()
+            editor.insertSnippet(Snippet(text: replacement), replacing: NSRange(location: start, length: end - start))
+            editor.undoManager?.setActionName(L10n.text("Actions at Cursor"))
+            recordOperation("assistance.applied", ["kind": action.kind ?? "edit", "edits": String(action.edits.count)])
+        } catch { showMessage(error.localizedDescription) }
+    }
+
+    func goToDefinition() {
+        guard serviceReady, client.supports("definitionProvider"), !paletteOpen, editor?.hasMarkedText() != true else { return }
+        dismissAssistance()
+        let version = documentVersion, generation = serviceGeneration, url = documentURL, caret = selection, origin = position
+        Task {
+            do {
+                try flushChanges()
+                let response = try await client.request("textDocument/definition", ["textDocument": ["uri": url.absoluteString], "position": origin.json])
+                guard generation == serviceGeneration, version == documentVersion, caret == selection,
+                      !paletteOpen, editor?.hasMarkedText() != true else { return }
+                let destination = response.array.first ?? response
+                guard let uri = destination["uri"].string ?? destination["targetUri"].string,
+                      let target = URL(string: uri), target.isFileURL,
+                      target.host == nil || target.host == "" || target.host == "localhost" else {
+                    requestAssistance(.help); return
+                }
+                let range = destination["targetSelectionRange"].isNull ? destination["range"] : destination["targetSelectionRange"]
+                guard let line = range["start"]["line"].int, let column = range["start"]["character"].int, line >= 0, column >= 0 else { return }
+                if target != documentURL, !open(target, preservingMain: true) { return }
+                navigationHistory.append((url, origin))
+                if navigationHistory.count > 32 { navigationHistory.removeFirst() }
+                jump(to: TextPosition(line: line, character: column).offset(in: text))
+                recordOperation("navigation.definition")
+            } catch { if generation == serviceGeneration { showMessage(error.localizedDescription) } }
+        }
+    }
+
+    func navigateBack() {
+        guard let (url, position) = navigationHistory.last else { return }
+        if url != documentURL, !open(url, preservingMain: true) { return }
+        navigationHistory.removeLast()
+        jump(to: position.offset(in: text))
+    }
 }

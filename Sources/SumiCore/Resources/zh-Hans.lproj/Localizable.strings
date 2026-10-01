@@ -564,3 +564,55 @@
 "Permanently delete %d documents and their attachments? This cannot be undone." = "永久删除 %d 篇文稿及其附件？此操作无法撤销。";
 "%d documents deleted. Some items could not be removed: %@" = "已删除 %d 篇文稿。部分项目未能移除：%@";
 "The library location changed. Open Trash and try again." = "文稿库位置已更改。请重新打开废纸篓后重试。";
+
+"Up to date" = "已更新";
+
+"%@ errors" = "%@ 个错误";
+
+"%@ warnings" = "%@ 条警告";
+
+"%@ suggestions" = "%@ 条建议";
+
+"1 error" = "1 个错误";
+
+"1 warning" = "1 条警告";
+
+"Checking…" = "检查中…";
+
+"Everything looks good" = "一切就绪";
+
+"Your latest changes are in the preview." = "最新修改已呈现在预览中。";
+
+"You can keep writing while checks run." = "检查时也可以继续写作。";
+
+"Preview pending" = "预览待更新";
+
+"Explain at Cursor" = "光标处的说明";
+
+"Actions at Cursor" = "光标处的操作";
+
+"Go to Definition" = "前往定义";
+
+"Read documentation and function parameters at the cursor." = "查看光标处的说明和函数参数。";
+
+"Discover changes available for this heading, equation or selection." = "发现当前标题、公式或选区可用的操作。";
+
+"Find the source of a variable, function or reference." = "找到变量、函数或引用的定义位置。";
+
+"Return to your previous writing position." = "回到之前的写作位置。";
+
+"No explanation here yet. Try a function, variable or parameter." = "这里暂时没有说明。试试函数、变量或参数。";
+
+"No changes available here. Try a heading or an equation." = "这里暂时没有可用操作。试试标题或公式。";
+
+"Parameter: %@" = "当前参数：%@";
+
+"Increase depth of heading" = "降低标题级别";
+
+"Decrease depth of heading" = "提升标题级别";
+
+"Convert to block equation" = "转换为独立公式";
+
+"Convert to multiple-line block equation" = "转换为多行独立公式";
+
+"Convert to inline equation" = "转换为行内公式";

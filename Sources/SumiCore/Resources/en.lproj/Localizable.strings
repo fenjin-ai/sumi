@@ -564,3 +564,55 @@
 "Permanently delete %d documents and their attachments? This cannot be undone." = "Permanently delete %d documents and their attachments? This cannot be undone.";
 "%d documents deleted. Some items could not be removed: %@" = "%d documents deleted. Some items could not be removed: %@";
 "The library location changed. Open Trash and try again." = "The library location changed. Open Trash and try again.";
+
+"Up to date" = "Up to date";
+
+"%@ errors" = "%@ errors";
+
+"%@ warnings" = "%@ warnings";
+
+"%@ suggestions" = "%@ suggestions";
+
+"1 error" = "1 error";
+
+"1 warning" = "1 warning";
+
+"Checking…" = "Checking…";
+
+"Everything looks good" = "Everything looks good";
+
+"Your latest changes are in the preview." = "Your latest changes are in the preview.";
+
+"You can keep writing while checks run." = "You can keep writing while checks run.";
+
+"Preview pending" = "Preview pending";
+
+"Explain at Cursor" = "Explain at Cursor";
+
+"Actions at Cursor" = "Actions at Cursor";
+
+"Go to Definition" = "Go to Definition";
+
+"Read documentation and function parameters at the cursor." = "Read documentation and function parameters at the cursor.";
+
+"Discover changes available for this heading, equation or selection." = "Discover changes available for this heading, equation or selection.";
+
+"Find the source of a variable, function or reference." = "Find the source of a variable, function or reference.";
+
+"Return to your previous writing position." = "Return to your previous writing position.";
+
+"No explanation here yet. Try a function, variable or parameter." = "No explanation here yet. Try a function, variable or parameter.";
+
+"No changes available here. Try a heading or an equation." = "No changes available here. Try a heading or an equation.";
+
+"Parameter: %@" = "Parameter: %@";
+
+"Increase depth of heading" = "Increase depth of heading";
+
+"Decrease depth of heading" = "Decrease depth of heading";
+
+"Convert to block equation" = "Convert to block equation";
+
+"Convert to multiple-line block equation" = "Convert to multiple-line block equation";
+
+"Convert to inline equation" = "Convert to inline equation";
