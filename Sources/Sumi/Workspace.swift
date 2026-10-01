@@ -20,6 +20,9 @@ final class Workspace: ObservableObject {
     @Published var fileURL: URL?
     @Published var mainFileURL: URL?
     @Published var savedText: String?
+    @Published var historyOpen = false
+    @Published var historyInterval: HistoryInterval = .hourly
+    lazy var history = DocumentHistoryController(workspace: self)
     @Published var saveStatus = "Draft"
     @Published var serviceStatus = "Connecting"
     @Published var serviceReady = false
@@ -255,6 +258,7 @@ final class Workspace: ObservableObject {
 
     func edited(_ newText: String, change: TextReplacement? = nil) {
         guard !isLibraryHome else { return }
+        history.willEdit(previous: text)
         dismissAssistance()
         var updatedMetrics: DocumentMetrics?
         if let change, var current = textMetrics, current.apply(change, to: text) { updatedMetrics = current }
@@ -335,6 +339,7 @@ final class Workspace: ObservableObject {
     }
 
     @discardableResult func saveRecovery() -> Bool {
+        history.flush(current: text)
         let snapshot = RecoverySnapshot(fileURL: fileURL, text: text, savedText: savedText, selection: selection.location, mainFileURL: mainFileURL, libraryHome: isLibraryHome)
         do { try JSONEncoder().encode(snapshot).write(to: recoveryURL, options: .atomic); return true }
         catch { recordOperation("recovery.failed", ["error": error.localizedDescription]); showMessage(L10n.format("Could not save the recovery copy: %@", error.localizedDescription), persistent: true); return false }
@@ -343,6 +348,7 @@ final class Workspace: ObservableObject {
     func save() {
         guard !isLibraryHome else { return }
         guard let fileURL else { saveAs(); return }
+        history.flush(current: text)
         do {
             baseline = try DocumentStorage.write(text, to: fileURL, baseline: baseline)
             savedText = text
@@ -383,6 +389,7 @@ final class Workspace: ObservableObject {
     }
 
     func save(to url: URL) throws {
+        history.flush(current: text)
         baseline = try DocumentStorage.write(text, to: url, baseline: url == fileURL ? baseline : nil)
         fileURL = url; mainFileURL = nil; savedText = text; saveStatus = "Saved"
         library.associate(url)
@@ -458,6 +465,7 @@ final class Workspace: ObservableObject {
         syntaxSnapshot = nil; syntaxRevision += 1
         serviceGeneration = UUID()
         client.stop()
+        historyOpen = false
         isLibraryHome = true
         fileURL = nil; mainFileURL = nil; managedDocumentID = nil; managedTitle = nil
         text = ""; savedText = ""; baseline = nil
@@ -603,6 +611,7 @@ final class Workspace: ObservableObject {
         case "open": closePalette(); openLibrary()
         case "importDocument": closePalette(); library.importPanel()
         case "revealSource": closePalette(); NSWorkspace.shared.activateFileViewerSelecting([documentURL])
+        case "history": openHistory()
         case "save": closePalette(); save()
         case "saveAs": closePalette(); saveAs()
         case "reload": closePalette(); reload()

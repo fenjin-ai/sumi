@@ -8,21 +8,24 @@ public struct SyncedPreferences: Codable, Equatable, Sendable {
     public var previewDark: Bool
     public var styledSource: Bool
     public var documentTemplate: String?
+    public var historyInterval: String?
 
-    public init(language: String = "system", commandKey: String = "j", fontSize: Double = 16, previewDark: Bool = false, styledSource: Bool = true, documentTemplate: String? = nil) {
+    public init(language: String = "system", commandKey: String = "j", fontSize: Double = 16, previewDark: Bool = false, styledSource: Bool = true, documentTemplate: String? = nil, historyInterval: String? = nil) {
         self.language = language
         self.commandKey = commandKey
         self.fontSize = fontSize
         self.previewDark = previewDark
         self.styledSource = styledSource
         self.documentTemplate = documentTemplate
+        self.historyInterval = historyInterval
     }
     public var validated: Self {
         Self(language: ["system", "en", "zh-Hans"].contains(language) ? language : "system",
             commandKey: ["j", "k"].contains(commandKey) ? commandKey : "j",
             fontSize: fontSize.isFinite ? min(32, max(10, fontSize)) : 16,
             previewDark: previewDark, styledSource: styledSource,
-            documentTemplate: ["blank", "codeNotes"].contains(documentTemplate ?? "blank") ? documentTemplate : nil)
+            documentTemplate: ["blank", "codeNotes"].contains(documentTemplate ?? "blank") ? documentTemplate : nil,
+            historyInterval: historyInterval.flatMap { HistoryInterval(rawValue: $0)?.rawValue })
     }
 }
 
@@ -122,7 +125,7 @@ public final class LibraryPreferences {
         }
         values = SyncedPreferences(language: merge(\.language), commandKey: merge(\.commandKey),
             fontSize: merge(\.fontSize), previewDark: merge(\.previewDark), styledSource: merge(\.styledSource),
-            documentTemplate: merge(\.documentTemplate))
+            documentTemplate: merge(\.documentTemplate), historyInterval: merge(\.historyInterval))
         cloudBase = remote
         persist()
         onChange?(values)
