@@ -125,7 +125,7 @@ private struct AgentFixture {
     let controller: WorkspaceAutomation
     let client: AutomationBridgeClient
     init(_ workspace: Workspace) throws {
-        root = TestPaths.temporaryDirectory.appendingPathComponent("sa-" + UUID().uuidString.prefix(8))
+        root = TestPaths.temporaryDirectory.appendingPathComponent("a" + UUID().uuidString.prefix(8))
         let endpoint = AutomationContract.socketURL(in: root)
         controller = WorkspaceAutomation(workspace: workspace, socketURL: endpoint)
         client = AutomationBridgeClient(socketURL: endpoint)

@@ -31,7 +31,7 @@ public enum L10n {
     private static let state = LocalizationState()
     // Native SwiftPM's generated accessor looks beside the executable bundle
     // and then in the build checkout. A distributed app keeps resources here.
-    private static let resourceBundle: Bundle = {
+    static let resourceBundle: Bundle = {
         if let url = Bundle.main.url(forResource: "Sumi_SumiCore", withExtension: "bundle"),
            let bundle = Bundle(url: url) { return bundle }
         return Bundle.module

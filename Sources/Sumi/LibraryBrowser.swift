@@ -6,9 +6,7 @@ struct LibraryBrowser: View {
     @ObservedObject private var localization = AppLocalization.shared
     @ObservedObject var library: LibraryController
     @State private var query = ""
-    @State private var showingTemplates = false
     @State private var showingTrash = false
-    @State private var addingSample = false
     @State private var results: [LibraryDocument] = []
     @State private var renaming: LibraryDocument?
     @State private var newTitle = ""
@@ -18,10 +16,12 @@ struct LibraryBrowser: View {
 
     var body: some View {
         Group {
-            if showingTemplates {
+            if let mode = workspace.discoveryMode {
                 UniverseBrowser(cacheURL: workspace.stateDirectory.appendingPathComponent("universe-index.json"),
-                                mode: .templates, size: browserSize, canImport: !workspace.isLibraryHome, onBack: { showingTemplates = false },
-                                onCreate: library.create(from:), onAddSample: { try await library.create(sample: $0) }, onImport: workspace.importPackage)
+                                mode: mode, size: DiscoveryLayout.size(for: workspace.window), canImport: !workspace.isLibraryHome, onBack: { workspace.discoveryMode = nil },
+                                onClose: { workspace.discoveryMode = nil; workspace.libraryOpen = false },
+                                onModeChange: { workspace.discoveryMode = $0 }, onCreate: library.create(from:), onCreateBuiltIn: library.create(builtIn:), onAddSample: { try await library.create(sample: $0) }, onImport: workspace.importPackage)
+                    .id(mode)
             } else { documents }
         }
     }
@@ -42,25 +42,13 @@ struct LibraryBrowser: View {
                     Button(L10n.text(showingTrash ? "Show documents" : "Show Trash")) { showingTrash.toggle() }
                 } label: { PhosphorIcon(name: "dots-three-vertical", size: 18).frame(width: 28, height: 28) }
                     .menuStyle(.borderlessButton).fixedSize().accessibilityLabel(L10n.text("Library actions"))
-                Button { showingTemplates = true } label: {
+                Button { workspace.openDiscovery(.templates) } label: {
                     HStack(spacing: 6) {
                         PhosphorIcon(name: "grid-four", size: 15)
                         Text(L10n.text("Browse templates")).font(.system(size: 12))
-                    }.foregroundStyle(Theme.secondary).padding(.horizontal, 5).frame(height: 32)
+                    }.foregroundStyle(Theme.secondary).padding(.horizontal, 5).frame(height: 32).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityIdentifier("library-browse-templates")
-                    .learningHelp(L10n.text("Start a document from a template"))
-                Menu {
-                    ForEach(DocumentTemplate.allCases) { template in
-                        Button(template.title) { library.perform { try await library.create(template: template) } }
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        PhosphorIcon(name: "plus-circle", size: 16)
-                        Text(L10n.text("New document")).font(.system(size: 12, weight: .medium))
-                    }.foregroundStyle(Theme.text).padding(.horizontal, 13).padding(.vertical, 9)
-                        .background(Theme.border.opacity(0.6), in: RoundedRectangle(cornerRadius: 7))
-                } primaryAction: { library.perform { try await library.create() } }
-                    .menuStyle(.borderlessButton).fixedSize().learningHelp(L10n.text("New document"), shortcut: "⌘N")
+                    .learningHelp(L10n.text("Start a document from a template"), shortcut: "⌘N")
                 if !workspace.isLibraryHome {
                     QuietButton(icon: "x", help: L10n.text("Close library"), shortcut: "Esc") { workspace.libraryOpen = false }
                 }
@@ -81,19 +69,7 @@ struct LibraryBrowser: View {
             }
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if !showingTrash && SampleBook.sicp.matches(query) {
-                        SampleBookCard(isAdding: addingSample) {
-                            guard !addingSample else { return }
-                            addingSample = true
-                            searchError = nil
-                            Task {
-                                defer { addingSample = false }
-                                do { try await library.create(sample: .sicp) }
-                                catch { searchError = error.localizedDescription }
-                            }
-                        }.padding(.horizontal, 10).padding(.bottom, 12)
-                    }
-                    if results.isEmpty && (showingTrash || !SampleBook.sicp.matches(query)) {
+                    if results.isEmpty {
                         VStack(spacing: 10) {
                             PhosphorIcon(name: showingTrash ? "clock-counter-clockwise" : "book-open-text", size: 28).foregroundStyle(Theme.muted)
                             Text(L10n.text(query.isEmpty ? (showingTrash ? "Trash is empty" : "A place for your next idea") : "No matching documents"))

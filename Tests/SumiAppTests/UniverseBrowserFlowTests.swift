@@ -54,7 +54,7 @@ extension WritingFlowTests {
 
         for size in [CGSize(width: 620, height: 530), CGSize(width: 1040, height: 720)] {
             let browser = NSHostingView(rootView: UniverseBrowser(cacheURL: cache, mode: .templates, size: size,
-                onCreate: app.workspace.library.create(from:), onAddSample: { try await app.workspace.library.create(sample: $0) }, onImport: app.workspace.importPackage))
+                onCreate: app.workspace.library.create(from:), onCreateBuiltIn: app.workspace.library.create(builtIn:), onAddSample: { try await app.workspace.library.create(sample: $0) }, onImport: app.workspace.importPackage))
             let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             window.contentView = browser
@@ -169,7 +169,7 @@ extension WritingFlowTests {
         #expect(NSImage(data: data) != nil, "Official thumbnail must decode on macOS")
         let size = CGSize(width: 1040, height: 720)
         let browser = NSHostingView(rootView: UniverseBrowser(cacheURL: cache, mode: .templates, size: size,
-            onCreate: app.workspace.library.create(from:), onAddSample: { try await app.workspace.library.create(sample: $0) }, onImport: app.workspace.importPackage))
+            onCreate: app.workspace.library.create(from:), onCreateBuiltIn: app.workspace.library.create(builtIn:), onAddSample: { try await app.workspace.library.create(sample: $0) }, onImport: app.workspace.importPackage))
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = browser
