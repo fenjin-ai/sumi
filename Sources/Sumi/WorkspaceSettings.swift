@@ -120,7 +120,7 @@ struct WritingSettingsView: View {
                 if let error = library.error { Text(error).font(.footnote).foregroundStyle(Theme.red) }
             } header: { Text(L10n.text("Library")) }
             Section {
-                Toggle(L10n.text("Allow local coding agents"), isOn: Binding(get: { settings.agentEnabled }, set: settings.setAgentEnabled))
+                Toggle(L10n.text("Allow local coding agents"), isOn: Binding(get: { settings.agentEnabled }, set: { settings.setAgentEnabled($0) }))
                     .accessibilityIdentifier("settings.agentAccess")
                 Text(L10n.text("Agents connected on this Mac can read your library, edit the open document, change writing settings and export previews. Edits can be undone. Access stays on this Mac."))
                     .font(.footnote).foregroundStyle(Theme.secondary)

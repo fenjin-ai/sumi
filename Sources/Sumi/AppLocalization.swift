@@ -32,7 +32,7 @@ struct LanguageSettingsSection: View {
 
     var body: some View {
         Section {
-            Picker(L10n.text("App Language"), selection: Binding(get: { localization.language }, set: localization.select)) {
+            Picker(L10n.text("App Language"), selection: Binding(get: { localization.language }, set: { localization.select($0) })) {
                 ForEach(AppLanguage.allCases) { language in Text(language.displayName).tag(language) }
             }.accessibilityIdentifier("settings.language")
             Text(L10n.text("Changes apply immediately. Your writing stays in its original language."))
