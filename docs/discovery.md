@@ -92,3 +92,11 @@ The network scenarios are opt-in so ordinary CI is deterministic. Set `SUMI_DISC
 - [Typst packages repository and template manifest documentation](https://github.com/typst/packages)
 - [Tinymist template scaffolding implementation](https://github.com/Myriad-Dreamin/tinymist/blob/v0.15.8/crates/tinymist/src/cmd.rs)
 - [Foundation Models](https://developer.apple.com/documentation/foundationmodels)
+
+## A future Chinese book sample
+
+The strongest next candidate is [Dive into Deep Learning in Chinese](https://github.com/d2l-ai/d2l-zh): an extensive Chinese technical book with equations, illustrations, and executable Python examples. It complements SICP with a modern applied subject. Its chapter-based Markdown sources also fit Sumi's existing source-project model. This is a recommendation, not a bundled or converted book in this release.
+
+Use the book's own attribution and licensing, rather than inferring everything from the repository badge: its [publication configuration](https://github.com/d2l-ai/d2l-zh/blob/master/config.ini) identifies CC-BY-SA-4.0 and MIT-0, while the repository also includes an Apache-2.0 license. A conversion should preserve notices, credit the authors, identify modifications, and check externally sourced figures.
+
+[Hello Algo](https://github.com/krahets/hello-algo) is more approachable and visually rich, but its [CC-BY-NC-SA-4.0 license](https://github.com/krahets/hello-algo/blob/main/LICENSE) makes it a less suitable default distribution candidate without separate permission. Keep the discovery interface ready for another sample without promising a complete Chinese book until conversion quality and redistribution details have been reviewed.
