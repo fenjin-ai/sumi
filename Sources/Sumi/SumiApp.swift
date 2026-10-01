@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         writingWindow.workspace = workspace
         workspace.window = writingWindow
         window = writingWindow
-        window.title = workspace.title + " — Sumi"
+        window.title = workspace.title + " — " + L10n.text("Sumi")
         window.titleVisibility = .hidden
         window.toolbarStyle = .unifiedCompact
         windowToolbar = WindowToolbar(workspace: workspace)
@@ -54,14 +54,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrameAutosaveName("SumiMainWindow")
         window.center()
         window.makeKeyAndOrderFront(nil)
-        workspace.onTitleChange = { [weak self] title in self?.window.title = title + " — Sumi" }
+        workspace.onTitleChange = { [weak self] title in self?.window.title = title + " — " + L10n.text("Sumi") }
         workspace.onShortcutChange = { [weak self] in self?.installMenu() }
         settingsController = WorkspaceSettings(workspace: workspace)
         languageObserver = NotificationCenter.default.publisher(for: .sumiLanguageChanged).sink { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.installMenu()
                 self?.settingsWindow?.title = L10n.text("Settings")
-                if let self { self.window.title = self.workspace.title + " — Sumi" }
+                if let self { self.window.title = self.workspace.title + " — " + L10n.text("Sumi") }
             }
         }
         workspace.startService()
@@ -123,7 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             entry.representedObject = id; entry.target = self
             menu.addItem(entry)
         }
-        let app = section("Sumi")
+        let app = section(L10n.text("Sumi"))
         item(L10n.text("About Sumi"), #selector(about), "", app, target: self)
         item(L10n.text("Settings…"), #selector(settings), ",", app, target: self)
         app.addItem(.separator())
@@ -177,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc private func about() {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: version, .credits: NSAttributedString(string: L10n.text("A quiet space to write."))])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: L10n.text("Sumi"), .applicationVersion: version, .credits: NSAttributedString(string: L10n.text("Ink for your thoughts"))])
     }
     @objc private func settings() {
         if settingsController == nil { settingsController = WorkspaceSettings(workspace: workspace) }

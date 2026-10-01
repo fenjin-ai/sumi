@@ -1,6 +1,7 @@
 {
   "name": "Sumi",
   "short_name": "Sumi",
+  "description": "Ink for your thoughts",
   "theme_color": "#24282D",
   "background_color": "#24282D",
   "icons": [

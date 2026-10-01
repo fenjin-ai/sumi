@@ -42,6 +42,9 @@ func bundledWelcomeCompilesWithFreshPackagesAndBlockedRegistry() throws {
         #expect(try Data(contentsOf: output).starts(with: Data("%PDF".utf8)))
         let pdf = try #require(PDFDocument(url: output))
         #expect(pdf.pageCount == 2)
+        let firstPage = try #require(pdf.page(at: 0)?.string)
+        let tagline = language == .english ? "Ink for your thoughts" : "此中有真意，欲辨已忘言"
+        #expect(firstPage.contains(tagline))
         for index in 0..<pdf.pageCount {
             let page = try #require(pdf.page(at: index))
             let label = "0\(index + 1)"

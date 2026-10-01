@@ -9,8 +9,7 @@
 "// Write code here" = "// 在这里写代码";
 "A place for your next idea" = "给下一个想法留个位置";
 "A quiet space for your words." = "留白中的文字，安静地写作。";
-"A quiet space to write." = "给想法一点留白。\nA quiet space to write.";
-"About Sumi" = "关于 Sumi";
+"About Sumi" = "关于留白";
 "Add a copy of a source document to your library." = "将源文稿的副本添加到文稿库。";
 "Add a heading level to the current paragraph." = "为当前段落添加标题层级。";
 "Add a subscript to the selected expression." = "为选中的表达式添加下标。";
@@ -210,7 +209,7 @@
 "Heading Numbers" = "标题编号";
 "Heading level · 1–6" = "标题层级 · 1–6";
 "Headings, images, equations and tables" = "标题、图片、公式与表格";
-"Hide Sumi" = "隐藏 Sumi";
+"Hide Sumi" = "隐藏留白";
 "Highlight" = "高亮";
 "Highlight content with a pale background and padding." = "用浅色背景和内边距突出一段内容。";
 "Highlight the selected text." = "为选中的文字加上背景标记。";
@@ -350,7 +349,7 @@
 "Preview Updated" = "排版已更新";
 "Preview failed to load: %@" = "预览加载失败：%@";
 "Preview temporarily unavailable: %@" = "预览暂时不可用：%@";
-"Quit Sumi" = "退出 Sumi";
+"Quit Sumi" = "退出留白";
 "Quote a passage worth keeping." = "引用一段值得保留的文字。";
 "Read the Preview" = "阅读成稿";
 "Read the finished pages in the whole window." = "用整个窗口查看排版结果。";
@@ -673,12 +672,11 @@
 
 // Template-first creation
 "Choose a blank page or a template for your next idea." = "为下一个想法选择空白页或模板。";
-"A quiet space to write" = "给想法一点留白";
 "Start here" = "从这里开始";
-"A small guide to Sumi, with equations, a diagram and code. Make it your own." = "一份 Sumi 写作手记，包含公式、图解和代码。写成你自己的样子。";
+"A small guide to Sumi, with equations, a diagram and code. Make it your own." = "一份留白写作手记，包含公式、图解和代码。写成你自己的样子。";
 "Just a page and your next thought." = "一张空白页，等待你的下一个想法。";
 "Included · works offline" = "应用内置 · 离线可用";
-"Create your own copy of the Sumi guide" = "创建属于你的 Sumi 写作手记";
+"Create your own copy of the Sumi guide" = "创建属于你的留白写作手记";
 "Start with a blank page" = "从空白页开始";
 "Expand All Headings" = "展开全部标题";
 "Collapse All Headings" = "折叠全部标题";
@@ -717,9 +715,13 @@
 "Keep the latest 7 source snapshots on this Mac. No snapshots are created while a document is unchanged." = "在本机保留最新 7 个源文稿快照。文稿没有变化时不创建快照。";
 "Compare and restore recent versions of this source document." = "对比并恢复当前源文稿的近期版本。";
 "Light" = "浅色";
-"From Sumi" = "从 Sumi 开始";
+"From Sumi" = "从留白开始";
 "From the community" = "来自社区";
 "Browsing the included catalog · Checking for updates…" = "浏览内置目录 · 正在检查更新……";
 "Offline · Browsing the included catalog" = "离线 · 浏览内置目录";
 "Removed" = "删除";
 "Added" = "新增";
+
+/* Brand names and taglines follow the interface language. */
+"Sumi" = "留白";
+"Ink for your thoughts" = "此中有真意，欲辨已忘言";

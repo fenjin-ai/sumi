@@ -2,7 +2,14 @@
 
 The approved mark is a continuous capital **Σ**, in ivory `#ECECE7` on charcoal `#24282D`. Every asset comes from one [geometry generator](../design/sigma/generate.py). The [construction notes](../design/sigma/README.md) describe the golden-ratio skeleton and pressure equation.
 
-The public tagline is **A quiet space to write.** Branding speaks to writing and thinking; implementation details belong in feature and developer documentation. The app may use a localized tagline in its interface.
+The names and public taglines are fixed:
+
+| Language | Name | Tagline |
+|---|---|---|
+| English | Sumi | Ink for your thoughts |
+| Simplified Chinese | 留白 | 此中有真意，欲辨已忘言 |
+
+Use each language's own name and tagline together. Branding speaks to writing and thinking; implementation details belong in feature and developer documentation. The approved sigma geometry stays the same in both languages.
 
 ![Sumi](logo-512.png)
 
@@ -10,7 +17,8 @@ The public tagline is **A quiet space to write.** Branding speaks to writing and
 |---|---|
 | `logo.svg`, `logo-512.png`, `logo-1024.png` | Approved mark on a rounded tile; PNG corners remain transparent |
 | `mark-light.svg`, `mark-dark.svg` | Transparent monochrome mark for dark or light backgrounds; the generator also copies the dark mark into the built-in welcome document and `Examples/sumi-mark.svg` |
-| `social-preview.png`, `social-preview.svg` | 1280×640 GitHub / Open Graph card |
+| `social-preview.png`, `social-preview.svg` | 1280×640 English GitHub / Open Graph card |
+| `social-preview.zh-Hans.png`, `social-preview.zh-Hans.svg` | Simplified Chinese sharing card |
 | `../Resources/AppIcon.svg`, `../Resources/AppIcon.icns` | macOS application icon, with ICNS representations from 16 to 1024 pixels |
 | `web/favicon.svg`, `web/favicon.ico` | Website favicon; ICO contains 16, 32 and 48 pixel frames |
 | `web/favicon-16x16.png`, `web/favicon-32x32.png`, `web/favicon-48x48.png` | PNG favicons |

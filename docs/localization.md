@@ -1,10 +1,10 @@
 # App localization
 
-The public repository, documentation and brand materials use English. The app supports **Follow System**, **English** and **Simplified Chinese**, with immediate switching in Settings. Documents retain their original language and content.
+The public repository and documentation use English. The English product name is **Sumi**, with the tagline **Ink for your thoughts**; Simplified Chinese uses **留白** and **此中有真意，欲辨已忘言**. Brand assets include sharing cards for both languages. The app supports **Follow System**, **English** and **Simplified Chinese**, with immediate switching in Settings. Documents retain their original language and content.
 
 ## Native resources
 
-Sumi uses Foundation `Bundle.localizedString` and Swift Package Manager resources, with no localization dependency or global `AppleLanguages` override. English is the package's development localization. Resources live in `Sources/SumiCore/Resources/en.lproj` and `zh-Hans.lproj`; the application build includes their generated resource bundle.
+Sumi uses Foundation `Bundle.localizedString` and Swift Package Manager resources, with no localization dependency or global `AppleLanguages` override. English is the package's development localization. `Resources/en.lproj/InfoPlist.strings` and `Resources/zh-Hans.lproj/InfoPlist.strings` localize the bundle display name for Finder and system app information using macOS language preferences. App menus, window titles and About use the selected in-app language immediately. The executable, bundle identifier and storage paths remain stable across languages. Resources live in `Sources/SumiCore/Resources/en.lproj` and `zh-Hans.lproj`; the application build includes their generated resource bundle.
 
 English source strings are stable lookup keys. `L10n.text("Save")` resolves the selected language and falls back to the English key when an entry is missing. Use `L10n.format("Version %@", version)` for parameterized messages; translations must preserve format placeholders. Identifiers, paths, package names and user-authored text are not translated.
 

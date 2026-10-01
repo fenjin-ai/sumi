@@ -4,7 +4,7 @@
 
 [![build and test](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml/badge.svg)](https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/fenjin-ai/sumi/branch/main/graph/badge.svg)](https://app.codecov.io/github/fenjin-ai/sumi)
 
-**A quiet space to write.**
+**Ink for your thoughts**
 
 Sumi gives your words room to breathe. A calm interface, tools you can discover as you go, and a live view of the finished page keep your attention on writing and thinking.
 
@@ -27,7 +27,7 @@ Sumi is a development preview for Macs with an Apple M-series chip, running macO
 
 Open `build/Sumi.app` after building. The app includes its typesetting service; no separate installation of Typst, Rust or Homebrew is needed to use it. Try the [welcome document](Examples/Welcome.typ).
 
-The app supports English and Simplified Chinese. Choose **Settings → App Language** to follow your system or use either language immediately. Changing the interface language never translates or rewrites your documents.
+The app supports English and Simplified Chinese, with the localized name **留白** and tagline **此中有真意，欲辨已忘言**. Choose **Settings → App Language** to follow your system or use either language immediately. Changing the interface language never translates or rewrites your documents.
 
 | Action | Shortcut |
 |---|---|
@@ -54,7 +54,7 @@ The outline appears in the left margin without moving the text. Hover to explore
 
 ## Writing and preview
 
-Editor styling gently emphasizes headings, bold, italics and inline code. Moving the caret into a paragraph reveals its full source. Copying, saving and undo always use the original text. Toggle styling with `⌘J → v → t`.
+Editor styling gently emphasizes headings, bold, italics and inline code. Moving the caret into a paragraph reveals its full source. Copying, saving and undo always use the original text. Change editor styling in Settings.
 
 The preview shows real typeset pages. Double-click a page to reveal the source; source selection can locate the corresponding preview position. Zoom is relative to the preview pane's fitted width. Dark preview changes screen colors only; images retain their colors and exported PDFs are unchanged.
 
@@ -91,7 +91,7 @@ The build downloads Tinymist **0.15.8** (Typst 0.15.1), verifies its pinned SHA-
 
 `scripts/test.sh` writes HTML, raw coverage data and `build/coverage/summary.md`. It requires **80% coverage of unique executable lines across production Swift sources**, including the interface. LCOV records are deduplicated by source file and line to avoid counting SwiftUI generic instantiations repeatedly. Plain `swift test` omits explicitly enabled integration scenarios and does not enforce coverage.
 
-GitHub Actions uses `macos-15` with Xcode 26.3 for both pull requests and signed releases. The `build and test` check must pass on an up-to-date pull request before merging. It checks functional coverage (at least 80%), exercises the agent bridge with a single cooperative worker, runs book benchmarks, and uploads reports and development packages. Swift package sources are cached; application binaries are rebuilt. [Codecov](https://app.codecov.io/github/fenjin-ai/sumi) reports project and patch coverage, including PR comments. A version tag matching `Info.plist` triggers testing and a release ZIP with SHA-256. Public releases require Developer ID signing, successful Apple notarization, ticket stapling and Gatekeeper validation. See [release signing](docs/signing.md); ordinary CI packages remain development builds.
+GitHub Actions uses `macos-15` with Xcode 26.3 for both pull requests and signed releases. The `build and test` check must pass on an up-to-date pull request before merging. It checks functional coverage (at least 80%), exercises the agent bridge with a single cooperative worker, runs book benchmarks, and uploads reports. Main also validates the packaged release build; downloadable development packages are uploaded only for manually triggered CI runs. Swift package sources are cached; application binaries are rebuilt. [Codecov](https://app.codecov.io/github/fenjin-ai/sumi) reports project and patch coverage, including PR comments. A version tag matching `Info.plist` triggers testing and a release ZIP with SHA-256. Public releases require Developer ID signing, successful Apple notarization, ticket stapling and Gatekeeper validation. See [release signing](docs/signing.md); ordinary CI packages remain development builds.
 
 The source is split into the launcher, testable native app, core document logic and local agent integration. Bundled third-party licenses are listed in `Resources/ThirdParty.txt`.
 

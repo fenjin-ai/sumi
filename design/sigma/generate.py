@@ -110,12 +110,14 @@ def svg(body, width=1024, height=1024):
     return f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">{body}</svg>\n'
 
 
-def social_preview():
+def social_preview(chinese=False):
+    name = "留白" if chinese else "Sumi"
+    tagline = "此中有真意，欲辨已忘言" if chinese else "Ink for your thoughts"
     return svg(
         '<rect width="1280" height="640" fill="#191C20"/>'
         f'<g transform="translate(112 146) scale(.34)">{tile()}</g>'
-        f'<text x="532" y="301" fill="{INK}" font-family="Helvetica Neue, Arial, sans-serif" font-size="88" font-weight="400" letter-spacing="-2">Sumi</text>'
-        '<text x="537" y="366" fill="#A7ADB5" font-family="Helvetica Neue, Arial, sans-serif" font-size="26">A quiet space to write.</text>', 1280, 640)
+        f'<text x="532" y="301" fill="{INK}" font-family="Helvetica Neue, PingFang SC, Arial, sans-serif" font-size="88" font-weight="400" letter-spacing="-2">{name}</text>'
+        f'<text x="537" y="366" fill="#A7ADB5" font-family="Helvetica Neue, PingFang SC, Arial, sans-serif" font-size="26">{tagline}</text>', 1280, 640)
 
 
 def render(source, target, size=None):
@@ -155,7 +157,8 @@ def export_rasters(root, brand):
         subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(root / "Resources/AppIcon.icns")], check=True)
         for size in (512, 1024):
             render(brand / "logo.svg", brand / f"logo-{size}.png", size)
-        render(brand / "social-preview.svg", brand / "social-preview.png")
+        for suffix in ("", ".zh-Hans"):
+            render(brand / f"social-preview{suffix}.svg", brand / f"social-preview{suffix}.png")
         web = brand / "web"
         frames = []
         for size in (16, 32, 48):
@@ -187,9 +190,11 @@ def main():
     for destination in [root / "Examples/sumi-mark.svg", root / "Sources/SumiCore/Resources/Templates/sumi-mark.svg"]:
         destination.write_text(svg(mark(ink=PAPER)))
     (brand / "social-preview.svg").write_text(social_preview())
+    (brand / "social-preview.zh-Hans.svg").write_text(social_preview(chinese=True))
     (web / "favicon.svg").write_text(svg(tile(compact=True)))
     manifest = {
-        "name": "Sumi", "short_name": "Sumi", "theme_color": PAPER, "background_color": PAPER,
+        "name": "Sumi", "short_name": "Sumi", "description": "Ink for your thoughts",
+        "theme_color": PAPER, "background_color": PAPER,
         "icons": [
             {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
             {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},

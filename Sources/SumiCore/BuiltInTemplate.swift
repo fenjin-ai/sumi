@@ -4,12 +4,12 @@ import Foundation
 public enum BuiltInTemplate: String, CaseIterable, Identifiable, Sendable {
     case welcome, blank
     public var id: String { rawValue }
-    public var title: String { L10n.text(self == .welcome ? "A quiet space to write" : "Blank page") }
+    public var title: String { L10n.text(self == .welcome ? "Ink for your thoughts" : "Blank page") }
     public var source: String { self == .welcome ? WelcomeDocument.source() : DocumentTemplate.blank.source }
 
     public func matches(_ query: String) -> Bool {
         let terms = self == .welcome
-            ? "sumi welcome start guide tutorial writing math diagram code 欢迎 入门 教程 写作 公式 图解 代码"
+            ? "sumi ink thoughts 留白 此中有真意 欲辨已忘言 welcome start guide tutorial writing math diagram code 欢迎 入门 教程 写作 公式 图解 代码"
             : "blank empty page plain new 空白 页面 新建"
         return query.lowercased().split(whereSeparator: { $0.isWhitespace }).allSatisfy {
             (terms + " " + title.lowercased()).contains($0)

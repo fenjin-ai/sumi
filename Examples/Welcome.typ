@@ -6,7 +6,7 @@
 #let ink = rgb("253238")
 #let muted = rgb("66736d")
 #let sage = rgb("dbe6df")
-#set document(title: "A quiet space to write", author: "Sumi")
+#set document(title: "Ink for your thoughts", author: "Sumi")
 #set page(paper: "a4", margin: (x: 25mm, y: 22mm), numbering: "01", number-align: center)
 #set text(font: ("Libertinus Serif", "PingFang SC"), size: 11pt, fill: ink)
 #set par(leading: 0.75em)
@@ -21,7 +21,7 @@
   text(size: 9pt, tracking: 3pt, fill: muted)[S U M I   /   A FIELD GUIDE],
 )
 #v(9mm)
-= A quiet space to write
+= Ink for your thoughts
 
 #text(size: 15pt, fill: muted)[Begin with a thought. Give it room to grow.]
 #v(7mm)
