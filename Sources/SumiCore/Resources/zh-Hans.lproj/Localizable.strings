@@ -555,3 +555,12 @@
 
 "Click to rename. Double-click to open your writing." = "单击改名，双击打开文稿列表。";
 "Click to rename. Double-click to open." = "单击改名，双击打开文稿。";
+
+// Trash management
+"Empty Trash?" = "清空废纸篓？";
+"Empty Trash" = "清空废纸篓";
+"Empty Trash…" = "清空废纸篓…";
+"Permanently delete all documents in Trash" = "永久删除废纸篓中的所有文稿";
+"Permanently delete %d documents and their attachments? This cannot be undone." = "永久删除 %d 篇文稿及其附件？此操作无法撤销。";
+"%d documents deleted. Some items could not be removed: %@" = "已删除 %d 篇文稿。部分项目未能移除：%@";
+"The library location changed. Open Trash and try again." = "文稿库位置已更改。请重新打开废纸篓后重试。";

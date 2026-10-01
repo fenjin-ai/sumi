@@ -555,3 +555,12 @@
 
 "Click to rename. Double-click to open your writing." = "Click to rename. Double-click to open your writing.";
 "Click to rename. Double-click to open." = "Click to rename. Double-click to open.";
+
+// Trash management
+"Empty Trash?" = "Empty Trash?";
+"Empty Trash" = "Empty Trash";
+"Empty Trash…" = "Empty Trash…";
+"Permanently delete all documents in Trash" = "Permanently delete all documents in Trash";
+"Permanently delete %d documents and their attachments? This cannot be undone." = "Permanently delete %d documents and their attachments? This cannot be undone.";
+"%d documents deleted. Some items could not be removed: %@" = "%d documents deleted. Some items could not be removed: %@";
+"The library location changed. Open Trash and try again." = "The library location changed. Open Trash and try again.";

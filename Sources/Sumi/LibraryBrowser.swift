@@ -74,7 +74,19 @@ struct LibraryBrowser: View {
                 Text(results.count == 1 ? L10n.text("1 document") : L10n.format("%d documents", results.count)).font(.system(size: 10)).foregroundStyle(Theme.muted)
                 Spacer()
                 if library.busy { ProgressView().controlSize(.small) }
-                Text(L10n.text("Your writing saves automatically.")).font(.system(size: 10)).foregroundStyle(Theme.muted)
+                if showingTrash {
+                    Button(action: library.confirmEmptyTrash) {
+                        HStack(spacing: 6) {
+                            PhosphorIcon(name: "trash", size: 13)
+                            Text(L10n.text("Empty Trash…"))
+                        }.font(.system(size: 11))
+                    }.buttonStyle(.plain).foregroundStyle(Theme.secondary)
+                        .disabled(!library.documents.contains(where: \.isTrashed))
+                        .accessibilityIdentifier("library-empty-trash")
+                        .learningHelp(L10n.text("Permanently delete all documents in Trash"))
+                } else {
+                    Text(L10n.text("Your writing saves automatically.")).font(.system(size: 10)).foregroundStyle(Theme.muted)
+                }
             }.padding(.horizontal, 30).padding(.vertical, 15)
         }
         .frame(width: 650, height: 570)

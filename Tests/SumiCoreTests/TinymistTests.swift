@@ -33,6 +33,12 @@ func realTinymistRoundTrip() async throws {
     try await client.start(root: root, outputDirectory: root)
     try client.open(file, text: source, version: 1)
     let preview = try await client.startPreview(file)
+    let semantic = try await client.request("textDocument/semanticTokens/full", ["textDocument": ["uri": file.absoluteString]])
+    let tokens = SemanticHighlighting.decode(semantic["data"].array.compactMap(\.int), source: source,
+        types: client.semanticTokenTypes, modifiers: client.semanticTokenModifiers)
+    #expect(tokens.contains { $0.kind == "heading" })
+    #expect(tokens.contains { $0.modifiers.contains("math") })
+    #expect(tokens.contains { (source as NSString).substring(with: $0.range) == "let" && $0.kind == "keyword" })
     #expect(preview.host == "127.0.0.1")
     let (html, response) = try await URLSession.shared.data(from: preview)
     #expect((response as? HTTPURLResponse)?.statusCode == 200)

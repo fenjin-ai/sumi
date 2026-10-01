@@ -85,6 +85,7 @@ final class ManuscriptTextView: NSTextView {
     private var sourceAttributes: NSAttributedString?
     private var readingAttributes: NSAttributedString?
     private var activeParagraph: NSRange?
+    private var appliedSyntaxRevision = -1
     private static let syntaxPatterns = [
         "(?m)^={1,6}[ \t]+.*$", "#[A-Za-z][A-Za-z0-9_.-]*",
         #""(?:[^"\\]|\\.)*""#, #"\$[^$]*\$"#, #"\*[^*\n]+\*"#, "(?m)^//.*$"
@@ -147,7 +148,8 @@ final class ManuscriptTextView: NSTextView {
         let styled = workspace?.styledSource == true
         let content = string
         let active = SourcePresentation.activeParagraph(in: content, selection: selectedRange())
-        let rebuild = highlightedText != content || appliedFontSize != size || styledSource != styled
+        let syntaxRevision = workspace?.syntaxRevision ?? 0
+        let rebuild = highlightedText != content || appliedFontSize != size || styledSource != styled || appliedSyntaxRevision != syntaxRevision
         if !rebuild, activeParagraph == active { return }
         let font = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
         let paragraph = NSMutableParagraphStyle()
@@ -164,8 +166,14 @@ final class ManuscriptTextView: NSTextView {
                 [.foregroundColor: NSColor(hex: 0x7C8793)]
             ]
             let whole = NSRange(location: 0, length: source.length)
-            for (regex, attributes) in zip(Self.syntaxPatterns, styles) {
-                for match in regex.matches(in: content, range: whole) { source.addAttributes(attributes, range: match.range) }
+            if let snapshot = workspace?.syntaxSnapshot, snapshot.source == content {
+                for token in snapshot.tokens {
+                    source.addAttributes(syntaxAttributes(token, size: size), range: token.range)
+                }
+            } else {
+                for (regex, attributes) in zip(Self.syntaxPatterns, styles) {
+                    for match in regex.matches(in: content, range: whole) { source.addAttributes(attributes, range: match.range) }
+                }
             }
             sourceAttributes = source
             let reading = NSMutableAttributedString(attributedString: source)
@@ -190,6 +198,7 @@ final class ManuscriptTextView: NSTextView {
             highlightedText = content
             appliedFontSize = size
             styledSource = styled
+            appliedSyntaxRevision = syntaxRevision
         }
         storage.beginEditing()
         func apply(_ snapshot: NSAttributedString?, range: NSRange) {
@@ -204,6 +213,28 @@ final class ManuscriptTextView: NSTextView {
         storage.endEditing()
         activeParagraph = active
         typingAttributes = base
+    }
+
+    private func syntaxAttributes(_ token: HighlightToken, size: CGFloat) -> [NSAttributedString.Key: Any] {
+        let kind = token.kind.replacingOccurrences(of: "hljs-", with: "").components(separatedBy: " ").first ?? token.kind
+        let color: UInt32
+        switch kind {
+        case "comment", "punct", "delim", "meta": color = 0x7C8793
+        case "string", "regexp", "escape": color = 0xA8B89A
+        case "keyword", "operator", "selector-tag": color = 0xBEA4C9
+        case "number", "bool", "literal", "symbol", "bullet": color = 0xD9B97C
+        case "function", "title", "built_in", "type", "namespace", "link", "ref", "label": color = 0x9DBBCD
+        case "heading", "strong": color = 0xEEE8DA
+        case "raw", "code": color = 0xBAC4CF
+        default: color = token.modifiers.contains("math") ? 0xD9B97C : 0xD5D9DE
+        }
+        var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor(hex: color)]
+        if token.modifiers.contains("strong") || kind == "heading" {
+            attributes[.font] = NSFont.monospacedSystemFont(ofSize: size, weight: .semibold)
+        } else if token.modifiers.contains("emph") {
+            attributes[.font] = NSFontManager.shared.convert(NSFont.monospacedSystemFont(ofSize: size, weight: .regular), toHaveTrait: .italicFontMask)
+        }
+        return attributes
     }
 
     func insertSnippet(_ snippet: Snippet, replacing range: NSRange, focus: Bool = true) {

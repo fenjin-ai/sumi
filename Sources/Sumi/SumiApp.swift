@@ -29,6 +29,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Direct launches from a development checkout can bypass Launch Services'
+        // icon registration. Set the same bundled artwork for the running Dock tile.
+        if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"), let icon = NSImage(contentsOf: url) {
+            NSApp.applicationIconImage = icon
+            workspace.recordOperation("application.iconLoaded")
+        }
         installMenu()
         NSApp.appearance = NSAppearance(named: .darkAqua)
         let writingWindow = WritingWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
