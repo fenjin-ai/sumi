@@ -80,7 +80,10 @@ checked against this pinned edition so a broken conversion fails instead of
 silently yielding an incomplete benchmark. Scheme language tags remain on the
 fences, including the 52 code fences nested inside footnotes, so the editor can
 exercise embedded-language highlighting. The converter does not add synthetic
-code or duplicate chapters.
+code or duplicate chapters. Pandoc writes prose with `--wrap=none`: each paragraph
+uses natural editor wrapping instead of inherited web-source hard breaks. Code
+fences retain their original newlines and indentation. This does not change
+Typst paragraph boundaries or PDF pagination.
 
 ## Verified output
 
@@ -88,11 +91,11 @@ On 2026-10-01 with Pandoc 3.11 and Sumi's bundled Tinymist 0.15.8 / Typst 0.15.1
 
 | Item | Size or count |
 | --- | ---: |
-| Typst manuscript | 1,448,258 bytes |
-| UTF-16 units | 1,443,763 |
-| Source lines | 33,908 |
+| Typst manuscript | 1,446,633 bytes |
+| UTF-16 units | 1,442,138 |
+| Source lines | 20,511 |
 | SVG assets | 3,139,671 bytes |
-| Manuscript, styles and diagrams | 4,588,719 bytes |
+| Manuscript, styles and diagrams | 4,587,094 bytes |
 | Compiled PDF | 448 pages |
 
 The complete PDF compiles with no warnings. Representative visual checks cover

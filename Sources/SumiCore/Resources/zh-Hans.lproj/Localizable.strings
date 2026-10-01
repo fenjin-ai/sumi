@@ -673,3 +673,13 @@
 "Add to my writing" = "加入我的文稿";
 "1.9 MB · downloads once" = "1.9 MB · 仅首次下载";
 "The example could not be downloaded or verified. Please try again." = "范本下载或校验失败，请重试。";
+"Expand All Headings" = "展开全部标题";
+"Collapse All Headings" = "折叠全部标题";
+"Expand section" = "展开章节";
+"Collapse section" = "折叠章节";
+"Show every section in the outline." = "展开文章脉络中的所有章节。";
+"Show only top-level sections in the outline." = "文章脉络仅显示顶层章节。";
+"Preview" = "预览";
+"Expanded" = "已展开";
+"Collapsed" = "已折叠";
+"Preview stopped unexpectedly. Reconnect typesetting to try again." = "预览意外停止，请重新连接排版服务后重试。";

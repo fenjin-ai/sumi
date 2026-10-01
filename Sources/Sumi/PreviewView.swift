@@ -14,6 +14,28 @@ struct PreviewView: NSViewRepresentable {
         let css = """
         document.documentElement.style.background='#22262b';
         document.body.style.background='#22262b';
+        // Tinymist 0.15.8 mixes off-screen canvas pages into SVG foreignObjects.
+        // In WebKit these create enormous backing layers for book-length SVGs.
+        // Keep its viewport SVG renderer, without the optional canvas fallback.
+        const container = document.getElementById('typst-container');
+        const svgOnly = doc => {
+            if (doc?.impl?.renderMode === 'svg' && 'feat$canvas' in doc.impl) doc.impl.feat$canvas = false;
+        };
+        const watchDocuments = documents => {
+            if (!Array.isArray(documents)) return documents;
+            documents.forEach(svgOnly);
+            const push = documents.push;
+            documents.push = function(...docs) { docs.forEach(svgOnly); return push.apply(this, docs); };
+            return documents;
+        };
+        if (container) {
+            let documents = watchDocuments(container.documents);
+            Object.defineProperty(container, 'documents', {
+                configurable: true,
+                get: () => documents,
+                set: value => { documents = watchDocuments(value); }
+            });
+        }
         window.sumiSetDark = (dark) => {
             window.sumiPreviewDark = dark;
             const root = document.getElementById('typst-app');
@@ -42,11 +64,14 @@ struct PreviewView: NSViewRepresentable {
         context.coordinator.applyZoom(to: view)
     }
     @MainActor final class Coordinator: NSObject, WKNavigationDelegate {
-        var loadedURL: URL?
+        var loadedURL: URL? {
+            didSet { if loadedURL != oldValue { recoveredTermination = false } }
+        }
         var zoom: CGFloat = 1
         var dark = false
         private var appliedZoom: CGFloat?
         private var appliedDark: Bool?
+        private var recoveredTermination = false
         let onError: (String) -> Void
         init(onError: @escaping (String) -> Void) { self.onError = onError }
         func applyZoom(to view: WKWebView) {
@@ -80,6 +105,15 @@ struct PreviewView: NSViewRepresentable {
             else {
                 decisionHandler(.cancel)
                 if navigationAction.navigationType == .linkActivated, ["https", "http"].contains(target.scheme ?? "") { NSWorkspace.shared.open(target) }
+            }
+        }
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            appliedZoom = nil; appliedDark = nil
+            if !recoveredTermination {
+                recoveredTermination = true
+                webView.reload()
+            } else {
+                onError(L10n.text("Preview stopped unexpectedly. Reconnect typesetting to try again."))
             }
         }
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onError(L10n.format("Preview failed to load: %@", error.localizedDescription)) }

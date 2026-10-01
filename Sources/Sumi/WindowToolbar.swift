@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 import SumiCore
 
 @MainActor
@@ -8,7 +9,27 @@ final class WindowToolbar: NSObject, NSToolbarDelegate {
     private let documentID = NSToolbarItem.Identifier("SumiDocument")
     private let actionsID = NSToolbarItem.Identifier("SumiActions")
 
-    init(workspace: Workspace) { self.workspace = workspace }
+    private let titleSize = ToolbarTitleSize()
+    private var subscriptions: Set<AnyCancellable> = []
+
+    init(workspace: Workspace) {
+        self.workspace = workspace
+        super.init()
+        Publishers.CombineLatest(workspace.$managedTitle, workspace.$fileURL)
+            .receive(on: RunLoop.main).sink { [weak self] _ in self?.resizeTitle() }.store(in: &subscriptions)
+        NotificationCenter.default.publisher(for: NSWindow.didResizeNotification, object: workspace.window)
+            .sink { [weak self] _ in self?.resizeTitle() }.store(in: &subscriptions)
+        resizeTitle()
+    }
+
+    private func resizeTitle() {
+        let textWidth = (workspace.title as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]).width
+        // Reserve traffic lights, native toolbar spacing and the fixed actions.
+        // A short title hugs its content; long names can use the remaining space.
+        let available = max(120, (workspace.window?.frame.width ?? 820) - 340)
+        let width = min(available, max(160, ceil(textWidth) + 64))
+        if titleSize.width != width { titleSize.width = width }
+    }
 
     func makeToolbar() -> NSToolbar {
         let toolbar = NSToolbar(identifier: "SumiToolbar")
@@ -30,13 +51,24 @@ final class WindowToolbar: NSObject, NSToolbarDelegate {
         let item = NSToolbarItem(itemIdentifier: identifier)
         if identifier == documentID {
             item.label = L10n.text("Current Document")
-            item.view = NSHostingView(rootView: DocumentTitle(workspace: workspace).frame(width: 240, height: 30))
+            item.view = NSHostingView(rootView: AdaptiveDocumentTitle(workspace: workspace, size: titleSize))
         } else if identifier == actionsID {
             item.label = L10n.text("Writing Views and Export")
             item.view = NSHostingView(rootView: WritingActions(workspace: workspace).frame(height: 30))
         } else { return nil }
         return item
     }
+}
+
+@MainActor
+private final class ToolbarTitleSize: ObservableObject {
+    @Published var width: CGFloat = 240
+}
+
+private struct AdaptiveDocumentTitle: View {
+    let workspace: Workspace
+    @ObservedObject var size: ToolbarTitleSize
+    var body: some View { DocumentTitle(workspace: workspace).frame(width: size.width, height: 30) }
 }
 
 private struct DocumentTitle: View {

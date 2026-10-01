@@ -17,7 +17,9 @@ struct FloatingOutline: View {
         // expand it for reading long headings without moving the manuscript.
         min(224, max(hovering ? 180 : 30, availableMargin - 24))
     }
-    private var current: Int? { workspace.outline.last { $0.offset <= workspace.selection.location }?.id }
+    private var navigation: OutlineNavigation { workspace.outlineNavigation }
+    private var current: Int? { workspace.activeOutlineIndex.map { navigation.visibleAncestor(of: $0) } }
+    private var visible: [Int] { navigation.visibleIndices }
 
     var body: some View {
         if !workspace.outline.isEmpty || workspace.sidePanel == .outline {
@@ -28,6 +30,10 @@ struct FloatingOutline: View {
                             Text(L10n.text("Outline")).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.muted)
                         }
                         Spacer(minLength: 0)
+                        if panelWidth >= 140, !navigation.branches.isEmpty {
+                            foldButton(expand: true)
+                            foldButton(expand: false)
+                        }
                         Button {
                             if pinned {
                                 workspace.sidePanel = nil
@@ -58,31 +64,21 @@ struct FloatingOutline: View {
                                 if workspace.outline.isEmpty {
                                     Text(L10n.text("Write your first heading with =")).font(.system(size: 11)).foregroundStyle(Theme.muted).padding(14)
                                 }
-                                ForEach(workspace.outline) { item in
-                                    Button { workspace.jump(to: item.offset) } label: {
-                                        HStack(spacing: 8) {
-                                            Capsule().fill(item.id == current ? Theme.accent.opacity(0.8) : Color.clear).frame(width: 2, height: 11)
-                                            if panelWidth >= 70 {
-                                                Text(item.title).font(.system(size: 11, weight: item.id == current ? .medium : .regular))
-                                                    .lineLimit(2).multilineTextAlignment(.leading)
-                                            }
-                                            Spacer(minLength: 0)
-                                        }.foregroundStyle(item.id == current ? Theme.text : Theme.secondary)
-                                            .padding(.leading, panelWidth < 70 ? 3 : CGFloat(8 + min(item.level - 1, 3) * 5)).padding(.trailing, 6).padding(.vertical, 9)
-                                            .contentShape(Rectangle())
-
-                                    }.buttonStyle(.plain).id(item.id)
+                                ForEach(visible, id: \.self) { index in
+                                    outlineRow(index).id(index)
                                 }
                             }.padding(5)
-                        }.frame(height: min(350, max(52, CGFloat(workspace.outline.count) * 42 + 10)))
+                        }.frame(height: min(350, max(52, CGFloat(visible.count) * 42 + 10)))
                             .onAppear { if let current { proxy.scrollTo(current) } }
+                            .onChange(of: current) { _, value in if let value { proxy.scrollTo(value) } }
                     }
                 } else {
                     Button { workspace.sidePanel = .outline } label: {
                         VStack(alignment: .leading, spacing: 11) {
-                            ForEach(Array(workspace.outline.prefix(14))) { item in
-                                Capsule().fill(item.id == current ? Theme.accent.opacity(0.8) : Theme.muted.opacity(0.45))
-                                    .frame(width: item.level == 1 ? 16 : 9, height: 2)
+                            ForEach(navigation.minimapBuckets(), id: \.lowerBound) { bucket in
+                                let active = workspace.activeOutlineIndex.map { bucket.contains($0) } ?? false
+                                Capsule().fill(active ? Theme.accent.opacity(0.9) : Theme.muted.opacity(0.45))
+                                    .frame(width: bucket.contains(where: { navigation.parents[$0] == nil }) ? 16 : 9, height: 2)
                             }
                         }.padding(.horizontal, 7).padding(.vertical, 15).contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel(L10n.text("Show outline"))
@@ -112,4 +108,41 @@ struct FloatingOutline: View {
             .onDisappear { dismissTask?.cancel() }
         }
     }
+    private func foldButton(expand: Bool) -> some View {
+        Button { workspace.expandOutline(expand) } label: {
+            PhosphorIcon(name: expand ? "caret-double-down" : "caret-double-up", size: 13)
+                .foregroundStyle(Theme.muted).frame(width: 18, height: 24).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+            .accessibilityIdentifier(expand ? "outline.expandAll" : "outline.collapseAll")
+            .accessibilityLabel(L10n.text(expand ? "Expand All Headings" : "Collapse All Headings"))
+            .learningHelp(L10n.text(expand ? "Expand All Headings" : "Collapse All Headings"), shortcut: "⌘\(workspace.commandKey.uppercased()) → v " + (expand ? "e" : "c"))
+    }
+
+    private func outlineRow(_ index: Int) -> some View {
+        let item = navigation.items[index]
+        return HStack(spacing: 3) {
+            Capsule().fill(index == current ? Theme.accent.opacity(0.8) : Color.clear).frame(width: 2, height: 11)
+            if panelWidth >= 70 {
+                if navigation.branches.contains(index) {
+                    Button { workspace.toggleOutlineSection(index) } label: {
+                        PhosphorIcon(name: "caret-right", size: 10)
+                            .rotationEffect(.degrees(navigation.isExpanded(index) ? 90 : 0))
+                            .frame(width: 16, height: 28).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                        .accessibilityLabel(L10n.text(navigation.isExpanded(index) ? "Collapse section" : "Expand section") + ": " + item.title)
+                } else { Color.clear.frame(width: 16, height: 1) }
+            }
+            Button { workspace.jump(to: item.offset) } label: {
+                HStack(spacing: 0) {
+                    if panelWidth >= 70 {
+                        Text(item.title).font(.system(size: 11, weight: index == current ? .medium : .regular))
+                            .lineLimit(2).multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 0)
+                }.padding(.vertical, 9).contentShape(Rectangle())
+            }.buttonStyle(.plain)
+        }.foregroundStyle(index == current ? Theme.text : Theme.secondary)
+            .padding(.leading, panelWidth < 70 ? 3 : CGFloat(3 + min(item.level - 1, 4) * 7)).padding(.trailing, 6)
+    }
+
 }
