@@ -45,7 +45,10 @@ struct UniverseBrowser: View {
     @ObservedObject private var localization = AppLocalization.shared
     private let onImport: (UniversePackage) throws -> Void
     private let onCreate: ((UniversePackage) async throws -> Void)?
+    private let onCreateBuiltIn: ((BuiltInTemplate) async throws -> Void)?
     private let onAddSample: ((SampleBook) async throws -> Void)?
+    private let onModeChange: ((UniverseDiscoveryMode) -> Void)?
+    private let onClose: (() -> Void)?
     private let onBack: (() -> Void)?
     private let compilerVersion: String
     private let canImport: Bool
@@ -61,10 +64,16 @@ struct UniverseBrowser: View {
 
     init(cacheURL: URL, mode: UniverseDiscoveryMode = .packages, size: CGSize = CGSize(width: 1040, height: 720),
          compilerVersion: String = "0.15.1", canImport: Bool = true, onBack: (() -> Void)? = nil,
+         onClose: (() -> Void)? = nil,
+         onModeChange: ((UniverseDiscoveryMode) -> Void)? = nil,
          onCreate: ((UniversePackage) async throws -> Void)? = nil,
+         onCreateBuiltIn: ((BuiltInTemplate) async throws -> Void)? = nil,
          onAddSample: ((SampleBook) async throws -> Void)? = nil,
          onImport: @escaping (UniversePackage) throws -> Void) {
+        self.onClose = onClose
+        self.onModeChange = onModeChange
         self.onImport = onImport
+        self.onCreateBuiltIn = onCreateBuiltIn
         self.onCreate = onCreate
         self.onAddSample = onAddSample
         self.onBack = onBack
@@ -98,12 +107,17 @@ struct UniverseBrowser: View {
                     }
                 }
             }
+            if let actionError {
+                Text(actionError).font(.system(size: 11)).foregroundStyle(Theme.red)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 24).padding(.vertical, 8)
+            }
             footer
         }
         .frame(width: size.width, height: size.height)
         .background(Theme.background).foregroundStyle(Theme.text).preferredColorScheme(.dark)
         .interactiveDismissDisabled(isApplying)
         .task { searchFocused = true; await model.load() }
+        .onChange(of: model.mode) { _, mode in onModeChange?(mode) }
         .onChange(of: model.query) { _, _ in compactDetails = false; actionError = nil }
         .onChange(of: model.group) { _, _ in compactDetails = false; actionError = nil }
         .onDisappear { actionTask?.cancel() }
@@ -127,7 +141,7 @@ struct UniverseBrowser: View {
                     .font(.system(size: 12)).foregroundStyle(Theme.secondary)
             }
             Spacer(minLength: 0)
-            QuietButton(icon: "x", help: L10n.text("Close discovery"), shortcut: "Esc") { if let onBack { onBack() } else { dismiss() } }
+            QuietButton(icon: "x", help: L10n.text("Close discovery"), shortcut: "Esc") { if let onClose { onClose() } else { dismiss() } }
                 .keyboardShortcut(.cancelAction).disabled(isApplying)
         }.padding(.horizontal, 28).padding(.top, 24).padding(.bottom, 22)
     }
@@ -160,6 +174,7 @@ struct UniverseBrowser: View {
                             }.foregroundStyle(model.group == group.id ? Theme.text : Theme.secondary)
                                 .padding(.horizontal, 11).frame(height: 30)
                                 .background(model.group == group.id ? Theme.border.opacity(0.7) : .clear, in: Capsule())
+                                .contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityIdentifier("universe.group.\(group.id)")
                     }
                 }
@@ -175,13 +190,23 @@ struct UniverseBrowser: View {
             }.foregroundStyle(model.mode == mode ? Theme.text : Theme.muted)
                 .padding(.horizontal, 12).frame(height: 30)
                 .background(model.mode == mode ? Theme.border.opacity(0.6) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                .contentShape(Rectangle())
         }.buttonStyle(.plain).accessibilityIdentifier("universe.mode.\(mode == .templates ? "templates" : "packages")")
     }
 
     private var catalog: some View {
         let results = model.results
         let showSample = onAddSample != nil && model.mode == .templates && (model.group.isEmpty || model.group == "books") && SampleBook.sicp.matches(model.query)
+        let builtIns = onCreateBuiltIn != nil && model.mode == .templates && (model.group.isEmpty || model.group == "books")
+            ? BuiltInTemplate.allCases.filter { $0.matches(model.query) } : []
         return ScrollView {
+            if !builtIns.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(builtIns) { template in
+                        BuiltInTemplateCard(template: template, isCreating: isApplying) { apply(template) }
+                    }
+                }.padding(24).padding(.bottom, -16)
+            }
             if showSample {
                 SampleBookCard(isAdding: isApplying) {
                     guard !isApplying, let onAddSample else { return }
@@ -207,7 +232,7 @@ struct UniverseBrowser: View {
                 }
             }.padding(24)
         }.overlay {
-            if results.isEmpty && !showSample {
+            if results.isEmpty && !showSample && builtIns.isEmpty {
                 VStack(spacing: 12) {
                     if model.isLoading { ProgressView().controlSize(.small) }
                     else { PhosphorIcon(name: "magnifying-glass", size: 26).foregroundStyle(Theme.muted) }
@@ -277,7 +302,7 @@ struct UniverseBrowser: View {
                             .padding(11).frame(maxWidth: .infinity, alignment: .leading)
                             .background(Theme.editor, in: RoundedRectangle(cornerRadius: 6))
                     }
-                    Text(L10n.text(package.isTemplate ? "Includes the starter document and its assets. Your new document is an independent copy." : "Adds a pinned import to your document. Open the documentation for examples and setup."))
+                    Text(L10n.text(package.isTemplate ? "Includes the document and its assets. First use may download packages. Your copy is independent." : "Adds a pinned import to your document. Open the documentation for examples and setup."))
                         .font(.system(size: 11)).lineSpacing(4).foregroundStyle(Theme.muted)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(L10n.format("License  %@", package.license))
@@ -293,7 +318,6 @@ struct UniverseBrowser: View {
                 if !package.isTemplate && !canImport {
                     Text(L10n.text("Open a document to add packages.")).font(.system(size: 11)).foregroundStyle(Theme.muted)
                 }
-                if let actionError { Text(actionError).font(.system(size: 11)).foregroundStyle(Theme.red).lineLimit(4) }
                 Button { apply(package) } label: {
                     HStack(spacing: 8) {
                         if isApplying { ProgressView().controlSize(.small).scaleEffect(0.8).frame(width: 14, height: 14) }
@@ -352,6 +376,18 @@ struct UniverseBrowser: View {
         if package.categories.contains("scripting") || package.categories.contains("integration") { return "code" }
         if package.categories.contains("model") { return "tree-structure" }
         return "package"
+    }
+
+    private func apply(_ template: BuiltInTemplate) {
+        guard !isApplying, let onCreateBuiltIn else { return }
+        isApplying = true
+        actionError = nil
+        actionTask = Task {
+            defer { isApplying = false }
+            do { try await onCreateBuiltIn(template); dismiss() }
+            catch is CancellationError { }
+            catch { actionError = error.localizedDescription }
+        }
     }
 
     private func apply(_ package: UniversePackage) {

@@ -110,7 +110,7 @@ struct AutomationIntegrationTests {
 
     private func directory() throws -> URL {
         // TMPDIR is set by scripts/environment.sh; short names fit Darwin's Unix socket limit.
-        let root = TestPaths.temporaryDirectory.appendingPathComponent("sm-" + UUID().uuidString.prefix(8))
+        let root = TestPaths.temporaryDirectory.appendingPathComponent("m" + UUID().uuidString.prefix(8))
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         return root
     }

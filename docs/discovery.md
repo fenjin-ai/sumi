@@ -4,7 +4,21 @@ Sumi treats a template as a starting document and a package as a tool for the cu
 
 ## Starting a document
 
-The library has a visible **Browse templates** action beside **New document**. New document and Command-N still create a blank document immediately; a gallery is never a mandatory step.
+**Command-N**, the New Document menu item and the matching discovery command open Templates. The library has one **Browse templates** action. Templates and the library use the same sheet; opening discovery while the library is already visible changes its contents without stacking another sheet. The blank page remains one explicit choice, always available offline, independent of old template preferences.
+
+Two built-in choices lead the gallery: **A quiet space to write**, Sumi's original editable guide, and **Blank page**. A first launch starts with the guide in the selected app language and a side-by-side preview. Choosing the guide again also opens its preview. Switching languages never replaces existing writing, and recovery always wins over new welcome content. The guide combines prose, headings, inline and display equations, a table, a CeTZ diagram and a Codly code block. It introduces the outline, command discovery, preview, library and export with ordinary writing examples. The source is a normal Typst document with explicit pinned imports. CeTZ 0.5.2, its oxifmt 1.0.0 dependency and Codly 1.3.0 ship as source with their licenses, so both built-in choices compile without a network request. Other Universe templates may download package code on first creation. Built-in choices remain visible when the catalog cannot be reached.
+
+The original guide is in `Sources/SumiCore/Resources/Templates`, with an English copy in `Examples/Welcome.typ` and a generated first-page thumbnail. To regenerate its thumbnail with the pinned engine, run:
+
+```sh
+source scripts/environment.sh
+scripts/bootstrap.sh
+mkdir -p build/welcome-check
+.tools/tinymist compile --package-path Resources/Packages Sources/SumiCore/Resources/Templates/Welcome.typ build/welcome-check/welcome.pdf
+pdftoppm -f 1 -singlefile -scale-to 520 -png build/welcome-check/welcome.pdf Sources/SumiCore/Resources/Templates/welcome-cover
+```
+
+The guide follows the official tutorial's progression from text to notation and reusable tools; examples and prose are original. These are editorial choices for usefulness, not a claimed popularity ranking. Mode controls and collection chips use their full visible bounds as hit targets.
 
 The template gallery uses actual versioned thumbnails from Typst Universe. Missing images have a clearly labeled typographic placeholder, not a fabricated document preview. Selecting a template reveals its description, license, version, author, documentation, and a **Create document** action. In wider windows the details remain beside the grid. Below 850 points the selected detail replaces the grid, with an explicit Back to results action. The sheet fits the writing window and grows to 1040 by 720 points; the ordinary library grows to 980 by 680 points.
 
@@ -20,7 +34,7 @@ Creating a template runs the bundled Tinymist `tinymist.doInitTemplate` command 
 
 ## Downloadable example books
 
-The library and the Books template collection include a SICP card with an
+The template gallery (All templates and Books & writing) includes a SICP card with an
 original typographic cover, source/license link and **Add to my writing** action.
 It also matches SICP and bilingual book searches. No book is downloaded at app
 launch. Adding it downloads about 1.9 MB, verifies the pinned SHA-256 and byte
@@ -65,6 +79,9 @@ The network scenarios are opt-in so ordinary CI is deterministic. Set `SUMI_DISC
 
 ## Primary references
 
+- [Typst tutorial](https://typst.app/docs/tutorial/)
+- [CeTZ documentation and examples](https://typst.app/universe/package/cetz/)
+- [Codly documentation and examples](https://typst.app/universe/package/codly/)
 - [Official Typst package catalog](https://packages.typst.org/preview/index.json)
 - [Typst packages repository and template manifest documentation](https://github.com/typst/packages)
 - [Tinymist template scaffolding implementation](https://github.com/Myriad-Dreamin/tinymist/blob/v0.15.8/crates/tinymist/src/cmd.rs)

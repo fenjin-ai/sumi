@@ -291,7 +291,10 @@ struct WritingFlowTests {
         try choose("Save")
         #expect(try String(contentsOf: app.document, encoding: .utf8).contains("Saved by menu"))
         try choose("New Document")
-        try await app.wait { app.workspace.managedDocumentID != nil && !app.workspace.library.busy }
+        #expect(app.workspace.libraryOpen)
+        #expect(app.workspace.discoveryMode == .templates)
+        #expect(app.workspace.fileURL == app.document)
+        try await app.workspace.library.create(builtIn: .blank)
         #expect(app.workspace.title == L10n.text("Untitled"))
         try await app.ready()
         #expect(delegate.applicationShouldTerminateAfterLastWindowClosed(NSApp))

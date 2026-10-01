@@ -60,7 +60,7 @@ final class Workspace: ObservableObject {
     @Published var styledSource = true {
         didSet { editor?.highlight() }
     }
-    @Published var universeOpen = false
+    @Published var discoveryMode: UniverseDiscoveryMode?
     @Published var libraryOpen = false
     @Published private(set) var isLibraryHome = false
     @Published var documentTemplate: DocumentTemplate = .blank
@@ -155,6 +155,7 @@ final class Workspace: ObservableObject {
             }
         } else {
             text = Self.welcome
+            layout = .split
         }
         saveStatus = fileURL == nil ? "Local Draft" : (text == savedText ? "Saved" : "Unsaved Work Restored")
         client.onNotification = { [weak self] method, params in self?.receive(method, params) }
@@ -393,10 +394,20 @@ final class Workspace: ObservableObject {
 
     func newDocument() {
         recordOperation("document.new")
-        library.perform { try await self.library.create() }
+        openDiscovery(.templates)
     }
 
-    func openLibrary() { if !isLibraryHome { libraryOpen = true } }
+    func openLibrary() {
+        discoveryMode = nil
+        if !isLibraryHome { libraryOpen = true }
+    }
+
+    /// Discovery and the library share one presentation, including on an empty library.
+    func openDiscovery(_ mode: UniverseDiscoveryMode) {
+        closePalette()
+        discoveryMode = mode
+        if !isLibraryHome { libraryOpen = true }
+    }
 
     /// No replacement draft is created when the last document is trashed.
     func showLibraryHome() {
@@ -547,7 +558,6 @@ final class Workspace: ObservableObject {
         case "fontLarger": closePalette(); fontSize = min(28, fontSize + 1)
         case "fontSmaller": closePalette(); fontSize = max(12, fontSize - 1)
         case "new": closePalette(); newDocument()
-        case "newCodeNotes": closePalette(); library.perform { try await self.library.create(template: .codeNotes) }
         case "open": closePalette(); openLibrary()
         case "importDocument": closePalette(); library.importPanel()
         case "revealSource": closePalette(); NSWorkspace.shared.activateFileViewerSelecting([documentURL])
@@ -564,7 +574,7 @@ final class Workspace: ObservableObject {
         case "restart": closePalette(); startService()
         case "revealPreview": closePalette(); revealPreview()
         case "logs": closePalette(); revealLogs()
-        case "universe": closePalette(); universeOpen = true
+        case "universe": openDiscovery(.packages)
         case "previewDark": previewDark.toggle(); closePalette()
         case "styledSource": styledSource.toggle(); closePalette()
         case "format": closePalette(); formatDocument()
