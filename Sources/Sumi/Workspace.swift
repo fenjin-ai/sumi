@@ -50,6 +50,13 @@ final class Workspace: ObservableObject {
     @Published var selectedCommandIndex = 0
     @Published var exporting = false
     @Published var previewZoom: CGFloat = 1
+    @Published var previewDark = false
+    @Published var styledSource = true {
+        didSet { editor?.highlight() }
+    }
+    @Published var universeOpen = false
+    @Published var previewStale = true
+    @Published var hasSuccessfulPreview = false
     @Published var outline: [OutlineItem] = []
     @Published var applyingCommand = false
     @Published var commandKey: String = UserDefaults.standard.string(forKey: "commandKey") ?? "j" {
@@ -79,9 +86,25 @@ final class Workspace: ObservableObject {
     var filteredCommands: [WritingCommand] {
         searchMode ? WritingCommand.search(query) : WritingCommand.all.filter { $0.group == paletteGroup }
     }
+    var paletteGroups: [CommandGroup] { searchMode ? [] : CommandGroup.children(of: paletteGroup) }
+    var paletteEntryCount: Int { paletteGroups.count + filteredCommands.count }
+    var highlightedCommand: WritingCommand? {
+        let index = selectedCommandIndex - paletteGroups.count
+        return filteredCommands.indices.contains(index) ? filteredCommands[index] : nil
+    }
+    func keyPath(for command: WritingCommand) -> String {
+        var path = [command.key]
+        var group = CommandGroup.all.first { $0.id == command.group }
+        while let current = group {
+            path.insert(current.key, at: 0)
+            group = CommandGroup.all.first { $0.id == current.parentID }
+        }
+        return path.joined(separator: " ")
+    }
 
-    init() {
-        if let override = ProcessInfo.processInfo.environment["SUMI_STATE_DIR"] { stateDirectory = URL(fileURLWithPath: override) }
+    init(stateDirectory directory: URL? = nil) {
+        if let directory { stateDirectory = directory }
+        else if let override = ProcessInfo.processInfo.environment["SUMI_STATE_DIR"] { stateDirectory = URL(fileURLWithPath: override) }
         else { stateDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Sumi") }
         try? FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: stateDirectory.appendingPathComponent("Exports"), withIntermediateDirectories: true)
@@ -121,6 +144,8 @@ final class Workspace: ObservableObject {
         diagnosticsByURI = [:]
         outline = []
         previewURL = nil
+        hasSuccessfulPreview = false
+        previewStale = true
         sentVersion = 0
         Task {
             do {
@@ -152,6 +177,7 @@ final class Workspace: ObservableObject {
     func edited(_ newText: String) {
         text = newText
         documentVersion += 1
+        previewStale = true
         saveStatus = fileURL == nil ? "正在保存草稿" : "尚未保存"
         if serviceReady { serviceStatus = "正在排版" }
         saveTask?.cancel()
@@ -233,12 +259,16 @@ final class Workspace: ObservableObject {
         present(panel) { [weak self] url in
             guard let self else { return }
             do {
-                baseline = try DocumentStorage.write(text, to: url, baseline: nil)
-                fileURL = url; mainFileURL = nil; savedText = text; saveStatus = "已保存"
-                recordOperation("saveAs.finished")
-                saveRecovery(); onTitleChange?(title); startService()
+                try save(to: url)
             } catch { recordOperation("saveAs.failed", ["error": error.localizedDescription]); showMessage(error.localizedDescription, persistent: true) }
         }
+    }
+
+    func save(to url: URL) throws {
+        baseline = try DocumentStorage.write(text, to: url, baseline: url == fileURL ? baseline : nil)
+        fileURL = url; mainFileURL = nil; savedText = text; saveStatus = "已保存"
+        recordOperation("saveAs.finished")
+        saveRecovery(); onTitleChange?(title); startService()
     }
 
     func openPanel(recovery: Bool = false) {
@@ -324,7 +354,8 @@ final class Workspace: ObservableObject {
     func backPalette() {
         commandError = nil
         if activeCommand != nil { activeCommand = nil }
-        else if paletteGroup != nil || searchMode { paletteGroup = nil; searchMode = false; query = "" }
+        else if searchMode { searchMode = false; query = "" }
+        else if let group = paletteGroup { paletteGroup = CommandGroup.all.first { $0.id == group }?.parentID }
         else { closePalette() }
         selectedCommandIndex = 0
     }
@@ -332,8 +363,9 @@ final class Workspace: ObservableObject {
     func selectCommand(_ command: WritingCommand) {
         recordOperation("command.selected", ["command": command.id, "source": searchMode ? "search" : "group"])
         commandError = nil
+        fieldValues = Dictionary(uniqueKeysWithValues: command.fields.map { ($0.id, $0.initial) })
         if command.fields.isEmpty { execute(command) }
-        else { activeCommand = command; fieldValues = Dictionary(uniqueKeysWithValues: command.fields.map { ($0.id, $0.initial) }) }
+        else { activeCommand = command }
     }
 
     func handlePaletteKey(_ event: NSEvent) -> Bool {
@@ -342,14 +374,18 @@ final class Workspace: ObservableObject {
         if event.keyCode == 53 { backPalette(); return true }
         guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return false }
         if activeCommand != nil { return false }
-        if event.keyCode == 125 { selectedCommandIndex = min(selectedCommandIndex + 1, max(0, filteredCommands.count - 1)); return true }
+        if event.keyCode == 125 { selectedCommandIndex = min(selectedCommandIndex + 1, max(0, paletteEntryCount - 1)); return true }
         if event.keyCode == 126 { selectedCommandIndex = max(0, selectedCommandIndex - 1); return true }
-        if event.keyCode == 36, !filteredCommands.isEmpty { selectCommand(filteredCommands[min(selectedCommandIndex, filteredCommands.count - 1)]); return true }
+        if event.keyCode == 36, paletteEntryCount > 0 {
+            if paletteGroups.indices.contains(selectedCommandIndex) { enterGroup(paletteGroups[selectedCommandIndex].id) }
+            else if let command = highlightedCommand { selectCommand(command) }
+            return true
+        }
         if searchMode { return false }
         guard let key = event.charactersIgnoringModifiers?.lowercased() else { return false }
         if key == "/" { searchMode = true; paletteGroup = nil; return true }
         if let group = paletteGroup, let command = WritingCommand.all.first(where: { $0.group == group && $0.key == key }) { selectCommand(command); return true }
-        if paletteGroup == nil, let group = CommandGroup.all.first(where: { $0.key == key }) { enterGroup(group.id); return true }
+        if let group = paletteGroups.first(where: { $0.key == key }) { enterGroup(group.id); return true }
         return true
     }
 
@@ -371,8 +407,56 @@ final class Workspace: ObservableObject {
         case "restart": closePalette(); startService()
         case "revealPreview": closePalette(); revealPreview()
         case "logs": closePalette(); revealLogs()
+        case "universe": closePalette(); universeOpen = true
+        case "previewDark": previewDark.toggle(); closePalette()
+        case "styledSource": styledSource.toggle(); closePalette()
+        case "format": closePalette(); formatDocument()
+        case "indent": closePalette(); editLines(.indent)
+        case "outdent": closePalette(); editLines(.outdent)
+        case "comment": closePalette(); editLines(.comment)
+        case "completion": closePalette(); requestCompletion()
         default: insert(command)
         }
+    }
+
+    func editLines(_ action: LineAction) {
+        guard let editor, !editor.hasMarkedText() else { return }
+        let replacement = TextEditing.lines(action, text: text, selection: editor.selectedRange())
+        editor.insertSnippet(Snippet(text: replacement.text), replacing: replacement.range)
+        editor.setSelectedRange(NSRange(location: replacement.range.location, length: replacement.text.utf16.count))
+    }
+
+    func formatDocument() {
+        guard serviceReady, let editor, !editor.hasMarkedText() else { return }
+        let version = documentVersion, generation = serviceGeneration, caret = editor.selectedRange()
+        Task {
+            do {
+                try flushChanges()
+                let result = try await client.request("textDocument/formatting", ["textDocument": ["uri": documentURL.absoluteString], "options": ["tabSize": 2, "insertSpaces": true]])
+                guard documentVersion == version, serviceGeneration == generation, !editor.hasMarkedText() else { return }
+                let replacements = result.array.map { edit in
+                    let range = edit["range"]
+                    let start = TextPosition(line: range["start"]["line"].int ?? 0, character: range["start"]["character"].int ?? 0).offset(in: text)
+                    let end = TextPosition(line: range["end"]["line"].int ?? 0, character: range["end"]["character"].int ?? 0).offset(in: text)
+                    return TextReplacement(range: NSRange(location: start, length: end - start), text: edit["newText"].string ?? "")
+                }
+                let formatted = try TextEditing.applying(replacements, to: text)
+                guard formatted != text else { showMessage("文稿格式已经整齐。"); return }
+                editor.insertSnippet(Snippet(text: formatted), replacing: NSRange(location: 0, length: text.utf16.count))
+                editor.setSelectedRange(NSRange(location: min(caret.location, formatted.utf16.count), length: 0))
+                recordOperation("document.formatted")
+            } catch { showMessage(error.localizedDescription) }
+        }
+    }
+
+    func importPackage(_ package: UniversePackage) throws {
+        guard let editor, !editor.hasMarkedText() else { throw CommandError.invalid("请先完成当前输入，再插入包。") }
+        guard package.isCompatible(with: "0.15.1") else { throw CommandError.invalid("这个版本需要更新的 Typst。请在 Universe 查看兼容版本。") }
+        let snippet = try package.pinnedImport()
+        if text.contains(TypstInsertion.quoted(package.reference)) { throw CommandError.invalid("文稿已经包含这个版本的包。") }
+        if layout == .preview { layout = .split }
+        editor.insertSnippet(snippet.padded(before: "", after: "\n"), replacing: NSRange(location: 0, length: 0))
+        recordOperation("package.imported", ["package": package.reference])
     }
 
     private func insert(_ command: WritingCommand) {
@@ -387,22 +471,25 @@ final class Workspace: ObservableObject {
             defer { applyingCommand = false }
             do {
                 try flushChanges()
-                if command.group != "page" {
+                var insertionContext = InsertionContext.markup
+                if command.placement != .preamble {
                     var offsets = [range.location]
                     if range.length > 0 { offsets.append((text as NSString).rangeOfComposedCharacterSequence(at: NSMaxRange(range) - 1).location) }
                     if range.location == text.utf16.count, !text.isEmpty { offsets.append((text as NSString).rangeOfComposedCharacterSequence(at: range.location - 1).location) }
                     let queries: [[String: Any]] = offsets.map { ["kind": "modeAt", "position": TextPosition(offset: $0, in: text).json] }
                     let result = try await client.command("tinymist.interactCodeContext", arguments: [["textDocument": ["uri": documentURL.absoluteString], "query": queries]])
-                    guard result.array.count == queries.count, result.array.allSatisfy({ $0["mode"].string == "markup" }) else {
-                        throw CommandError.invalid("这个命令用于正文。当前位置属于公式、代码或注释，请回到正文后插入；现有内容未被修改。")
+                    let modes = result.array.compactMap { $0["mode"].string }
+                    guard modes.count == queries.count, Set(modes).count == 1, modes.allSatisfy(command.acceptsContext) else {
+                        throw CommandError.invalid(command.supportsMath ? "请在正文或同一个公式内插入，避免跨越代码或注释区域。" : "这个命令用于正文。当前位置属于公式、代码或注释，请回到正文后插入；现有内容未被修改。")
                     }
+                    insertionContext = modes.first == "math" ? .math : .markup
                 }
                 guard version == documentVersion, generation == serviceGeneration, paletteOpen, editor.selectedRange() == range else {
                     recordOperation("insertion.cancelled", ["command": command.id, "reason": "document, selection or panel changed"])
                     return
                 }
                 let selected = (text as NSString).substring(with: range)
-                let snippet = try TypstInsertion.make(command.id, values: values, selection: selected)
+                let snippet = try TypstInsertion.make(command.id, values: values, selection: selected, context: insertionContext)
                 let plan = InsertionPlan(command: command, snippet: snippet, text: text, selection: range)
                 closePalette()
                 if layout == .preview { layout = .split }
@@ -436,14 +523,20 @@ final class Workspace: ObservableObject {
         panel.title = "导出 PDF"
         panel.nameFieldStringValue = compilationURL.deletingPathExtension().lastPathComponent + ".pdf"
         panel.allowedContentTypes = [.pdf]
-        present(panel) { [weak self] destination in self?.exportPDF(to: destination) }
+        present(panel) { [weak self] destination in
+            Task { @MainActor in
+                guard let self else { return }
+                do { try await self.exportPDF(to: destination) }
+                catch { self.showMessage(error.localizedDescription, persistent: true) }
+            }
+        }
     }
 
-    private func exportPDF(to destination: URL) {
+    func exportPDF(to destination: URL) async throws {
+        guard serviceReady, !exporting else { throw ServiceError.remote("请等待排版服务准备就绪。") }
         recordOperation("export.begin")
         exporting = true
-        Task {
-            defer { exporting = false }
+        defer { exporting = false }
             do {
                 try flushChanges()
                 let version = documentVersion
@@ -454,8 +547,7 @@ final class Workspace: ObservableObject {
                 try data.write(to: destination, options: .atomic)
                 recordOperation("export.finished", ["exportedVersion": String(version)])
                 showMessage(version == documentVersion ? "PDF 已导出：\(destination.lastPathComponent)" : "PDF 已导出（导出开始时的文稿版本）。")
-            } catch { recordOperation("export.failed", ["error": error.localizedDescription]); showMessage(error.localizedDescription, persistent: true) }
-        }
+            } catch { recordOperation("export.failed", ["error": error.localizedDescription]); throw error }
     }
 
     func requestCompletion() {
@@ -482,10 +574,25 @@ final class Workspace: ObservableObject {
             }
             diagnostics = diagnosticsByURI.keys.sorted().flatMap { diagnosticsByURI[$0] ?? [] }
             recordOperation("diagnostics.updated", ["count": String(diagnostics.count)])
-            serviceStatus = diagnostics.contains { $0.severity == 1 } ? "文稿需要检查" : "排版已更新"
+            if diagnostics.contains(where: { $0.severity == 1 }) {
+                previewStale = true
+                serviceStatus = hasSuccessfulPreview ? "保留上次成稿 · 请检查源码" : "文稿需要检查"
+            }
         } else if method == "tinymist/compileStatus" || method == "tinymist/status" {
             recordOperation("compile.status", ["status": params["status"].string ?? "unknown"])
-            if let status = params["status"].string { serviceStatus = status == "compiling" ? "正在排版" : (status == "compileError" ? "文稿需要检查" : "排版已更新") }
+            if let status = params["status"].string {
+                switch status {
+                case "compiling": previewStale = true; serviceStatus = "正在排版"
+                case "compileError":
+                    previewStale = true
+                    serviceStatus = hasSuccessfulPreview ? "保留上次成稿 · 请检查源码" : "文稿需要检查"
+                case "compileSuccess":
+                    hasSuccessfulPreview = true
+                    previewStale = documentVersion != sentVersion
+                    serviceStatus = previewStale ? "正在排版" : "排版已更新"
+                default: break
+                }
+            }
         }
     }
 

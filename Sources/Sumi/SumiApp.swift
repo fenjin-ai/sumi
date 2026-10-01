@@ -1,9 +1,8 @@
 import AppKit
 import SwiftUI
 
-@main
-enum SumiApplication {
-    @MainActor static func main() {
+public enum SumiApplication {
+    @MainActor public static func main() {
         let application = NSApplication.shared
         let delegate = AppDelegate()
         application.delegate = delegate
@@ -15,9 +14,14 @@ enum SumiApplication {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    private let workspace = Workspace()
+    private let workspace: Workspace
     private var window: NSWindow!
     private var windowToolbar: WindowToolbar?
+
+    init(workspace: Workspace = Workspace()) {
+        self.workspace = workspace
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMenu()
@@ -61,7 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let path = filenames.first { workspace.open(URL(fileURLWithPath: path)) }
     }
 
-    private func installMenu() {
+    func installMenu() {
         let menu = NSMenu()
         func section(_ title: String) -> NSMenu {
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
@@ -119,7 +123,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func about() {
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: "0.1.1", .credits: NSAttributedString(string: "一个安静的 Typst 写作空间。\nBuilt with Swift, Tinymist and Phosphor Icons.")])
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Sumi", .applicationVersion: version, .credits: NSAttributedString(string: "一个安静的 Typst 写作空间。\nBuilt with Swift, Tinymist and Phosphor Icons.")])
     }
     @objc private func settings() {
         let alert = NSAlert()

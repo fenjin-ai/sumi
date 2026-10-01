@@ -1,8 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export TMPDIR=/Volumes/SSD/Developer/Codex/tmp TMP=/Volumes/SSD/Developer/Codex/tmp TEMP=/Volumes/SSD/Developer/Codex/tmp
-test -d /Volumes/SSD/Developer || { echo 'The development SSD is not mounted.' >&2; exit 1; }
-mkdir -p "$TMPDIR"
+source scripts/environment.sh
 scripts/bootstrap.sh
-SUMI_INTEGRATION=1 swift test
+coverage_dir="$(swift build --show-bin-path)/codecov"
+mkdir -p "$coverage_dir"
+rm -f "$coverage_dir"/*.profraw "$coverage_dir"/*.profdata
+rm -rf build/coverage
+test_status=0
+SUMI_INTEGRATION=1 swift test --enable-code-coverage "$@" || test_status=$?
+coverage_status=0
+python3 scripts/coverage.py --minimum 80 || coverage_status=$?
+if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
+exit "$coverage_status"

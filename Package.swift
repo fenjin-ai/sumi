@@ -4,10 +4,12 @@ import PackageDescription
 let package = Package(
     name: "Sumi",
     platforms: [.macOS(.v14)],
-    products: [.executable(name: "Sumi", targets: ["Sumi"])],
+    products: [.executable(name: "Sumi", targets: ["SumiLauncher"])],
     targets: [
         .target(name: "SumiCore"),
-        .executableTarget(name: "Sumi", dependencies: ["SumiCore"]),
-        .testTarget(name: "SumiCoreTests", dependencies: ["SumiCore"])
+        .target(name: "SumiApp", dependencies: ["SumiCore"], path: "Sources/Sumi"),
+        .executableTarget(name: "SumiLauncher", dependencies: ["SumiApp"]),
+        .testTarget(name: "SumiCoreTests", dependencies: ["SumiCore"]),
+        .testTarget(name: "SumiAppTests", dependencies: ["SumiApp", "SumiCore"])
     ]
 )

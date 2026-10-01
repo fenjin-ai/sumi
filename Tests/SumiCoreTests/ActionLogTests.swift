@@ -3,7 +3,7 @@ import Testing
 @testable import SumiCore
 
 @Test func actionLogPersistsDistinctSessions() throws {
-    let directory = URL(fileURLWithPath: "/Volumes/SSD/Developer/Codex/tmp/Sumi-log-\(UUID().uuidString)")
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-log-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appendingPathComponent("events.jsonl")
     do {
@@ -27,7 +27,7 @@ import Testing
 }
 
 @Test func actionLogRotationKeepsCompleteRecentRecords() throws {
-    let directory = URL(fileURLWithPath: "/Volumes/SSD/Developer/Codex/tmp/Sumi-log-\(UUID().uuidString)")
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-log-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: directory) }
     let log = try ActionLog(directory: directory, maxBytes: 700, archivedFiles: 2)
     for index in 0..<30 { #expect(log.record("key.down", fields: ["index": String(index), "key": "Return"])) }

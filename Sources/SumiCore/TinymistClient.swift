@@ -145,7 +145,7 @@ public final class TinymistClient {
 
     public func startPreview(_ url: URL) async throws -> URL {
         let response = try await command("tinymist.doStartPreview", arguments: [[
-            "--task-id=sumi", "--data-plane-host=127.0.0.1:0", "--control-plane-host=127.0.0.1:0", "--no-open", "--invert-colors=never", url.path
+            "--task-id=sumi", "--data-plane-host=127.0.0.1:0", "--control-plane-host=127.0.0.1:0", "--no-open", "--partial-rendering=true", "--invert-colors=never", url.path
         ]])
         guard let port = response["staticServerPort"].int, let preview = URL(string: "http://127.0.0.1:\(port)/") else { throw ServiceError.remote("预览服务没有返回有效地址。") }
         return preview

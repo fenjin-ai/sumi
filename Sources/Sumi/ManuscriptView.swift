@@ -65,6 +65,7 @@ struct ManuscriptView: NSViewRepresentable {
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let editor = notification.object as? ManuscriptTextView else { return }
             workspace.selection = editor.selectedRange()
+            editor.scheduleHighlight()
         }
     }
 }
@@ -76,6 +77,34 @@ final class ManuscriptTextView: NSTextView {
     private var placeholders: [NSRange] = []
     private var placeholderIndex = 0
     private var completionItems: [JSONValue] = []
+    private var highlighting = false
+    private weak var observedUndoManager: UndoManager?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observeUndoManager()
+    }
+
+    private func observeUndoManager() {
+        let manager = window == nil ? nil : undoManager
+        guard observedUndoManager !== manager else { return }
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.NSUndoManagerDidUndoChange, object: nil)
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.NSUndoManagerDidRedoChange, object: nil)
+        observedUndoManager = manager
+        if let undoManager = manager {
+            NotificationCenter.default.addObserver(self, selector: #selector(undoOrRedoCompleted), name: NSNotification.Name.NSUndoManagerDidUndoChange, object: undoManager)
+            NotificationCenter.default.addObserver(self, selector: #selector(undoOrRedoCompleted), name: NSNotification.Name.NSUndoManagerDidRedoChange, object: undoManager)
+        }
+    }
+
+    @objc private func undoOrRedoCompleted(_ notification: Notification) {
+        // AppKit can restore the text storage without a delegate textDidChange
+        // after grouped programmatic edits. Reconcile only after the whole group.
+        placeholders = []
+        if let workspace, workspace.text != string { workspace.edited(string) }
+        workspace?.selection = selectedRange()
+        scheduleHighlight()
+    }
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
@@ -100,7 +129,9 @@ final class ManuscriptTextView: NSTextView {
     }
 
     func highlight() {
-        guard !hasMarkedText(), let storage = textStorage else { return }
+        guard !highlighting, !hasMarkedText(), let storage = textStorage else { return }
+        highlighting = true
+        defer { highlighting = false }
         let size = workspace?.fontSize ?? 16
         let font = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
         let paragraph = NSMutableParagraphStyle()
@@ -121,15 +152,39 @@ final class ManuscriptTextView: NSTextView {
         paint("\\$[^$]*\\$", [.foregroundColor: NSColor(hex: 0xD9B97C)])
         paint("\\*[^*\\n]+\\*", [.foregroundColor: NSColor(hex: 0xEEE8DA), .font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold)])
         paint("(?m)^//.*$", [.foregroundColor: NSColor(hex: 0x7C8793)])
+        if workspace?.styledSource == true {
+            let active = SourcePresentation.activeParagraph(in: string, selection: selectedRange())
+            for decoration in SourcePresentation.decorations(in: string) {
+                guard NSIntersectionRange(active, decoration.range).length == 0 else { continue }
+                switch decoration.kind {
+                case .heading(let level):
+                    storage.addAttributes([.font: NSFont.systemFont(ofSize: size + CGFloat(max(2, 8 - level * 2)), weight: .semibold), .foregroundColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
+                case .strong:
+                    storage.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold), .foregroundColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
+                case .emphasis:
+                    storage.addAttribute(.font, value: NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask), range: decoration.range)
+                case .code:
+                    storage.addAttributes([.foregroundColor: NSColor(hex: 0xA8B89A), .backgroundColor: NSColor(hex: 0x272D32)], range: decoration.range)
+                }
+                for marker in decoration.markers {
+                    storage.addAttributes([.font: NSFont.systemFont(ofSize: 0.1), .foregroundColor: NSColor.clear], range: marker)
+                }
+            }
+        }
         storage.endEditing()
         typingAttributes = base
     }
 
     func insertSnippet(_ snippet: Snippet, replacing range: NSRange) {
-        guard shouldChangeText(in: range, replacementString: snippet.text) else { return }
+        guard range.location >= 0, range.location <= string.utf16.count,
+              range.length >= 0, range.length <= string.utf16.count - range.location else { return }
+        observeUndoManager()
+        breakUndoCoalescing()
         undoManager?.beginUndoGrouping()
-        textStorage?.replaceCharacters(in: range, with: snippet.text)
-        didChangeText()
+        // Use the native editing path so undo/redo also delivers textDidChange.
+        // Direct NSTextStorage mutation only undid the buffer, leaving the model stale.
+        insertText(snippet.text, replacementRange: range)
+        observeUndoManager()
         undoManager?.endUndoGrouping()
         undoManager?.setActionName("插入 Typst 内容")
         placeholders = snippet.selections.map { NSRange(location: range.location + $0.location, length: $0.length) }
@@ -142,6 +197,7 @@ final class ManuscriptTextView: NSTextView {
 
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
         let accepted = super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+        if accepted { observeUndoManager() }
         if accepted, !placeholders.isEmpty {
             let delta = (replacementString ?? "").utf16.count - affectedCharRange.length
             if placeholderIndex < placeholders.count, affectedCharRange.location >= placeholders[placeholderIndex].location,

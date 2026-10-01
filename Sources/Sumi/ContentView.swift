@@ -35,6 +35,9 @@ struct ContentView: View {
         .background(Theme.background)
         .foregroundStyle(Theme.text)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $workspace.universeOpen) {
+            UniverseBrowser(cacheURL: workspace.stateDirectory.appendingPathComponent("universe-index.json"), onImport: workspace.importPackage)
+        }
     }
 
     private var divider: some View { Rectangle().fill(Theme.border.opacity(0.55)).frame(width: 1) }
@@ -58,12 +61,26 @@ struct ContentView: View {
                     Button(main.lastPathComponent) { workspace.open(main) }.buttonStyle(.plain).font(.system(size: 10)).help("返回主文稿")
                 }
                 Spacer()
+                Button(workspace.previewDark ? "深色" : "原色") { workspace.previewDark.toggle() }
+                    .buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(workspace.previewDark ? Theme.accent : Theme.secondary)
+                    .help("切换成稿阅读配色，不影响导出的 PDF")
                 Button("−") { workspace.previewZoom = max(0.5, workspace.previewZoom - 0.1) }.buttonStyle(.plain).help("缩小预览")
                 Text("\(Int((workspace.previewZoom * 100).rounded()))%").font(.system(size: 10, design: .monospaced)).frame(width: 38)
                 Button("+") { workspace.previewZoom = min(2, workspace.previewZoom + 0.1) }.buttonStyle(.plain).help("放大预览")
             }.foregroundStyle(Theme.secondary).padding(.horizontal, 24).frame(height: 48)
             if let url = workspace.previewURL {
-                PreviewView(url: url, zoom: workspace.previewZoom) { workspace.showMessage($0, persistent: true) }
+                if workspace.previewStale {
+                    HStack(spacing: 8) {
+                        Circle().fill(Theme.accent).frame(width: 4, height: 4)
+                        Text(workspace.hasSuccessfulPreview ? "显示上次成功的成稿 · 等待当前修改完成排版" : "等待文稿首次成功排版")
+                            .font(.system(size: 10)).foregroundStyle(Theme.secondary)
+                        Spacer()
+                        if workspace.diagnostics.contains(where: { $0.severity == 1 }) {
+                            Button("检查源码") { workspace.sidePanel = .diagnostics }.buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(Theme.accent)
+                        }
+                    }.padding(.horizontal, 24).padding(.bottom, 10)
+                }
+                PreviewView(url: url, zoom: workspace.previewZoom, dark: workspace.previewDark) { workspace.showMessage($0, persistent: true) }
             } else {
                 VStack(spacing: 16) {
                     PhosphorIcon(name: "file-text", size: 32).foregroundStyle(Theme.accent.opacity(0.8))
@@ -170,7 +187,10 @@ struct CommandPalette: View {
             }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 8)
             if let command = workspace.activeCommand { parameterForm(command) }
             else if workspace.searchMode { search }
-            else if workspace.paletteGroup != nil { commands }
+            else if workspace.paletteGroup != nil {
+                if !workspace.paletteGroups.isEmpty { groupGrid(workspace.paletteGroups) }
+                if !workspace.filteredCommands.isEmpty { commands }
+            }
             else { groups }
             if workspace.activeCommand == nil, let error = workspace.commandError {
                 Text(error).font(.system(size: 11)).foregroundStyle(Theme.red).padding(.horizontal, 30).padding(.top, 12)
@@ -188,8 +208,23 @@ struct CommandPalette: View {
     }
 
     private var groups: some View {
+        VStack(spacing: 10) {
+            groupGrid(CommandGroup.roots)
+            Button { workspace.searchMode = true; workspace.selectedCommandIndex = 0 } label: {
+                HStack(spacing: 10) {
+                    PhosphorIcon(name: "magnifying-glass", size: 15)
+                    Text("搜索全部 \(WritingCommand.all.count) 个命令").font(.system(size: 11))
+                    Spacer()
+                    Text("中文 · English").font(.system(size: 10)).foregroundStyle(Theme.muted)
+                    Keycap(value: "/")
+                }.foregroundStyle(Theme.secondary).padding(.horizontal, 12).padding(.vertical, 6).contentShape(Rectangle())
+            }.buttonStyle(.plain).padding(.horizontal, 24)
+        }
+    }
+
+    private func groupGrid(_ groups: [SumiCore.CommandGroup]) -> some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(CommandGroup.all) { group in
+            ForEach(groups) { group in
                 Button { workspace.enterGroup(group.id) } label: {
                     HStack(spacing: 12) {
                         PhosphorIcon(name: group.icon).foregroundStyle(Theme.secondary)
@@ -201,18 +236,8 @@ struct CommandPalette: View {
                         Keycap(value: group.key)
                     }.padding(12).contentShape(Rectangle())
                 }.buttonStyle(PaletteButtonStyle())
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(groups.firstIndex(where: { $0.id == group.id }) == workspace.selectedCommandIndex ? Theme.accent.opacity(0.45) : Color.clear))
             }
-            Button { workspace.searchMode = true } label: {
-                HStack(spacing: 12) {
-                    PhosphorIcon(name: "magnifying-glass").foregroundStyle(Theme.secondary)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("搜索全部命令").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.text)
-                        Text("试试「公式」或「export」").font(.system(size: 10)).foregroundStyle(Theme.muted)
-                    }
-                    Spacer(minLength: 0)
-                    Keycap(value: "/")
-                }.padding(12).contentShape(Rectangle())
-            }.buttonStyle(PaletteButtonStyle())
         }.padding(.horizontal, 24)
     }
 
@@ -236,10 +261,10 @@ struct CommandPalette: View {
                         Text("没有找到匹配的命令，换一个关键词试试。").font(.system(size: 12)).foregroundStyle(Theme.secondary).padding(20)
                     }
                     ForEach(workspace.filteredCommands) { command in
-                        let index = workspace.filteredCommands.firstIndex { $0.id == command.id } ?? 0
+                        let index = (workspace.filteredCommands.firstIndex { $0.id == command.id } ?? 0) + workspace.paletteGroups.count
                         Button { workspace.selectCommand(command) } label: {
                             HStack(spacing: 14) {
-                                Keycap(value: command.key)
+                                Keycap(value: workspace.searchMode ? workspace.keyPath(for: command) : command.key)
                                 Text(command.title).font(.system(size: 12, weight: .medium)).frame(width: 116, alignment: .leading)
                                 Text(command.detail).font(.system(size: 11)).foregroundStyle(Theme.secondary).lineLimit(1)
                                 Spacer(minLength: 0)
@@ -247,13 +272,30 @@ struct CommandPalette: View {
                             }.padding(.horizontal, 12).padding(.vertical, 9).contentShape(Rectangle())
                                 .background(index == workspace.selectedCommandIndex ? Theme.border.opacity(0.55) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
                         }.buttonStyle(.plain).id(command.id)
+                            .onHover { hovering in if hovering { workspace.selectedCommandIndex = index } }
                     }
                 }.padding(.horizontal, 24)
             }.frame(height: min(CGFloat(max(1, workspace.filteredCommands.count)) * 43, 222))
                 .onChange(of: workspace.selectedCommandIndex) { _, index in
-                    if workspace.filteredCommands.indices.contains(index) { proxy.scrollTo(workspace.filteredCommands[index].id, anchor: .center) }
+                    if let command = workspace.highlightedCommand { proxy.scrollTo(command.id, anchor: .center) }
                 }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if let command = workspace.highlightedCommand, command.isInsertion { syntaxPreview(command) }
+        }
+    }
+
+    private func syntaxPreview(_ command: WritingCommand) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text("\(command.title) · Typst 源码").font(.system(size: 10)).foregroundStyle(Theme.muted)
+                Spacer()
+                if let url = command.documentationURL { Link("语法文档 ↗", destination: url).font(.system(size: 10)).foregroundStyle(Theme.accent) }
+            }
+            let example = (workspace.activeCommand != nil ? try? TypstInsertion.make(command.id, values: workspace.fieldValues).text : command.example) ?? command.example ?? ""
+            Text(example).font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.secondary)
+                .lineLimit(3).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(12).background(Theme.background.opacity(0.6), in: RoundedRectangle(cornerRadius: 5)).padding(.horizontal, 24).padding(.top, 10)
     }
 
     private func parameterForm(_ command: WritingCommand) -> some View {
@@ -272,7 +314,7 @@ struct CommandPalette: View {
                 VStack {
                     Text(" ").font(.system(size: 10))
                     Button { workspace.execute(command) } label: {
-                        HStack(spacing: 12) { Text(command.group == "page" ? "应用设置" : "插入文稿"); Text("↵").opacity(0.6) }
+                        HStack(spacing: 12) { Text(command.placement == .preamble ? "应用设置" : "插入文稿"); Text("↵").opacity(0.6) }
                             .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.background)
                             .padding(.horizontal, 18).padding(.vertical, 10).background(Theme.accent, in: RoundedRectangle(cornerRadius: 4))
                     }.buttonStyle(.plain).disabled(workspace.applyingCommand)
@@ -280,6 +322,7 @@ struct CommandPalette: View {
             }
             if let error = workspace.commandError { Text(error).font(.system(size: 11)).foregroundStyle(Theme.red) }
             else { Text("生成原生 Typst 代码 · 插入后可直接修改 · ⌘Z 撤销").font(.system(size: 10)).foregroundStyle(Theme.muted) }
+            syntaxPreview(command)
         }.padding(.horizontal, 30).padding(.bottom, 7)
     }
 }

@@ -6,15 +6,14 @@ public struct InsertionPlan: Sendable {
 
     public init(command: WritingCommand, snippet: Snippet, text: String, selection: NSRange) {
         let source = text as NSString
-        if command.group == "page" {
+        if command.placement == .preamble {
             let offset = Self.preambleEnd(text)
             range = NSRange(location: offset, length: 0)
             let before = offset > 0 && source.substring(with: NSRange(location: offset - 1, length: 1)) != "\n" ? "\n" : ""
             self.snippet = snippet.padded(before: before, after: "\n")
         } else {
             range = selection
-            let blocks = ["heading", "bullet", "numbered", "quote", "image", "table", "code", "equation"]
-            if blocks.contains(command.id) {
+            if command.placement == .block {
                 let before = source.substring(to: selection.location)
                 let after = source.substring(from: NSMaxRange(selection))
                 self.snippet = snippet.padded(before: before.isEmpty || before.hasSuffix("\n") ? "" : "\n\n", after: after.isEmpty || after.hasPrefix("\n") ? "" : "\n\n")

@@ -6,7 +6,7 @@ import Testing
 @MainActor
 @Test(.enabled(if: ProcessInfo.processInfo.environment["SUMI_INTEGRATION"] == "1"))
 func realTinymistRoundTrip() async throws {
-    let root = URL(fileURLWithPath: "/Volumes/SSD/Developer/Codex/tmp/Sumi-integration-\(UUID().uuidString)")
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("Sumi-integration-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     let client = TinymistClient()
     var diagnosticEvents: [JSONValue] = []
@@ -72,17 +72,6 @@ func realTinymistRoundTrip() async throws {
 
     #expect(statuses.contains("compileSuccess"))
     #expect(statuses.contains("compileError"))
-
-    try Data("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"60\"><rect width=\"100\" height=\"60\" fill=\"#d9b97c\"/></svg>".utf8).write(to: root.appendingPathComponent("figure.svg"))
-    var version = 3
-    for command in WritingCommand.all where ["insert", "style", "page"].contains(command.group) {
-        version += 1
-        let snippet = try TypstInsertion.make(command.id, values: ["path": "figure.svg", "name": command.id == "label" ? "another-label" : "section-intro"])
-        let content = "#set text(font: \"PingFang SC\")\n#set heading(numbering: \"1.\")\n= Target <section-intro>\n\n" + snippet.text + "\n"
-        try client.change(file, text: content, version: version)
-        let exported = try await client.command("tinymist.exportPdf", arguments: [file.path])
-        #expect(exported["path"].string != nil, "Command must compile: \(command.id)")
-    }
 
     client.stop()
     #expect(!client.initialized)

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: Build and functional tests (Apple Silicon)
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+      - name: Functional integration tests and 80% coverage gate
+        run: scripts/test.sh
+      - name: Release build and signature validation
+        run: |
+          scripts/build.sh release
+          codesign --verify --deep --strict build/Sumi.app
+          build/Sumi.app/Contents/Helpers/tinymist --version
+          ditto -c -k --sequesterRsrc --keepParent build/Sumi.app build/Sumi-CI.zip
+      - name: Upload runnable app
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: app-macos-15
+          path: build/Sumi-CI.zip
+          if-no-files-found: error
+          retention-days: 7
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f build/coverage/summary.md ]; then
+            cat build/coverage/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-macos-15
+          path: build/coverage
+          if-no-files-found: warn
+          retention-days: 14

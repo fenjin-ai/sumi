@@ -4,8 +4,8 @@
 
 ## 平台与工程
 
-- Swift 6，macOS 14 起，首先面向 Apple Silicon。
-- Swift Package Manager 管理应用和核心模块，脚本生成可运行的 `.app` 包；不强制依赖第三方工程生成器。
+- Swift 6，macOS 14 起，仅支持 Apple Silicon。
+- Swift Package Manager 管理 `SumiCore`、可导入的 `SumiApp` 库及极薄的 `SumiLauncher`，脚本生成 `.app` 包；测试直接导入生产应用代码。
 - AppKit 管理窗口生命周期、菜单、文件对话框和文本视图；SwiftUI 构建布局、列表和命令面板。
 - Tinymist 固定为 `v0.15.8`，使用上游发布的 macOS 二进制，下载时验证上游校验和，随构建产物打包。
 - 运行时无需 Cargo、Homebrew 或独立 Typst 安装。初次使用外部 Typst 包可能需要联网下载，上游已缓存的包可离线复用。
@@ -43,7 +43,9 @@ flowchart LR
 
 文本和位置以 Foundation `NSString`/`NSRange` 的 UTF-16 单位处理，并与协商后的 LSP position encoding 一致。对中文、emoji、组合字符、CRLF 和文末位置做专门测试。
 
-首次加载或外部重新加载才替换全文；高亮使用属性变更，不污染撤销记录。输入法 marked text 存在时延后高亮和补全应用。命令插入经过 `shouldChangeText`、undo manager 和 `didChangeText`，保持系统撤销体验。
+首次加载、外部重新加载或用户主动格式化才替换全文；高亮使用属性变更，不污染撤销记录。输入法 marked text 存在时延后高亮和补全应用。命令插入使用 `NSTextView.insertText(_:replacementRange:)` 的原生编辑路径，并将操作组成一次撤销。AppKit 撤销管理器可能在首次编辑时才创建，因此按编辑时机绑定撤销/重做完成通知，整组结束后校正文稿状态，避免界面恢复而内部内容未恢复。
+
+`SourcePresentation` 返回原始 UTF-16 范围，保守排除代码、注释和数学区域，为标题、粗体、斜体与行内代码提供显示属性。活动段落恢复完整标记，其余标记缩小并透明；不使用替代文本，不改变保存和复制内容。该层可随时关闭，不替代 Typst 编译。缩进/注释由纯文本范围变换实现；格式化走真实 LSP 并校验版本、会话和编辑范围。
 
 首版高亮属于编辑层的视觉辅助，不能作为编译结果或可靠语义解析器。Tinymist 的诊断与编译才是语言正确性的依据。
 
@@ -55,15 +57,19 @@ flowchart LR
 
 命令通过明确的文本变换生成 Typst。变换返回替换范围、替换文本和占位选区，不自行写磁盘或更新预览。参数值按 Typst 字符串规则转义，数字和枚举独立校验。常见插入必须通过真实 Typst 编译用例验证。
 
-正文插入先向 Tinymist 查询选区两端上下文，拒绝数学、代码、原始文本等不安全位置。页面设置命令插入到文件开头连续 `#set` 规则之后；不重写复杂 `#show` 或函数作用域，后续源码规则仍可能覆盖设置。
+正文插入先向 Tinymist 查询选区两端上下文；数学辅助命令接受同一个数学区域，并省略外层 `$`，其他正文命令拒绝数学、代码、原始文本位置。布局由显式的 inline/block/preamble 元数据决定。文稿设置插入到文件开头连续 `#set` 规则之后；不重写复杂 `#show` 或函数作用域，后续源码规则仍可能覆盖设置。
 
-第一版命令组：
+0.2 命令组（97 个命令，74 个插入动作）：
 
 | 组 | 键 | 示例 |
 |---|---|---|
 | 插入 | i | 标题、图片、表格、代码、公式、链接、脚注、引用 |
 | 样式 | s | 加粗、斜体、强调、选区包裹 |
 | 页面 | p | 纸张、页边距、字号、页码 |
+| 数学 | m | 基本运算 b、公式结构 s、符号与字形 y |
+| 布局 | l | 分栏、网格、对齐、容器、间距 |
+| 文献与目录 | r | 书目、引文、目录 |
+| 文件与代码 | c | 模块、变量、Universe、格式化、缩进、注释 |
 | 视图 | v | 写作、并排、预览、大纲、诊断、字号 |
 | 文件 | f | 新建、打开、保存、另存为、导出 PDF |
 
@@ -72,6 +78,10 @@ flowchart LR
 ### 诊断日志
 
 `ActionLog` 同步写入本地 JSONL，以锁保护句柄、序号和轮转。单文件约 1 MiB，保留当前文件及 3 个归档。每次启动有独立会话 ID；正常退出记录 session.end，意外退出前已写入的记录保留。日志记录功能操作和控制按键，普通输入只标记为 text，不存正文、剪贴板内容、搜索词或表单参数。写日志失败不会中断写作或保存。
+
+### Universe 包发现
+
+`UniverseCatalogStore` actor 从官方 `packages.typst.org/preview/index.json` 读取纯元数据，用数字语义版本选取各包最新版本；严格校验包名和版本后才生成固定版本导入。索引以 JSON 原子缓存，24 小时 TTL，离线保留最近有效数据，支持强制刷新。编译器最低版本高于内置 Typst 0.15.1 时显示提示并禁用导入。浏览不执行包代码；显式插入后由编译器自行获取依赖。网络和状态均可注入，测试使用固定索引，不依赖 Universe 在线可用性。
 
 ### Tinymist 集成
 
@@ -90,6 +100,8 @@ Tinymist 崩溃后保留编辑缓冲区，显示服务重启入口；重启初�
 使用 `WKWebView` 承载 Tinymist 自带 Web/SVG 前端。限定在本地预览导航，外部链接显式交给系统浏览器；页面不能获得任意原生调用能力。
 
 布局包括单栏写作、可调整的并排、全宽预览。预览面板提供缩放与当前状态，生成结果和编辑正文共享主文件、资源根目录和字体配置。预览加载失败不遮盖编辑区。缩放通过调整 Tinymist 页面容器宽度并触发重排实现，百分比相对于面板适应宽度。
+
+启动显式使用 `--partial-rendering=true`，按可见区域绘制。编译错误继续保留现有预览实例和成功页面，状态条提示内容滞后；首次编译失败没有可保留页面。深色阅读复用固定前端的 `invert-colors` 与 `normal-image` 样式类，通过观察类属性保证服务器消息不会覆盖用户选择。此能力只改变屏幕显示，不改变编译输入或 PDF 导出。集成测试在真正的 WKWebView 中验证页面保留、修正源码后的新页面、缩放与深色状态。
 
 源码与预览的双向定位通过 `tinymist.scrollPreview` 和 LSP `window/showDocument` 实现；无需向网页暴露原生消息桥。点击位置按返回的实际文件与范围定位，涉及其他文件时先打开对应文稿。
 
@@ -121,11 +133,15 @@ Phosphor Regular 使用 16–18 pt，低饱和单色。避免混用多套应用�
 
 ## 测试与交付
 
-核心测试覆盖 UTF-16 位置、LSP 分帧、命令变换、字符串转义、保存冲突与草稿恢复。集成测试启动真实 Tinymist，验证打开/修改、诊断、预览和导出，不访问数据库，不运行 Hurl 或容器。
+功能测试以原生 `WritingWindow`、`ManuscriptTextView`、`Workspace`、`WKWebView` 和真实 Tinymist 为一条完整流程，验证发现命令、插入/撤销/重做、打开/修改、文件冲突与恢复、诊断、预览和导出。核心边界测试补充覆盖 UTF-16、LSP 分帧、参数和元数据校验。不访问数据库，不运行 Hurl 或容器。
+
+测试开启 Swift 代码覆盖率，合并工具链生成的全部测试 bundle 的 profile。以 LCOV DA 记录按实际文件/行去重统计，避免 SwiftUI 泛型/闭包重复实例化使同一行被多次计入；所有 `Sources/Sumi` 和 `Sources/SumiCore` 文件均纳入，缺失文件直接失败，整体必须达到 80%。原始 LLVM JSON、LCOV、逐文件摘要与 HTML 一并保留，不以覆盖率替代行为断言。
 
 实际应用通过 UI 操作验证命令路径、输入、撤销、保存重开、预览与导出；截取实际界面检查视觉质量。中文 IME 若自动化不能完整验证，验收记录明确标为待人工确认，不能宣称已通过。
 
-构建脚本设置 SSD 临时目录，把依赖下载、构建输出和测试数据留在当前 SSD worktree。输出 `build/Sumi.app`，使用本机临时签名便于启动；公开分发所需 Developer ID、公证及 App Store 策略不属于首版完成要求。
+构建脚本设置 SSD 临时目录，把依赖下载、构建输出和测试数据留在当前 SSD worktree。输出 `build/Sumi.app`，开发构建使用本机临时签名。正式发布仅支持 Apple Silicon，由 `scripts/release.sh` 在临时钥匙串导入 Developer ID 证书，依次签名 Tinymist helper 与应用、提交 Apple 公证、装订票据并通过 Gatekeeper 校验。发布任务只能使用 main 已包含的提交，版本标签必须匹配 Info.plist；凭据缺失或任一校验失败时不发布。凭据配置见 [签名说明](signing.md)。
+
+GitHub Actions 使用 macOS 15 Apple Silicon runner，PR/main 执行测试与覆盖率门槛、Release 构建及签名验证，保存报告和 app ZIP。版本标签与 Info.plist 版本必须匹配，发布流程重跑测试后打包arm64 ZIP 与 SHA-256，并创建 GitHub Release；权限限定为各 job 所需的只读或发布写权限，Action 固定 commit，Tinymist 下载 SHA-256 固定在源码。本地与 CI 共享脚本，CI 使用 runner 临时目录。
 
 ## 已知工程风险
 
@@ -143,3 +159,6 @@ Phosphor Regular 使用 16–18 pt，低饱和单色。避免混用多套应用�
 - [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview)
 - [Nano Emacs](https://github.com/rougier/nano-emacs)
 - [Phosphor source assets](https://github.com/phosphor-icons/core)
+- [CotEditor package/app test workflow](https://github.com/coteditor/CotEditor/blob/main/.github/workflows/test.yml)
+- [CodeEdit tests workflow](https://github.com/CodeEditApp/CodeEdit/blob/main/.github/workflows/tests.yml)
+- [GitHub macOS hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
