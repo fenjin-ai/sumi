@@ -70,6 +70,7 @@ struct UniverseBrowser: View {
     @State private var actionError: String?
     @State private var isApplying = false
     @State private var compactDetails = false
+    @State private var catalogPosition: String?
     @State private var actionTask: Task<Void, Never>?
     @State private var refreshTask: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
@@ -240,6 +241,7 @@ struct UniverseBrowser: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 174, maximum: 260), spacing: 18)], alignment: .leading, spacing: 22) {
                     ForEach(results) { package in
                         Button {
+                            catalogPosition = package.id
                             model.selectedID = package.id
                             compactDetails = true
                             actionError = nil
@@ -248,9 +250,13 @@ struct UniverseBrowser: View {
                             .accessibilityLabel(package.name + ", " + package.description)
                             .accessibilityIdentifier("universe.result.\(package.name)")
                     }
-                }
+                }.scrollTargetLayout()
             }.padding(24)
-        }.overlay {
+        }
+        // Track a card, not a pixel offset: opening details changes both the
+        // grid columns and starter height. The chosen card must stay in view.
+        .scrollPosition(id: $catalogPosition)
+        .overlay {
             if results.isEmpty && !showSample && builtIns.isEmpty {
                 VStack(spacing: 12) {
                     if model.isLoading { ProgressView().controlSize(.small) }

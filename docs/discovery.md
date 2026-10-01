@@ -6,7 +6,7 @@ Sumi treats a template as a starting document and a package as a tool for the cu
 
 **Command-N**, the New Document menu item and the matching discovery command open Templates. The library has one **Browse templates** action. Templates and the library use the same sheet; opening discovery while the library is already visible changes its contents without stacking another sheet. The blank page remains one explicit choice, always available offline, independent of old template preferences.
 
-The gallery begins without a selected community item or a detail pane. **A quiet space to write** and SICP share a compact opening row when space allows, with **Blank page** beside the section title. Narrow windows stack these starting points. The community grid follows under its own heading. Selecting a community card opens its details; Back to results closes the details, and changing the query, collection or intent clears the selection. An unseen first result is never selected automatically.
+The gallery begins without a selected community item or a detail pane. **A quiet space to write** and SICP share a compact opening row when space allows, with **Blank page** beside the section title. These three starters appear only in All templates. Narrow windows stack these starting points. The community grid follows under its own heading. Selecting a community card opens its details and keeps that card visible as the grid changes width. Back to results closes the details while preserving the browsing position; changing the query, collection or intent clears the selection. An unseen first result is never selected automatically.
 
 Two built-in choices lead the gallery: **A quiet space to write**, Sumi's original editable guide, and **Blank page**. A first launch starts with the guide in the selected app language and a side-by-side preview. Choosing the guide again also opens its preview. Switching languages never replaces existing writing, and recovery always wins over new welcome content. The guide combines prose, headings, inline and display equations, a table, a CeTZ diagram and a Codly code block. It introduces the outline, command discovery, preview, library and export with ordinary writing examples. Both English and Simplified Chinese versions have centered page numbers and the approved Sumi sigma mark in the opening header. The cover follows the app language. The source is a normal Typst document with explicit pinned imports and a relative `sumi-mark.svg` asset. The mark is copied into the document project, retained by source-project export, and generated from the same geometry as the app icon. Existing manuscripts and their assets are never replaced by a language or app update. CeTZ 0.5.2, its oxifmt 1.0.0 dependency and Codly 1.3.0 ship as source with their licenses, so both built-in choices compile without a network request. Other Universe templates may download package code on first creation. Built-in choices remain visible when the catalog cannot be reached.
 
@@ -36,7 +36,7 @@ Creating a template runs the bundled Tinymist `tinymist.doInitTemplate` command 
 
 ## Downloadable example books
 
-The template gallery (All templates and Books & writing) includes a SICP card with an
+The template gallery's All templates collection includes a SICP card with an
 original typographic cover, source/license link and **Add to my writing** action.
 It also matches SICP and bilingual book searches. No book is downloaded at app
 launch. Adding it downloads about 1.9 MB, verifies the pinned SHA-256 and byte
@@ -82,6 +82,13 @@ SUMI_INTEGRATION=1 SUMI_UNIVERSE_NETWORK=1 swift test --filter 'universe|Univers
 ```
 
 The network scenarios are opt-in so ordinary CI is deterministic. Set `SUMI_DISCOVERY_ARTIFACTS` to an SSD-backed directory to save the 620- and 1040-point gallery renders for visual inspection.
+
+Native-window acceptance also checks selection while the gallery reflows: select
+`basic-resume` from All templates, confirm its outlined card stays visible beside
+its matching details, then return to the full-width list without losing the row.
+Repeat after scrolling several rows down, and verify the grid has no horizontal
+offset after returning. This checks actual on-screen geometry, beyond rendering
+an unselected hosted view.
 
 ## Primary references
 
