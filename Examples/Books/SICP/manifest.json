@@ -42,13 +42,14 @@
     "Colophon.xhtml"
   ],
   "pandoc_version": "pandoc 3.11",
-  "typst_bytes": 1448258,
-  "typst_utf16_units": 1443763,
-  "typst_sha256": "09480b8f8e5dc536bc15ecb19f7988090da9efec49100a357341350299344ed7",
-  "typst_lines": 33908,
+  "typst_bytes": 1446633,
+  "typst_utf16_units": 1442138,
+  "typst_sha256": "40117410da05696f656a0e8961be20ff073db6b524a771b1adb65ab930fab894",
+  "typst_lines": 20511,
   "source_code_content_verified": true,
   "upstream_texinfo_sha256": "c070e11c9e5b6d9833c19915d88c8e0e396fa1df3fc7c2d4539057d7c08a2f37",
-  "source_project_bytes": 4588719,
+  "style_sha256": "70d41473241cfe1b74812ecb5ae87e10429a0cbf28dc0926dcc286c1c14a2c05",
+  "source_project_bytes": 4587094,
   "counts": {
     "source_math_expressions": 1356,
     "source_code_blocks": 1122,
@@ -485,6 +486,5 @@
   "pandoc_warnings": "",
   "typst_version": "tinymist \nBuild Timestamp:     2026-09-08T10:13:40.300092000Z\nBuild Git Describe:  v0.15.8\nCommit SHA:          32f908199ee17ea295512bbc27166e890c438175\nCommit Date:         None\nCommit Branch:       None\nCargo Target Triple: aarch64-apple-darwin\nTypst Version:       0.15.1\nTypst Source:        git+https://github.com/Myriad-Dreamin/typst.git?tag=tinymist/v0.15.1#59b5999da8e74e74583069408d2564fc1f9bc973",
   "typst_warnings": "",
-  "pdf_bytes": 8316971,
-  "style_sha256": "70d41473241cfe1b74812ecb5ae87e10429a0cbf28dc0926dcc286c1c14a2c05"
+  "pdf_bytes": 8316971
 }

@@ -12,6 +12,8 @@ SUMI_INTEGRATION=1 SUMI_CODE_WORD="define size" SUMI_SEARCH_WORD=procedure SUMI_
   SUMI_LARGE_FIXTURE="$PWD/Examples/Books/SICP/main.typ" \
   SUMI_PERFORMANCE_REPORT="$PWD/build/benchmarks/sicp.json" \
   swift test --skip-build --enable-code-coverage --filter realMultiMegabyteDocumentNavigationScrollingAndTyping
+SUMI_INTEGRATION=1 SUMI_BOOK_PREVIEW=1 \
+  swift test --skip-build --enable-code-coverage --filter completeBookPreviewRemainsUsableInLargeWindow
 python3 - <<'PY'
 import json
 from pathlib import Path

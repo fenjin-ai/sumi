@@ -43,7 +43,7 @@ final class Workspace: ObservableObject {
     }
     @Published var fontSize: CGFloat = 16
     @Published var selection = NSRange(location: 0, length: 0) {
-        didSet { if selection != oldValue { dismissAssistance() } }
+        didSet { if selection != oldValue { dismissAssistance(); trackOutline(at: selection.location) } }
     }
     @Published var message: String?
     @Published var paletteOpen = false
@@ -69,7 +69,45 @@ final class Workspace: ObservableObject {
     @Published var documentTransitionInProgress = false
     @Published var previewStale = true
     @Published var hasSuccessfulPreview = false
-    @Published var outline: [OutlineItem] = []
+    @Published var outline: [OutlineItem] = [] {
+        didSet { rebuildOutline() }
+    }
+    @Published private(set) var outlineNavigation = OutlineNavigation()
+    @Published private(set) var activeOutlineIndex: Int?
+    private var readingOffset = 0
+    private lazy var outlineExpansions: [String: OutlineNavigation.Expansion] = {
+        guard let data = try? Data(contentsOf: outlineStateURL) else { return [:] }
+        return (try? JSONDecoder().decode([String: OutlineNavigation.Expansion].self, from: data)) ?? [:]
+    }()
+    private var outlineStateURL: URL { stateDirectory.appendingPathComponent("outline-folds.json") }
+
+    private func rebuildOutline() {
+        let key = documentURL.absoluteString
+        outlineNavigation = OutlineNavigation(items: outline, expansion: outlineExpansions[key], anchor: selection.location)
+        if !outline.isEmpty { outlineExpansions[key] = outlineNavigation.expansion }
+        trackOutline(at: readingOffset)
+    }
+
+    func trackOutline(at offset: Int) {
+        readingOffset = offset
+        let index = outlineNavigation.index(at: offset)
+        if activeOutlineIndex != index { activeOutlineIndex = index }
+    }
+
+    func toggleOutlineSection(_ index: Int) {
+        outlineNavigation.toggle(index)
+        rememberOutlineExpansion()
+    }
+
+    func expandOutline(_ expanded: Bool) {
+        outlineNavigation.setAll(expanded: expanded)
+        rememberOutlineExpansion()
+    }
+
+    private func rememberOutlineExpansion() {
+        outlineExpansions[documentURL.absoluteString] = outlineNavigation.expansion
+        if let data = try? JSONEncoder().encode(outlineExpansions) { try? data.write(to: outlineStateURL, options: .atomic) }
+    }
     @Published var applyingCommand = false
     @Published var commandKey: String = UserDefaults.standard.string(forKey: "commandKey") ?? "j" {
         didSet { UserDefaults.standard.set(commandKey, forKey: "commandKey"); onShortcutChange?() }
@@ -570,6 +608,7 @@ final class Workspace: ObservableObject {
         case "split": layout = .split; closePalette()
         case "preview": layout = .preview; closePalette()
         case "outline": sidePanel = sidePanel == .outline ? nil : .outline; closePalette()
+        case "outlineExpand", "outlineCollapse": expandOutline(command.id == "outlineExpand"); sidePanel = .outline; closePalette()
         case "diagnostics": closePalette(); checksOpen.toggle()
         case "restart": closePalette(); startService()
         case "revealPreview": closePalette(); revealPreview()

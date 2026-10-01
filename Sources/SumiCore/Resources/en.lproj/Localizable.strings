@@ -680,3 +680,13 @@
 "Included · works offline" = "Included · works offline";
 "Create your own copy of the Sumi guide" = "Create your own copy of the Sumi guide";
 "Start with a blank page" = "Start with a blank page";
+"Expand All Headings" = "Expand All Headings";
+"Collapse All Headings" = "Collapse All Headings";
+"Expand section" = "Expand section";
+"Collapse section" = "Collapse section";
+"Show every section in the outline." = "Show every section in the outline.";
+"Show only top-level sections in the outline." = "Show only top-level sections in the outline.";
+"Preview" = "Preview";
+"Expanded" = "Expanded";
+"Collapsed" = "Collapsed";
+"Preview stopped unexpectedly. Reconnect typesetting to try again." = "Preview stopped unexpectedly. Reconnect typesetting to try again.";
