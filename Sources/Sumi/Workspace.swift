@@ -264,12 +264,13 @@ final class Workspace: ObservableObject {
         do {
             let symbols = try await client.request("textDocument/documentSymbol", ["textDocument": ["uri": documentURL.absoluteString]])
             guard version == documentVersion, generation == serviceGeneration else { return }
+            let index = metrics
             func headings(_ nodes: [JSONValue], level: Int) -> [OutlineItem] {
                 nodes.flatMap { node -> [OutlineItem] in
                     let isHeading = node["kind"].int == 3
                     let start = node["range"]["start"]
                     let position = TextPosition(line: start["line"].int ?? 0, character: start["character"].int ?? 0)
-                    let current = isHeading ? [OutlineItem(title: node["name"].string ?? L10n.text("Heading"), level: level, offset: position.offset(in: text))] : []
+                    let current = isHeading ? [OutlineItem(title: node["name"].string ?? L10n.text("Heading"), level: level, offset: index.offset(at: position))] : []
                     return current + headings(node["children"].array, level: isHeading ? level + 1 : level)
                 }
             }

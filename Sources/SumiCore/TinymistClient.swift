@@ -22,10 +22,9 @@ public final class TinymistClient {
     public var onShowDocument: ((JSONValue) -> Void)?
     public var onDisconnect: ((String) -> Void)?
     private var process: Process?
-    private var input: FileHandle?
+    private var writer: JSONRPCWriter?
     private var output: FileHandle?
     private var errorOutput: FileHandle?
-    private var framer = JSONRPCFramer()
     private var serial = 0
     private var generation = UUID()
     private var pending: [Int: CheckedContinuation<JSONValue, Error>] = [:]
@@ -57,13 +56,18 @@ public final class TinymistClient {
         process.standardOutput = stdout
         process.standardError = stderr
         let session = generation
-        stdout.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
+        let reader = JSONRPCReader { [weak self] result in
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.generation == session else { return }
-                self.consume(data)
+                switch result {
+                case .success(let message): self.consume(message)
+                case .failure(let error): self.connectionFailed(error)
+                }
             }
+        }
+        stdout.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            if !data.isEmpty { reader.append(data) }
         }
         // Drain stderr without logging manuscript content.
         stderr.fileHandleForReading.readabilityHandler = { handle in _ = handle.availableData }
@@ -76,7 +80,12 @@ public final class TinymistClient {
             }
         }
         self.process = process
-        self.input = stdin.fileHandleForWriting
+        self.writer = JSONRPCWriter(handle: stdin.fileHandleForWriting) { [weak self] error in
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.generation == session else { return }
+                self.connectionFailed(error)
+            }
+        }
         self.output = stdout.fileHandleForReading
         self.errorOutput = stderr.fileHandleForReading
         try process.run()
@@ -124,9 +133,8 @@ public final class TinymistClient {
         errorOutput?.readabilityHandler = nil
         process?.terminationHandler = nil
         if process?.isRunning == true { process?.terminate() }
-        try? input?.close()
-        input = nil; output = nil; errorOutput = nil; process = nil
-        framer = JSONRPCFramer()
+        writer?.close()
+        writer = nil; output = nil; errorOutput = nil; process = nil
         let waiting = pending
         pending.removeAll()
         timeouts.values.forEach { $0.cancel() }
@@ -177,34 +185,33 @@ public final class TinymistClient {
     }
 
     private func write(_ object: [String: Any]) throws {
-        guard let input, process?.isRunning == true else { throw ServiceError.disconnected }
-        try input.write(contentsOf: JSONRPCFramer.encode(object))
+        guard let writer, process?.isRunning == true else { throw ServiceError.disconnected }
+        try writer.send(JSONValue(foundation: object))
     }
 
-    private func consume(_ data: Data) {
+    private func consume(_ message: JSONValue) {
         do {
-            for frame in try framer.append(data) {
-                let message = try JSONDecoder().decode(JSONValue.self, from: frame)
-                if let method = message["method"].string {
-                    if !message["id"].isNull {
-                        let result: Any
-                        if method == "window/showDocument" {
-                            onShowDocument?(message["params"])
-                            result = ["success": true]
-                        } else if method == "workspace/configuration" {
-                            result = message["params"]["items"].array.map { _ in NSNull() }
-                        } else { result = NSNull() }
-                        try write(["jsonrpc": "2.0", "id": message["id"].foundationValue, "result": result])
-                    } else { onNotification?(method, message["params"]) }
-                } else if let id = message["id"].int, let continuation = pending.removeValue(forKey: id) {
-                    timeouts.removeValue(forKey: id)?.cancel()
-                    if !message["error"].isNull { continuation.resume(throwing: ServiceError.remote(message["error"]["message"].string ?? L10n.text("The typesetting service encountered an error."))) }
-                    else { continuation.resume(returning: message["result"]) }
-                }
+            if let method = message["method"].string {
+                if !message["id"].isNull {
+                    let result: Any
+                    if method == "window/showDocument" {
+                        onShowDocument?(message["params"])
+                        result = ["success": true]
+                    } else if method == "workspace/configuration" {
+                        result = message["params"]["items"].array.map { _ in NSNull() }
+                    } else { result = NSNull() }
+                    try write(["jsonrpc": "2.0", "id": message["id"].foundationValue, "result": result])
+                } else { onNotification?(method, message["params"]) }
+            } else if let id = message["id"].int, let continuation = pending.removeValue(forKey: id) {
+                timeouts.removeValue(forKey: id)?.cancel()
+                if !message["error"].isNull { continuation.resume(throwing: ServiceError.remote(message["error"]["message"].string ?? L10n.text("The typesetting service encountered an error."))) }
+                else { continuation.resume(returning: message["result"]) }
             }
-        } catch {
-            stop()
-            onDisconnect?(L10n.format("Typesetting connection interrupted: %@", error.localizedDescription))
-        }
+        } catch { connectionFailed(error) }
+    }
+
+    private func connectionFailed(_ error: Error) {
+        stop()
+        onDisconnect?(L10n.format("Typesetting connection interrupted: %@", error.localizedDescription))
     }
 }
