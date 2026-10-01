@@ -173,7 +173,8 @@ struct WritingFlowTests {
         defer { app.close() }
         try await app.ready()
         app.workspace.newDocument()
-        try await app.wait { app.workspace.managedDocumentID != nil && !app.workspace.library.busy }
+        #expect(app.workspace.discoveryMode == .templates)
+        try await app.workspace.library.create(builtIn: .blank)
         try await app.ready()
         let managedURL = try #require(app.workspace.fileURL)
         #expect(app.workspace.title == L10n.text("Untitled"))
@@ -187,7 +188,8 @@ struct WritingFlowTests {
         #expect(app.workspace.text == "= Existing file\n")
         #expect(app.workspace.message != nil)
         app.workspace.newDocument()
-        try await app.wait { app.workspace.managedDocumentID != nil && !app.workspace.library.busy }
+        #expect(app.workspace.discoveryMode == .templates)
+        try await app.workspace.library.create(builtIn: .blank)
         try await app.ready()
         app.workspace.edited("Recovered after interruption")
         try await app.wait { app.workspace.saveStatus == "Saved" }
