@@ -1,4 +1,4 @@
-name: CI
+name: build and test
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   integration:
-    name: Build and functional tests (Apple Silicon)
+    name: build and test
     runs-on: macos-15
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
@@ -27,6 +27,13 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
+      - name: Cache Swift package sources
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            .build/repositories
+            .build/checkouts
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('Package.resolved') }}
       - name: Toolchain
         run: |
           sw_vers
@@ -34,6 +41,11 @@ jobs:
           swift --version
       - name: Functional integration tests and 80% coverage gate
         run: scripts/test.sh
+      - name: Agent bridge with one cooperative worker
+        run: |
+          source scripts/environment.sh
+          export SUMI_MCP_HELPER="$(swift build --show-bin-path)/SumiMCP"
+          LIBDISPATCH_COOPERATIVE_POOL_STRICT=1 swift test --skip-build --enable-code-coverage --filter AutomationIntegrationTests
       - name: Upload application coverage to Codecov
         if: ${{ !cancelled() && hashFiles('build/coverage/codecov.lcov') != '' }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1

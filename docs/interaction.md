@@ -51,8 +51,9 @@ Explanations combine Tinymist documentation and active function parameters. Acti
 
 Outlines with at most 24 headings initially show every section. Longer outlines
 start with top-level headings and the ancestors of the current editing section.
-A chevron folds an individual branch; clicking its title navigates. The two
-small header actions expand or collapse all headings, also discoverable through
+A chevron folds an individual branch; clicking its title navigates. One small
+header action expands all headings when any branch is folded; once fully expanded,
+its icon and action switch to collapse all. Both commands are discoverable through
 `⌘J → v → e` and `⌘J → v → c`. Manual folds are saved locally per document using
 ancestry/title identities, so prose edits and reopening preserve them. Renaming a
 heading or moving it to a different parent gives that branch a new identity.
@@ -63,12 +64,19 @@ bucket stays gold even at the end of a book. The open outline highlights the
 nearest visible ancestor when the active section is folded. Scrolling never
 moves the insertion caret or silently reopens a manually folded branch.
 
-Writing and preview labels now sit in small overlays, without a reserved header
-row. Hovering or activating the label reveals controls; hovering away fades them
-back. Preview color and zoom, retained-preview notices and return-to-main actions
+The writing surface has no header or styling control; reading styles are configured
+in Settings and remain discoverable through `⌘J → v → t`. Preview controls sit in a
+small overlay without a reserved header row. Hovering or activating its label reveals
+controls; hovering away fades them back. Light/Dark colors, zoom, retained-preview notices and return-to-main actions
 never reduce the page viewport. The native document title measures its text and
 uses available toolbar width before truncating, preserving click-to-rename and
 double-click-to-open-library behavior.
+
+Explicit source jumps (outline, definition, previous location) also reveal the
+corresponding preview position when the preview is visible. Requests wait for both
+a successful compile and a rendered preview, and are discarded after document or
+source revision changes. Ordinary selection and scrolling do not move the preview.
+Clicks originating in the preview do not trigger a reverse navigation loop.
 
 The SICP fixture has natural prose wrapping; its original code newlines remain.
 The editor keeps its centered 740 pt maximum writing width and 36 pt minimum

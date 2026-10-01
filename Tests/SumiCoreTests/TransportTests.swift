@@ -54,6 +54,20 @@ import Testing
     #expect(results.values.allSatisfy { if case .failure = $0 { return true }; return false })
 }
 
+@Test func exitedServiceReportsBrokenPipeWithoutTerminatingEditor() async throws {
+    let pipe = Pipe()
+    let results = TransportResults()
+    let writer = JSONRPCWriter(handle: pipe.fileHandleForWriting) { results.append(.failure($0)) }
+    defer { writer.close() }
+    try pipe.fileHandleForReading.close()
+    try writer.send(JSONValue(foundation: ["method": "change", "params": ["text": "Still writing"]]))
+    let deadline = ContinuousClock.now + .seconds(2)
+    while results.values.isEmpty, .now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(results.values.count == 1)
+    #expect(results.values.allSatisfy { if case .failure = $0 { return true }; return false })
+    #expect(throws: ServiceError.self) { try writer.send(.null) }
+}
+
 private final class TransportResults: @unchecked Sendable {
     private let lock = NSLock()
     private var results: [Result<JSONValue, Error>] = []

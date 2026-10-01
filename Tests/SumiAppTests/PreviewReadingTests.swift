@@ -177,6 +177,29 @@ extension WritingFlowTests {
         #expect(errors.count == 1)
     }
 
+    @Test func explicitSourceJumpsFollowInPreviewWithoutFollowingOrdinarySelection() async throws {
+        let source = (1...6).map { "= Chapter \($0)\n\nDistinct page \($0) content. 中文😀\n" }.joined(separator: "\n#pagebreak()\n")
+        let app = try WritingFixture(text: source)
+        defer { app.close() }
+        try await app.ready()
+        app.workspace.layout = .split
+        await app.layout()
+        let web = try #require(findWebView(app.window.contentView))
+        web.configuration.preferences.inactiveSchedulingPolicy = .none
+        web.configuration.userContentController.addUserScript(WKUserScript(source: "window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16); window.cancelAnimationFrame = clearTimeout;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        web.reload()
+        // Queue the jump while the preview is still loading.
+        app.workspace.jump(to: (source as NSString).range(of: "Chapter 6").location)
+        try await waitForJavaScript(web, condition: "(() => { const page = document.querySelector('.typst-doc > g.typst-page[data-page-number=\"5\"]'); return page && page.getBoundingClientRect().top < innerHeight && page.getBoundingClientRect().bottom > 0; })()")
+        let editor = try #require(app.workspace.editor)
+        editor.setSelectedRange(NSRange(location: 0, length: 0))
+        await app.layout()
+        #expect((try await web.evaluateJavaScript("document.getElementById('typst-container-main').scrollTop") as? Double ?? 0) > 1000)
+        app.workspace.jump(to: (source as NSString).range(of: "Chapter 1").location)
+        try await waitForJavaScript(web, condition: "document.getElementById('typst-container-main').scrollTop < innerHeight")
+        #expect(editor.string == source)
+    }
+
     @Test func realPreviewRetainsPagesOnErrorThenRecoversAndTogglesDark() async throws {
         let app = try WritingFixture(text: "= Preview sentinel\n\nA short paragraph.\n")
         defer { app.close() }

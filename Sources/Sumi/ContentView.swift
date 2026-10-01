@@ -73,20 +73,14 @@ struct ContentView: View {
 
     private var manuscript: some View {
         ManuscriptView(workspace: workspace).clipped().background(Theme.editor)
-            .overlay(alignment: .topTrailing) {
-                FloatingPaneControls(title: L10n.text("Writing"), icon: "pencil-simple") {
-                    QuietButton(icon: "sparkle", help: L10n.text("Toggle Editor Styling"),
-                                shortcut: "⌘\(workspace.commandKey.uppercased()) → v t", active: workspace.styledSource) {
-                        workspace.styledSource.toggle()
-                    }
-                }.padding(8)
-            }
     }
 
     private var preview: some View {
         Group {
             if let url = workspace.previewURL {
-                PreviewView(url: url, zoom: workspace.previewZoom, dark: workspace.previewDark) { workspace.showMessage($0, persistent: true) }
+                PreviewView(url: url, zoom: workspace.previewZoom, dark: workspace.previewDark,
+                            onLoading: { workspace.previewWillLoad(at: url) },
+                            onReady: { workspace.previewDidBecomeReady(at: url) }) { workspace.showMessage($0, persistent: true) }
             } else {
                 VStack(spacing: 16) {
                     PhosphorIcon(name: "file-text", size: 32).foregroundStyle(Theme.accent.opacity(0.8))
@@ -101,7 +95,7 @@ struct ContentView: View {
             .overlay(alignment: .topTrailing) {
                 FloatingPaneControls(title: L10n.text("Preview"), icon: "eye") {
                     Button { workspace.previewDark.toggle() } label: {
-                        Text(workspace.previewDark ? L10n.text("Dark") : L10n.text("Original"))
+                        Text(workspace.previewDark ? L10n.text("Dark") : L10n.text("Light"))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(workspace.previewDark ? Theme.accent : Theme.secondary)
                             .frame(width: 68, height: 28).contentShape(Rectangle())

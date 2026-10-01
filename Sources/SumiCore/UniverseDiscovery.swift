@@ -65,6 +65,31 @@ public struct UniverseDiscoveryGroup: Identifiable, Sendable {
 
 /// Constructed once per catalog snapshot, off the UI actor. Searches do no package normalization.
 struct UniverseSearchIndex: Sendable {
+    private struct Query: Hashable {
+        let text: String
+        let category: String
+        let mode: UniverseDiscoveryMode?
+        let group: String
+        let compiler: String?
+    }
+    private final class Results: @unchecked Sendable {
+        private let lock = NSLock()
+        private var values: [Query: [UniversePackage]] = [:]
+        private var order: [Query] = []
+        func get(_ key: Query) -> [UniversePackage]? { lock.withLock { values[key] } }
+        func put(_ value: [UniversePackage], for key: Query) {
+            lock.withLock {
+                if values[key] == nil {
+                    if order.count == 16 { values.removeValue(forKey: order.removeFirst()) }
+                    order.append(key)
+                }
+                values[key] = value
+            }
+        }
+    }
+    // SwiftUI can ask for the same immutable catalog/filter repeatedly during
+    // selection and layout. Reuse those results, bounded to 16 queries per index.
+    private let results = Results()
     private struct Entry: Sendable {
         let package: UniversePackage
         let name: String
@@ -106,9 +131,11 @@ struct UniverseSearchIndex: Sendable {
 
     func search(_ query: String, category: String = "", mode: UniverseDiscoveryMode? = nil, group: String = "", compilerVersion: String? = nil) -> [UniversePackage] {
         let query = Self.normalize(query.trimmingCharacters(in: .whitespacesAndNewlines))
+        let key = Query(text: query, category: category, mode: mode, group: group, compiler: compilerVersion)
+        if let cached = results.get(key) { return cached }
         let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
         let expanded = words.map { word in Self.concepts.first { $0.contains(word) } ?? [word] }
-        return entries.compactMap { entry -> (Entry, Int)? in
+        let found = entries.compactMap { entry -> (Entry, Int)? in
             if let mode, (mode == .templates) != entry.package.isTemplate { return nil }
             if !category.isEmpty && !entry.package.categories.contains(category) { return nil }
             if !group.isEmpty && !entry.groups.contains(group) { return nil }
@@ -124,6 +151,8 @@ struct UniverseSearchIndex: Sendable {
             } else if mode != nil, let featured = Self.featured.firstIndex(of: entry.name) { score += Self.featured.count - featured }
             return (entry, score)
         }.sorted { lhs, rhs in lhs.1 == rhs.1 ? lhs.0.name < rhs.0.name : lhs.1 > rhs.1 }.map { $0.0.package }
+        results.put(found, for: key)
+        return found
     }
 
     private static func normalize(_ value: String) -> String {

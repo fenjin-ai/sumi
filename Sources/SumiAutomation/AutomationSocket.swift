@@ -3,6 +3,16 @@ import Foundation
 import SumiCore
 
 private enum LocalSocket {
+    // Blocking POSIX I/O must not occupy Swift's cooperative executor. A small
+    // runner (or several clients) otherwise leaves no worker to answer requests.
+    static func io<T: Sendable>(_ operation: @escaping @Sendable () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do { continuation.resume(returning: try operation()) }
+                catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
     static func address(_ url: URL) throws -> sockaddr_un {
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
@@ -161,14 +171,16 @@ public final class AutomationBridgeServer: @unchecked Sendable {
                 defer { close(connection); self?.lock.withLock { self?.connections -= 1 } }
                 let response: AutomationResponse
                 do {
-                    let request = try JSONDecoder().decode(AutomationRequest.self, from: LocalSocket.readMessage(connection))
+                    let request = try await LocalSocket.io {
+                        try JSONDecoder().decode(AutomationRequest.self, from: LocalSocket.readMessage(connection))
+                    }
                     guard let self, self.lock.withLock({ self.source != nil && self.generation == token }) else {
                         throw AutomationFailure("access_disabled", "Agent access has been disabled in Sumi.")
                     }
                     response = AutomationResponse(result: try await handler(request))
                 } catch let error as AutomationFailure { response = AutomationResponse(error: error) }
                 catch { response = AutomationResponse(error: .init("operation_failed", error.localizedDescription)) }
-                do { try LocalSocket.writeMessage(JSONEncoder().encode(response), to: connection) }
+                do { try await LocalSocket.io { try LocalSocket.writeMessage(JSONEncoder().encode(response), to: connection) } }
                 catch { /* A disconnected caller does not undo an already committed app operation. */ }
             }
         }
@@ -180,7 +192,7 @@ public struct AutomationBridgeClient: Sendable {
     public init(socketURL: URL = AutomationContract.socketURL(in: AutomationContract.defaultStateDirectory)) { self.socketURL = socketURL }
 
     public func send(_ request: AutomationRequest) async throws -> JSONValue {
-        try await Task.detached {
+        try await LocalSocket.io {
             do { try LocalSocket.verifyPrivateDirectory(socketURL.deletingLastPathComponent()) }
             catch { throw AutomationFailure("access_unavailable", "Open Sumi and enable Agent Access in its settings.") }
             var info = stat()
@@ -197,6 +209,6 @@ public struct AutomationBridgeClient: Sendable {
             }
             try LocalSocket.writeMessage(JSONEncoder().encode(request), to: fd)
             return try JSONDecoder().decode(AutomationResponse.self, from: LocalSocket.readMessage(fd)).value()
-        }.value
+        }
     }
 }

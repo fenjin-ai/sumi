@@ -95,11 +95,17 @@ func realTinymistRoundTrip() async throws {
     try client.open(child, text: "Child initial", version: 1)
     try client.open(file, text: "#include \"section.typ\"\n", version: 1)
     _ = try await client.startPreview(file)
-    try client.change(child, text: "Child unsaved", version: 2)
-    let multiFile = try await client.command("tinymist.exportPdf", arguments: [file.path])
-    let multiPath = try #require(multiFile["path"].string)
-    let multiText = PDFDocument(url: URL(fileURLWithPath: multiPath))?.string ?? "<no PDF>"
-    #expect(multiText.contains("Child unsaved"), "Rendered: \(multiText)")
+    // Export immediately after each included-source edit, without a sleep or
+    // waiting for preview compilation; the PDF must contain that exact revision.
+    for edit in 2...21 {
+        let expected = "Child unsaved edit \(edit)"
+        try client.change(child, text: expected, version: edit)
+        let multiFile = try await client.command("tinymist.exportPdf", arguments: [file.path])
+        let multiPath = try #require(multiFile["path"].string)
+        let data = try Data(contentsOf: URL(fileURLWithPath: multiPath))
+        let multiText = PDFDocument(data: data)?.string ?? "<no PDF>"
+        #expect(multiText.contains(expected), "Rendered: \(multiText); expected: \(expected)")
+    }
     #expect(try String(contentsOf: child, encoding: .utf8) == "Included content.")
 
 }
