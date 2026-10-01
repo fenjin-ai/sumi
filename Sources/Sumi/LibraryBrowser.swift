@@ -40,7 +40,9 @@ struct LibraryBrowser: View {
                         .background(Theme.border.opacity(0.6), in: RoundedRectangle(cornerRadius: 7))
                 } primaryAction: { library.perform { try await library.create() } }
                     .menuStyle(.borderlessButton).fixedSize().learningHelp(L10n.text("New document"), shortcut: "⌘N")
-                QuietButton(icon: "x", help: L10n.text("Close library"), shortcut: "Esc") { workspace.libraryOpen = false }
+                if !workspace.isLibraryHome {
+                    QuietButton(icon: "x", help: L10n.text("Close library"), shortcut: "Esc") { workspace.libraryOpen = false }
+                }
             }.padding(.horizontal, 30).padding(.top, 28).padding(.bottom, 24)
 
             HStack(spacing: 11) {

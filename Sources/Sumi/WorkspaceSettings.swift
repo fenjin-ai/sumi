@@ -21,11 +21,14 @@ final class WorkspaceSettings: ObservableObject {
         preferences = LibraryPreferences(defaults: defaults)
         automation = WorkspaceAutomation(workspace: workspace)
         automation.library = AutomationLibraryAccess(
-            currentID: { [weak workspace] in workspace?.managedDocumentID?.uuidString ?? workspace?.documentURL.absoluteString ?? "closed" },
+            currentID: { [weak workspace] in
+                guard let workspace, !workspace.isLibraryHome else { return "closed" }
+                return workspace.managedDocumentID?.uuidString ?? workspace.documentURL.absoluteString
+            },
             list: { [weak workspace] query in
                 guard let workspace else { return [] }
                 var documents = try await workspace.library.store.list(query: query).map { AutomationDocument(id: $0.id.uuidString, title: $0.title) }
-                if workspace.managedDocumentID == nil, query.isEmpty || workspace.title.localizedCaseInsensitiveContains(query) {
+                if !workspace.isLibraryHome, workspace.managedDocumentID == nil, query.isEmpty || workspace.title.localizedCaseInsensitiveContains(query) {
                     documents.insert(AutomationDocument(id: workspace.documentURL.absoluteString, title: workspace.title), at: 0)
                 }
                 return documents

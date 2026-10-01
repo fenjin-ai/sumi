@@ -369,6 +369,7 @@ final class WritingFixture {
         window = WritingWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.workspace = workspace
+        workspace.window = window
         toolbar = WindowToolbar(workspace: workspace)
         window.toolbar = toolbar.makeToolbar()
         window.contentView = NSHostingView(rootView: ContentView(workspace: workspace))

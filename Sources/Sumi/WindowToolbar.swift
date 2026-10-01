@@ -44,12 +44,12 @@ private struct DocumentTitle: View {
     @ObservedObject private var localization = AppLocalization.shared
     var body: some View {
         HStack(spacing: 8) {
-            Button { workspace.libraryOpen = true } label: {
+            Button { workspace.openLibrary() } label: {
                 PhosphorIcon(name: "books", size: 16).foregroundStyle(Theme.muted).frame(width: 26, height: 30)
             }.buttonStyle(.plain).accessibilityLabel(L10n.text("Your writing"))
                 .learningHelp(L10n.text("Your writing"), shortcut: "⌘O")
             EditableDocumentName(title: workspace.title, documentID: workspace.managedDocumentID,
-                onOpen: { workspace.libraryOpen = true },
+                onOpen: { workspace.openLibrary() },
                 onRename: { [id = workspace.managedDocumentID] title in
                     guard let id else { return }
                     workspace.library.perform { try await workspace.library.rename(id, title: title) }
@@ -74,6 +74,6 @@ private struct WritingActions: View {
             QuietButton(icon: "eye", help: L10n.text("Read the Preview"), shortcut: WritingCommand.all.first { $0.id == "preview" }?.shortcuts.first?.label, detail: L10n.text("Fill the workspace with your finished pages."), active: workspace.layout == .preview) { workspace.layout = .preview }
             Rectangle().fill(Theme.border).frame(width: 1, height: 14)
             QuietButton(icon: "arrow-square-out", help: L10n.text("Export PDF"), shortcut: WritingCommand.all.first { $0.id == "export" }?.shortcuts.first?.label, detail: L10n.text("Export the current document in its original colors.")) { workspace.exportPDF() }.disabled(workspace.exporting)
-        }.fixedSize().preferredColorScheme(.dark)
+        }.fixedSize().preferredColorScheme(.dark).disabled(workspace.isLibraryHome)
     }
 }

@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.appearance = NSAppearance(named: .darkAqua)
         let writingWindow = WritingWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         writingWindow.workspace = workspace
+        workspace.window = writingWindow
         window = writingWindow
         window.title = workspace.title + " — Sumi"
         window.titleVisibility = .hidden
@@ -174,7 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settingsWindow?.title = L10n.text("Settings")
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
-    @objc private func openLibrary() { workspace.libraryOpen = true }
+    @objc private func openLibrary() { workspace.openLibrary() }
     @objc private func importDocument() { workspace.library.importPanel() }
     @objc private func newDocument() { workspace.newDocument() }
     @objc private func openDocument() { workspace.openPanel() }

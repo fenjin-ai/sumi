@@ -1,3 +1,12 @@
+# Implementation and verification record
+
+Date: 2026-10-01. This record preserves evidence from each development iteration. New feature acceptance is recorded separately; historical counts and measurements refer to the stated version.
+
+
+## 0.4.0 (7) · Trash without replacement drafts
+
+Deleting the active document previously created a new Untitled as a safe landing document, so the list count did not decrease. The library now preserves pending edits, moves the document to recoverable trash and selects a remaining document. Deleting the last document shows the library itself, with no implicit draft; this state persists across relaunch. Import dialogs keep the parent window even when no editor is present. Local action logs record rename, trash and restore by document identity without titles or content.
+
 ## 0.4 acceptance follow-up · Direct document controls
 
 - Single-click managed-document titles to rename inline; Return commits and Escape cancels. Double-click the toolbar title for the library, or a library title to open its document. Library rows provide direct trash/restore icons.
@@ -5,10 +14,6 @@
 - All native interface scenarios now run in a shared serialized suite, avoiding cross-test interference from AppKit's process-wide focus, menus and sheet presentation.
 - Local acceptance: **70 Swift tests passed**, three profile-validation checks passed, and production source-line coverage reached **88.13% (4048/4593)**. A relocated app launched with build resources hidden, loaded its Chinese welcome document and connected to Tinymist.
 - The packaged app explicitly finds localization resources in Contents/Resources. CI includes an isolated cold-launch check with diagnostic artifacts to detect checkout-dependent builds.
-
-# Implementation and verification record
-
-Date: 2026-10-01. This record preserves evidence from each development iteration. New feature acceptance is recorded separately; historical counts and measurements refer to the stated version.
 
 ## 0.4.0 · Library, agent access and languages
 

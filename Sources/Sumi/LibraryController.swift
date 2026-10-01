@@ -42,8 +42,13 @@ final class LibraryController: ObservableObject {
             }
         }
         await refresh()
-        if let workspace, let url = workspace.fileURL { associate(url) }
-        else if let workspace {
+        if let workspace, let url = workspace.fileURL {
+            associate(url)
+            if documents.contains(where: { $0.id == workspace.managedDocumentID && $0.trashedAt != nil }) {
+                workspace.showLibraryHome()
+            }
+        }
+        else if let workspace, !workspace.isLibraryHome {
             // One-time adoption of the previous single-draft model.
             do { try await create(title: L10n.text("Welcome"), text: workspace.text) }
             catch { self.error = error.localizedDescription }
@@ -105,24 +110,44 @@ final class LibraryController: ObservableObject {
         _ = try await store.rename(id, title: title)
         await refresh()
         if workspace?.managedDocumentID == id, let workspace { workspace.onTitleChange?(workspace.title) }
+        workspace?.recordOperation("library.rename", ["documentID": id.uuidString])
     }
 
     func moveToTrash(_ id: UUID) async throws {
         guard let workspace else { return }
-        if workspace.managedDocumentID == id {
+        let wasActive = workspace.managedDocumentID == id
+        if wasActive {
+            workspace.documentTransitionInProgress = true
+            workspace.editor?.isEditable = false
+        }
+        defer {
+            if wasActive {
+                workspace.documentTransitionInProgress = false
+                workspace.editor?.isEditable = !workspace.isLibraryHome && workspace.layout != .preview && !workspace.paletteOpen
+            }
+        }
+        if wasActive {
             workspace.save()
             guard workspace.text == workspace.savedText else { throw LibraryInteractionError.saveFirst }
-            // Create a safe landing document before trashing the active one.
-            try await create()
-            workspace.libraryOpen = true
         }
         _ = try await store.trash(id)
+        workspace.recordOperation("library.trash", ["documentID": id.uuidString, "active": String(wasActive)])
         await refresh()
+        if wasActive {
+            // Clear the trashed buffer first, so an unavailable replacement can
+            // safely leave the library open without editing a trashed document.
+            workspace.showLibraryHome()
+            if let next = documents.first(where: { $0.trashedAt == nil }) {
+                try await open(next.id)
+                workspace.libraryOpen = true
+            }
+        }
     }
 
     func restore(_ id: UUID) async throws {
         _ = try await store.restore(id)
         await refresh()
+        workspace?.recordOperation("library.restore", ["documentID": id.uuidString])
     }
 
     func importDocument(_ url: URL) async throws {
@@ -138,7 +163,7 @@ final class LibraryController: ObservableObject {
     }
 
     func importPanel(project: Bool = false) {
-        guard let owner = workspace?.editor?.window else { return }
+        guard let owner = workspace?.window ?? workspace?.editor?.window else { return }
         let window = owner.attachedSheet ?? owner
         guard window.attachedSheet == nil else { return }
         let panel = NSOpenPanel()
@@ -174,7 +199,7 @@ final class LibraryController: ObservableObject {
     }
 
     func exportPanel(_ document: LibraryDocument) {
-        guard let owner = workspace?.editor?.window else { return }
+        guard let owner = workspace?.window ?? workspace?.editor?.window else { return }
         let window = owner.attachedSheet ?? owner
         guard window.attachedSheet == nil else { return }
         let panel = NSSavePanel()

@@ -48,11 +48,13 @@ public struct RecoverySnapshot: Codable, Sendable {
     public let savedText: String?
     public let selection: Int
     public let mainFileURL: URL?
-    public init(fileURL: URL?, text: String, savedText: String?, selection: Int, mainFileURL: URL? = nil) {
+    public let libraryHome: Bool?
+    public init(fileURL: URL?, text: String, savedText: String?, selection: Int, mainFileURL: URL? = nil, libraryHome: Bool? = nil) {
         self.fileURL = fileURL
         self.text = text
         self.savedText = savedText
         self.selection = selection
         self.mainFileURL = mainFileURL
+        self.libraryHome = libraryHome
     }
 }

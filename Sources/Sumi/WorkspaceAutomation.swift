@@ -52,6 +52,7 @@ final class WorkspaceAutomation {
         AutomationContract.revision(documentID: session + ":" + documentID + ":" + String(workspace.revision), text: workspace.text)
     }
     private func snapshot(_ workspace: Workspace) throws -> JSONValue {
+        guard !workspace.isLibraryHome else { throw AutomationFailure("no_document", "Open or create a document first.") }
         guard workspace.text.utf8.count <= AutomationContract.maximumSourceBytes else {
             throw AutomationFailure("document_too_large", "Agent reads are limited to 2 MiB of source.")
         }
@@ -63,6 +64,7 @@ final class WorkspaceAutomation {
         ])
     }
     private func requireCurrent(_ arguments: JSONValue, workspace: Workspace, revisionRequired: Bool = false) throws {
+        guard !workspace.isLibraryHome else { throw AutomationFailure("no_document", "Open or create a document first.") }
         guard let id = arguments["document_id"].string, id == documentID else {
             throw AutomationFailure("document_changed", "The active document changed. Read the current document before continuing.")
         }
