@@ -186,7 +186,22 @@ extension WritingFlowTests {
         await app.layout()
         let web = try #require(findWebView(app.window.contentView))
         web.configuration.preferences.inactiveSchedulingPolicy = .none
-        web.configuration.userContentController.addUserScript(WKUserScript(source: "window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16); window.cancelAnimationFrame = clearTimeout;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // This fixture is intentionally offscreen. macOS 15 WebKit suspends
+        // native smooth-scroll animation there even when JS timers are active.
+        // Keep Tinymist's real destination and native scrolling; skip animation.
+        let scheduling = """
+        window.requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 16);
+        window.cancelAnimationFrame = clearTimeout;
+        const nativeScrollTo = Element.prototype.scrollTo;
+        Element.prototype.scrollTo = function(options, ...rest) {
+            if (options && typeof options === 'object') {
+                window.sumiRequestedScroll = options;
+                return nativeScrollTo.call(this, {...options, behavior: 'instant'});
+            }
+            return nativeScrollTo.call(this, options, ...rest);
+        };
+        """
+        web.configuration.userContentController.addUserScript(WKUserScript(source: scheduling, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web.reload()
         // Establish a ready old page first, reproducing reload's asynchronous
         // provisional-navigation callback on the CI WebKit version.
@@ -260,6 +275,7 @@ private func waitForJavaScript(_ web: WKWebView, condition: String) async throws
         if (try? await web.evaluateJavaScript(condition)) as? Bool == true { return }
         try await Task.sleep(for: .milliseconds(50))
     }
-    Issue.record("Preview did not reach expected state: \(condition)")
+    let state = try? await web.evaluateJavaScript("JSON.stringify({visibility:document.visibilityState, requestedScroll:window.sumiRequestedScroll, scroll:document.getElementById('typst-container-main')?.scrollTop, height:innerHeight, pages:[...document.querySelectorAll('.typst-doc > g.typst-page')].map(p=>({page:p.dataset.pageNumber,top:p.getBoundingClientRect().top,bottom:p.getBoundingClientRect().bottom})), renderers:document.getElementById('typst-container')?.documents?.map(d=>({rendering:d.impl.isRendering,initialized:d.impl.moduleInitialized}))})")
+    Issue.record("Preview did not reach expected state: \(condition); state: \(state ?? "unavailable")")
     throw CommandError.invalid("Preview state timed out")
 }
