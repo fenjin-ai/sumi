@@ -31,7 +31,12 @@ public enum L10n {
     private static let state = LocalizationState()
     private static let bundles: [AppLanguage: Bundle] = Dictionary(uniqueKeysWithValues:
         [AppLanguage.english, .simplifiedChinese].compactMap { language in
-            Bundle.module.path(forResource: language.rawValue, ofType: "lproj")
+            // SwiftPM's native builder lowercases locale directories; the Xcode
+            // builder preserves their spelling. Bundle lookup is case-sensitive.
+            let identifier = Bundle.module.localizations.first {
+                $0.caseInsensitiveCompare(language.rawValue) == .orderedSame
+            } ?? language.rawValue
+            return Bundle.module.path(forResource: identifier, ofType: "lproj")
                 .flatMap(Bundle.init(path:)).map { (language, $0) }
         })
 

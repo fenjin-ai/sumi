@@ -97,7 +97,10 @@ struct InteractionPerformanceTests {
         }
         #expect(Set(SumiCore.CommandGroup.all.map(\.icon)).count == SumiCore.CommandGroup.all.count)
         #expect(Set(WritingCommand.all.map(\.icon)).count == WritingCommand.all.count)
-        for command in WritingCommand.all { #expect(IconStore.image(command.icon) != nil) }
+        for command in WritingCommand.all {
+            let image = try #require(IconStore.image(command.icon))
+            #expect(image.size.width <= 24 && image.size.height <= 24, "Native menu labels must not use the PDF artboard size")
+        }
         #expect(IconStore.image("command") === IconStore.image("command"))
         #expect(IconStore.image("missing-icon") == nil)
         #expect(IconStore.image("missing-icon") == nil)

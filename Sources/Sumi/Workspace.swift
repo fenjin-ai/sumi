@@ -266,8 +266,9 @@ final class Workspace: ObservableObject {
         recordOperation("saveAs.dialog")
         let panel = NSSavePanel()
         panel.title = L10n.text("Save Document")
-        panel.nameFieldStringValue = fileURL?.lastPathComponent ?? L10n.text("Untitled.typ")
-        panel.directoryURL = fileURL?.deletingLastPathComponent()
+        panel.nameFieldStringValue = managedTitle.map { $0.replacingOccurrences(of: "/", with: "-") + ".typ" }
+            ?? fileURL?.lastPathComponent ?? L10n.text("Untitled.typ")
+        panel.directoryURL = managedDocumentID == nil ? fileURL?.deletingLastPathComponent() : nil
         panel.allowedContentTypes = [UTType(filenameExtension: "typ") ?? .plainText]
         present(panel) { [weak self] url in
             guard let self else { return }
@@ -589,7 +590,8 @@ final class Workspace: ObservableObject {
         guard serviceReady, !exporting else { showMessage(L10n.text("Please wait for the typesetting service to be ready.")); return }
         let panel = NSSavePanel()
         panel.title = L10n.text("Export PDF")
-        panel.nameFieldStringValue = compilationURL.deletingPathExtension().lastPathComponent + ".pdf"
+        panel.nameFieldStringValue = (managedTitle?.replacingOccurrences(of: "/", with: "-")
+            ?? compilationURL.deletingPathExtension().lastPathComponent) + ".pdf"
         panel.allowedContentTypes = [.pdf]
         present(panel) { [weak self] destination in
             Task { @MainActor in
