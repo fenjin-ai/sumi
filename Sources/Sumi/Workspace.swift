@@ -56,6 +56,7 @@ final class Workspace: ObservableObject {
     }
     @Published var universeOpen = false
     @Published var libraryOpen = false
+    @Published private(set) var isLibraryHome = false
     @Published var documentTemplate: DocumentTemplate = .blank
     @Published var managedDocumentID: UUID?
     @Published var managedTitle: String?
@@ -68,6 +69,7 @@ final class Workspace: ObservableObject {
         didSet { UserDefaults.standard.set(commandKey, forKey: "commandKey"); onShortcutChange?() }
     }
     weak var editor: ManuscriptTextView?
+    weak var window: NSWindow?
     var onTitleChange: ((String) -> Void)?
     var onShortcutChange: (() -> Void)?
     private let client = TinymistClient()
@@ -86,7 +88,7 @@ final class Workspace: ObservableObject {
     var draftURL: URL { stateDirectory.appendingPathComponent("Draft.typ") }
     var documentURL: URL { fileURL ?? draftURL }
     var compilationURL: URL { mainFileURL ?? documentURL }
-    var title: String { managedTitle ?? fileURL?.deletingPathExtension().lastPathComponent ?? L10n.text("Untitled") }
+    var title: String { isLibraryHome ? L10n.text("Your writing") : (managedTitle ?? fileURL?.deletingPathExtension().lastPathComponent ?? L10n.text("Untitled")) }
     var revision: Int { documentVersion }
     private var textMetrics: DocumentMetrics?
     private var metrics: DocumentMetrics {
@@ -129,6 +131,7 @@ final class Workspace: ObservableObject {
             text = snapshot.text
             savedText = snapshot.savedText
             selection = NSRange(location: min(snapshot.selection, text.utf16.count), length: 0)
+            isLibraryHome = snapshot.libraryHome == true
             if let fileURL {
                 baseline = DiskBaseline(data: snapshot.savedText.map { Data($0.utf8) })
                 if let disk = try? DocumentStorage.read(fileURL), snapshot.text == snapshot.savedText {
@@ -148,6 +151,7 @@ final class Workspace: ObservableObject {
     }
 
     func startService() {
+        guard !isLibraryHome else { return }
         recordOperation("service.start")
         let generation = UUID()
         serviceGeneration = generation
@@ -188,6 +192,7 @@ final class Workspace: ObservableObject {
     }
 
     func edited(_ newText: String) {
+        guard !isLibraryHome else { return }
         text = newText
         documentVersion += 1
         previewStale = true
@@ -233,12 +238,13 @@ final class Workspace: ObservableObject {
     }
 
     @discardableResult func saveRecovery() -> Bool {
-        let snapshot = RecoverySnapshot(fileURL: fileURL, text: text, savedText: savedText, selection: selection.location, mainFileURL: mainFileURL)
+        let snapshot = RecoverySnapshot(fileURL: fileURL, text: text, savedText: savedText, selection: selection.location, mainFileURL: mainFileURL, libraryHome: isLibraryHome)
         do { try JSONEncoder().encode(snapshot).write(to: recoveryURL, options: .atomic); return true }
         catch { recordOperation("recovery.failed", ["error": error.localizedDescription]); showMessage(L10n.format("Could not save the recovery copy: %@", error.localizedDescription), persistent: true); return false }
     }
 
     func save() {
+        guard !isLibraryHome else { return }
         guard let fileURL else { saveAs(); return }
         do {
             baseline = try DocumentStorage.write(text, to: fileURL, baseline: baseline)
@@ -256,13 +262,14 @@ final class Workspace: ObservableObject {
     }
 
     private func present(_ panel: NSSavePanel, completion: @escaping @MainActor (URL) -> Void) {
-        guard let window = editor?.window, window.attachedSheet == nil else { return }
+        guard let window = window ?? editor?.window, window.attachedSheet == nil else { return }
         panel.beginSheetModal(for: window) { response in
             if response == .OK, let url = panel.url { completion(url) }
         }
     }
 
     func saveAs() {
+        guard !isLibraryHome else { return }
         recordOperation("saveAs.dialog")
         let panel = NSSavePanel()
         panel.title = L10n.text("Save Document")
@@ -297,6 +304,7 @@ final class Workspace: ObservableObject {
     }
 
     private func preserveCurrent() -> Bool {
+        guard !isLibraryHome else { return true }
         saveTask?.cancel()
         saveRecovery()
         if fileURL != nil, text != savedText { save() }
@@ -319,6 +327,7 @@ final class Workspace: ObservableObject {
             let previousMain = compilationURL
             mainFileURL = preservingMain && url != previousMain ? previousMain : nil
             fileURL = url; text = content; savedText = content; baseline = disk
+            isLibraryHome = false
             library.associate(url)
             documentVersion += 1; selection = NSRange(location: 0, length: 0)
             editor?.load(content, selection: selection)
@@ -331,6 +340,26 @@ final class Workspace: ObservableObject {
     func newDocument() {
         recordOperation("document.new")
         library.perform { try await self.library.create() }
+    }
+
+    func openLibrary() { if !isLibraryHome { libraryOpen = true } }
+
+    /// No replacement draft is created when the last document is trashed.
+    func showLibraryHome() {
+        saveTask?.cancel(); syncTask?.cancel(); messageTask?.cancel()
+        serviceGeneration = UUID()
+        client.stop()
+        isLibraryHome = true
+        fileURL = nil; mainFileURL = nil; managedDocumentID = nil; managedTitle = nil
+        text = ""; savedText = ""; baseline = nil
+        selection = NSRange(location: 0, length: 0); documentVersion += 1
+        editor?.load("", selection: selection)
+        editor?.isEditable = false
+        previewURL = nil; diagnostics = []; diagnosticsByURI = [:]; outline = []
+        serviceReady = false; hasSuccessfulPreview = false; previewStale = true
+        paletteOpen = false; sidePanel = nil; message = nil; libraryOpen = false
+        saveRecovery(); onTitleChange?(title)
+        recordOperation("library.home")
     }
 
     func reload() {
@@ -385,6 +414,7 @@ final class Workspace: ObservableObject {
     }
 
     func togglePalette() {
+        guard !isLibraryHome else { return }
         recordOperation("palette.toggle")
         if paletteOpen { closePalette() } else {
             guard editor?.hasMarkedText() != true else { return }
@@ -460,7 +490,7 @@ final class Workspace: ObservableObject {
         case "fontSmaller": closePalette(); fontSize = max(12, fontSize - 1)
         case "new": closePalette(); newDocument()
         case "newCodeNotes": closePalette(); library.perform { try await self.library.create(template: .codeNotes) }
-        case "open": closePalette(); libraryOpen = true
+        case "open": closePalette(); openLibrary()
         case "importDocument": closePalette(); library.importPanel()
         case "revealSource": closePalette(); NSWorkspace.shared.activateFileViewerSelecting([documentURL])
         case "save": closePalette(); save()

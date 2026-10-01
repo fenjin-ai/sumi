@@ -7,6 +7,25 @@ struct ContentView: View {
     @State private var splitFraction: CGFloat = 0.5
 
     var body: some View {
+        Group {
+            if workspace.isLibraryHome {
+                LibraryBrowser(workspace: workspace, library: workspace.library)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.editor)
+            } else { writing }
+        }
+        .background(Theme.background)
+        .foregroundStyle(Theme.text)
+        .preferredColorScheme(.dark)
+        .sheet(isPresented: $workspace.universeOpen) {
+            UniverseBrowser(cacheURL: workspace.stateDirectory.appendingPathComponent("universe-index.json"), onImport: workspace.importPackage)
+        }
+        .sheet(isPresented: $workspace.libraryOpen) {
+            LibraryBrowser(workspace: workspace, library: workspace.library)
+        }
+    }
+
+    private var writing: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 if workspace.sidePanel == .diagnostics { diagnosticSidebar.frame(width: 224); divider }
@@ -38,15 +57,6 @@ struct ContentView: View {
             }
             Rectangle().fill(Theme.border.opacity(0.55)).frame(height: 1)
             footer
-        }
-        .background(Theme.background)
-        .foregroundStyle(Theme.text)
-        .preferredColorScheme(.dark)
-        .sheet(isPresented: $workspace.universeOpen) {
-            UniverseBrowser(cacheURL: workspace.stateDirectory.appendingPathComponent("universe-index.json"), onImport: workspace.importPackage)
-        }
-        .sheet(isPresented: $workspace.libraryOpen) {
-            LibraryBrowser(workspace: workspace, library: workspace.library)
         }
     }
 
