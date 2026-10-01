@@ -42,6 +42,14 @@ import SumiTestSupport
     let payload = try #require(FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)?.allObjects.compactMap { $0 as? URL }.first { $0.lastPathComponent == "\(safety.id).typ" })
     try Data("corrupted".utf8).write(to: payload)
     await #expect(throws: HistoryError.damaged) { try await store.source(for: safety, key: "book") }
+    let repaired = try await store.preserveBeforeRestore("unsaved today", key: "book", at: start.addingTimeInterval(86502))
+    #expect(repaired.id != safety.id)
+    #expect(try await store.source(for: repaired, key: "book") == "unsaved today")
+    let repairedPayload = payload.deletingLastPathComponent().appendingPathComponent("\(repaired.id).typ")
+    try FileManager.default.removeItem(at: repairedPayload)
+    let recreated = try await store.preserveBeforeRestore("unsaved today", key: "book", at: start.addingTimeInterval(86503))
+    #expect(recreated.id != repaired.id)
+    #expect(try await store.source(for: recreated, key: "book") == "unsaved today")
 }
 
 @Test func historyWriteFailureDoesNotPublishAnIncompleteSnapshot() async throws {

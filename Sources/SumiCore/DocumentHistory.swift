@@ -46,8 +46,6 @@ public actor DocumentHistory {
     @discardableResult
     public func preserveBeforeRestore(_ source: String, key: String, at date: Date) throws -> DocumentRevision {
         let entries = try revisions(for: key)
-        let digest = Self.digest(Data(source.utf8))
-        if let existing = entries.first, existing.digest == digest { return existing }
         return try append(source, key: key, at: date, reason: .beforeRestore, entries: entries)
     }
 
@@ -65,7 +63,10 @@ public actor DocumentHistory {
                         entries: [DocumentRevision]) throws -> DocumentRevision {
         let data = Data(source.utf8)
         let digest = Self.digest(data)
-        if let newest = entries.first, newest.digest == digest { return newest }
+        // A matching index is insufficient: the payload may have been removed
+        // or damaged. Restore is safe only when the retained bytes are readable.
+        if let newest = entries.first, newest.digest == digest,
+           (try? self.source(for: newest, key: key)) == source { return newest }
         let revision = DocumentRevision(id: UUID(), createdAt: date, bytes: data.count, digest: digest, reason: reason)
         let directory = directory(for: key)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
