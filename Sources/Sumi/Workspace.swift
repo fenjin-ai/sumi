@@ -739,12 +739,14 @@ final class Workspace: ObservableObject {
     func previewDidBecomeReady(at url: URL) {
         guard previewURL == url else { return }
         previewReadyForNavigation = true
+        recordOperation("preview.ready")
         sendPendingPreviewNavigation()
     }
 
     func previewWillLoad(at url: URL) {
         guard previewURL == url else { return }
         previewReadyForNavigation = false
+        recordOperation("preview.loading")
     }
 
     private func queuePreviewNavigation(reportFailure: Bool) {
@@ -757,6 +759,7 @@ final class Workspace: ObservableObject {
             ? NSMaxRange(source.rangeOfComposedCharacterSequence(at: offset)) : offset
         let target = metrics.position(at: queryOffset)
         pendingPreviewNavigation = (documentURL, target, documentVersion, reportFailure)
+        recordOperation("preview.jump.queued", ["line": String(target.line), "version": String(documentVersion)])
         sendPendingPreviewNavigation()
     }
 
@@ -775,7 +778,9 @@ final class Workspace: ObservableObject {
             guard generation == serviceGeneration, pending.url == documentURL, pending.version == documentVersion else { return }
             do {
                 _ = try await client.command("tinymist.scrollPreview", arguments: ["sumi", ["event": "panelScrollTo", "filepath": pending.url.path, "line": pending.position.line, "character": column]])
+                recordOperation("preview.jump.sent", ["line": String(pending.position.line), "version": String(pending.version)])
             } catch {
+                recordOperation("preview.jump.failed", ["error": error.localizedDescription])
                 if generation == serviceGeneration, pending.reportFailure { showMessage(error.localizedDescription) }
             }
         }
