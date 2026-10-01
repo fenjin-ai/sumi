@@ -50,7 +50,7 @@ struct ManuscriptView: NSViewRepresentable {
         guard let editor = scroll.documentView as? ManuscriptTextView else { return }
         workspace.editor = editor
         if editor.string != workspace.text, !editor.hasMarkedText() { editor.load(workspace.text, selection: workspace.selection) }
-        if editor.font?.pointSize != workspace.fontSize { editor.highlight() }
+        if editor.appliedFontSize != workspace.fontSize { editor.highlight() }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(workspace) }
@@ -78,6 +78,16 @@ final class ManuscriptTextView: NSTextView {
     private var placeholderIndex = 0
     private var completionItems: [JSONValue] = []
     private var highlighting = false
+    private(set) var appliedFontSize: CGFloat = 0
+    private var styledSource = false
+    private var highlightedText: String?
+    private var sourceAttributes: NSAttributedString?
+    private var readingAttributes: NSAttributedString?
+    private var activeParagraph: NSRange?
+    private static let syntaxPatterns = [
+        "(?m)^={1,6}[ \t]+.*$", "#[A-Za-z][A-Za-z0-9_.-]*",
+        #""(?:[^"\\]|\\.)*""#, #"\$[^$]*\$"#, #"\*[^*\n]+\*"#, "(?m)^//.*$"
+    ].map { try! NSRegularExpression(pattern: $0) }
     private weak var observedUndoManager: UndoManager?
 
     override func viewDidMoveToWindow() {
@@ -133,45 +143,65 @@ final class ManuscriptTextView: NSTextView {
         highlighting = true
         defer { highlighting = false }
         let size = workspace?.fontSize ?? 16
+        let styled = workspace?.styledSource == true
+        let content = string
+        let active = SourcePresentation.activeParagraph(in: content, selection: selectedRange())
+        let rebuild = highlightedText != content || appliedFontSize != size || styledSource != styled
+        if !rebuild, activeParagraph == active { return }
         let font = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 7
         paragraph.paragraphSpacing = 2
         let base: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor(hex: 0xD5D9DE), .paragraphStyle: paragraph]
-        typingAttributes = base
-        self.font = font
-        storage.beginEditing()
-        storage.setAttributes(base, range: NSRange(location: 0, length: storage.length))
-        func paint(_ pattern: String, _ attributes: [NSAttributedString.Key: Any]) {
-            guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
-            for match in regex.matches(in: string, range: NSRange(location: 0, length: storage.length)) { storage.addAttributes(attributes, range: match.range) }
-        }
-        paint("(?m)^={1,6}[ \\t]+.*$", [.foregroundColor: NSColor(hex: 0xEEE8DA), .font: NSFont.monospacedSystemFont(ofSize: size + 2, weight: .semibold)])
-        paint("#[A-Za-z][A-Za-z0-9_.-]*", [.foregroundColor: NSColor(hex: 0xA5B8C8)])
-        paint("\"(?:[^\"\\\\]|\\\\.)*\"", [.foregroundColor: NSColor(hex: 0xA8B89A)])
-        paint("\\$[^$]*\\$", [.foregroundColor: NSColor(hex: 0xD9B97C)])
-        paint("\\*[^*\\n]+\\*", [.foregroundColor: NSColor(hex: 0xEEE8DA), .font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold)])
-        paint("(?m)^//.*$", [.foregroundColor: NSColor(hex: 0x7C8793)])
-        if workspace?.styledSource == true {
-            let active = SourcePresentation.activeParagraph(in: string, selection: selectedRange())
-            for decoration in SourcePresentation.decorations(in: string) {
-                guard NSIntersectionRange(active, decoration.range).length == 0 else { continue }
-                switch decoration.kind {
-                case .heading(let level):
-                    storage.addAttributes([.font: NSFont.systemFont(ofSize: size + CGFloat(max(2, 8 - level * 2)), weight: .semibold), .foregroundColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
-                case .strong:
-                    storage.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold), .foregroundColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
-                case .emphasis:
-                    storage.addAttribute(.font, value: NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask), range: decoration.range)
-                case .code:
-                    storage.addAttributes([.foregroundColor: NSColor(hex: 0xA8B89A), .backgroundColor: NSColor(hex: 0x272D32)], range: decoration.range)
-                }
-                for marker in decoration.markers {
-                    storage.addAttributes([.font: NSFont.systemFont(ofSize: 0.1), .foregroundColor: NSColor.clear], range: marker)
+        if rebuild {
+            let source = NSMutableAttributedString(string: content, attributes: base)
+            let styles: [[NSAttributedString.Key: Any]] = [
+                [.foregroundColor: NSColor(hex: 0xEEE8DA), .font: NSFont.monospacedSystemFont(ofSize: size + 2, weight: .semibold)],
+                [.foregroundColor: NSColor(hex: 0xA5B8C8)], [.foregroundColor: NSColor(hex: 0xA8B89A)],
+                [.foregroundColor: NSColor(hex: 0xD9B97C)],
+                [.foregroundColor: NSColor(hex: 0xEEE8DA), .font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold)],
+                [.foregroundColor: NSColor(hex: 0x7C8793)]
+            ]
+            let whole = NSRange(location: 0, length: source.length)
+            for (regex, attributes) in zip(Self.syntaxPatterns, styles) {
+                for match in regex.matches(in: content, range: whole) { source.addAttributes(attributes, range: match.range) }
+            }
+            sourceAttributes = source
+            let reading = NSMutableAttributedString(attributedString: source)
+            if styled {
+                for decoration in SourcePresentation.decorations(in: content) {
+                    switch decoration.kind {
+                    case .heading(let level):
+                        reading.addAttributes([.font: NSFont.systemFont(ofSize: size + CGFloat(max(2, 8 - level * 2)), weight: .semibold), .foregroundColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
+                    case .strong:
+                        reading.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold), .foregroundColor: NSColor(hex: 0xEEE8DA)], range: decoration.range)
+                    case .emphasis:
+                        reading.addAttribute(.font, value: NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask), range: decoration.range)
+                    case .code:
+                        reading.addAttributes([.foregroundColor: NSColor(hex: 0xA8B89A), .backgroundColor: NSColor(hex: 0x272D32)], range: decoration.range)
+                    }
+                    for marker in decoration.markers {
+                        reading.addAttributes([.font: NSFont.systemFont(ofSize: 0.1), .foregroundColor: NSColor.clear], range: marker)
+                    }
                 }
             }
+            readingAttributes = reading
+            highlightedText = content
+            appliedFontSize = size
+            styledSource = styled
         }
+        storage.beginEditing()
+        func apply(_ snapshot: NSAttributedString?, range: NSRange) {
+            guard let snapshot, range.length > 0 else { return }
+            snapshot.enumerateAttributes(in: range) { attributes, span, _ in
+                storage.setAttributes(attributes, range: span)
+            }
+        }
+        if rebuild { apply(readingAttributes, range: NSRange(location: 0, length: storage.length)) }
+        else if let previous = activeParagraph { apply(readingAttributes, range: previous) }
+        apply(sourceAttributes, range: active)
         storage.endEditing()
+        activeParagraph = active
         typingAttributes = base
     }
 

@@ -21,20 +21,43 @@ extension NSColor {
     convenience init(hex: UInt32) { self.init(srgbRed: CGFloat((hex >> 16) & 255) / 255, green: CGFloat((hex >> 8) & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1) }
 }
 
+@MainActor
+enum IconStore {
+    private static var images: [String: NSImage] = [:]
+    private static var missing: Set<String> = []
+    static func image(_ name: String) -> NSImage? {
+        if let image = images[name] { return image }
+        if missing.contains(name) { return nil }
+        var directory = Bundle.main.resourceURL?.appendingPathComponent("Icons")
+        #if DEBUG
+        if directory.map({ !FileManager.default.fileExists(atPath: $0.path) }) ?? true {
+            directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources/Icons")
+        }
+        #endif
+        guard let url = directory?.appendingPathComponent("\(name).pdf"), let image = NSImage(contentsOf: url) else {
+            missing.insert(name); return nil
+        }
+        image.isTemplate = true
+        images[name] = image
+        return image
+    }
+}
+
 struct PhosphorIcon: View {
     let name: String
     var size: CGFloat = 18
     var body: some View {
-        if let url = Bundle.main.resourceURL?.appendingPathComponent("Icons/\(name).pdf"), let image = NSImage(contentsOf: url) {
-            Image(nsImage: template(image)).resizable().interpolation(.high).frame(width: size, height: size).accessibilityHidden(true)
+        if let image = IconStore.image(name) {
+            Image(nsImage: image).resizable().interpolation(.high).frame(width: size, height: size).accessibilityHidden(true)
         } else { Color.clear.frame(width: size, height: size).accessibilityHidden(true) }
     }
-    private func template(_ image: NSImage) -> NSImage { image.isTemplate = true; return image }
 }
 
 struct QuietButton: View {
     let icon: String
     let help: String
+    var shortcut: String? = nil
+    var detail: String? = nil
     var active = false
     var action: () -> Void
     @State private var hovering = false
@@ -43,7 +66,7 @@ struct QuietButton: View {
             PhosphorIcon(name: icon).foregroundStyle(active ? Theme.accent : Theme.secondary)
                 .frame(width: 30, height: 30)
                 .background(hovering || active ? Theme.border.opacity(0.5) : Color.clear, in: RoundedRectangle(cornerRadius: 5))
-        }.buttonStyle(.plain).help(help).accessibilityLabel(help).onHover { hovering = $0 }
+        }.buttonStyle(.plain).accessibilityLabel(help).learningHelp(help, shortcut: shortcut, detail: detail).onHover { hovering = $0 }
     }
 }
 

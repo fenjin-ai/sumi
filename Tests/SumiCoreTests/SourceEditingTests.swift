@@ -2,6 +2,16 @@ import Foundation
 import Testing
 @testable import SumiCore
 
+@Test func documentMetricsFollowUTF16AndUnicodeCharacterBoundaries() {
+    for text in ["", "中文😀\r\nCafé\n\n👩‍💻 End\n", "Single line"] {
+        let metrics = DocumentMetrics(text)
+        #expect(metrics.wordCount == text.filter { !$0.isWhitespace }.count)
+        for offset in -1...(text.utf16.count + 2) {
+            #expect(metrics.position(at: offset) == TextPosition(offset: offset, in: text))
+        }
+    }
+}
+
 @Test func sourceDecorationRespectsCodeMathAndIncompleteInput() {
     let source = """
     = 中文😀标题

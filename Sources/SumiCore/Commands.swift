@@ -16,18 +16,18 @@ public struct CommandGroup: Identifiable, Sendable {
     public static var roots: [Self] { children(of: nil) }
     public static func children(of parentID: String?) -> [Self] { all.filter { $0.parentID == parentID } }
     public static let all: [Self] = [
-        .init(id: "insert", key: "i", title: "插入", subtitle: "标题、图片、公式与表格", icon: "plus-circle"),
-        .init(id: "style", key: "s", title: "样式", subtitle: "让文字有恰当的强调", icon: "text-aa"),
-        .init(id: "page", key: "p", title: "页面", subtitle: "纸张、留白与文字大小", icon: "file-text"),
-        .init(id: "math", key: "m", title: "数学", subtitle: "从分式到矩阵，逐层发现", icon: "text-aa"),
-        .init(id: "layout", key: "l", title: "布局", subtitle: "分栏、对齐与内容容器", icon: "columns"),
-        .init(id: "references", key: "r", title: "文献与目录", subtitle: "引文、书目与文章导航", icon: "file-text"),
-        .init(id: "code", key: "c", title: "文件与代码", subtitle: "拆分文稿，复用内容", icon: "code"),
-        .init(id: "view", key: "v", title: "视图", subtitle: "专注写作，或看看成稿", icon: "sidebar-simple"),
+        .init(id: "insert", key: "i", title: "插入内容", subtitle: "标题、图片、公式与表格", icon: "plus-circle"),
+        .init(id: "style", key: "s", title: "文字样式", subtitle: "让文字有恰当的强调", icon: "text-aa"),
+        .init(id: "page", key: "p", title: "纸张设置", subtitle: "纸张、页边距与页码", icon: "file"),
+        .init(id: "math", key: "m", title: "数学", subtitle: "从分式到矩阵，逐层发现", icon: "sigma"),
+        .init(id: "layout", key: "l", title: "文稿排版", subtitle: "文稿中的分栏、对齐与容器", icon: "layout"),
+        .init(id: "references", key: "r", title: "引用与目录", subtitle: "引文、书目与文章导航", icon: "books"),
+        .init(id: "code", key: "c", title: "编辑与代码", subtitle: "编辑操作、代码与 Universe", icon: "brackets-curly"),
+        .init(id: "view", key: "v", title: "工作空间", subtitle: "编辑器、预览与辅助工具", icon: "desktop"),
         .init(id: "file", key: "f", title: "文件", subtitle: "打开、保存与导出", icon: "folder-open"),
-        .init(id: "math-basic", key: "b", title: "基本运算", subtitle: "分式、根式与上下标", icon: "text-aa", parentID: "math"),
-        .init(id: "math-structures", key: "s", title: "公式结构", subtitle: "矩阵、分段函数与微积分", icon: "text-aa", parentID: "math"),
-        .init(id: "math-symbols", key: "y", title: "符号与字形", subtitle: "希腊字母、集合与向量", icon: "text-aa", parentID: "math")
+        .init(id: "math-basic", key: "b", title: "基本运算", subtitle: "分式、根式与上下标", icon: "function", parentID: "math"),
+        .init(id: "math-structures", key: "s", title: "公式结构", subtitle: "矩阵、分段函数与微积分", icon: "grid-four", parentID: "math"),
+        .init(id: "math-symbols", key: "y", title: "符号与字形", subtitle: "希腊字母、集合与向量", icon: "pi", parentID: "math")
     ]
 }
 
@@ -60,7 +60,136 @@ public struct WritingCommand: Identifiable, Sendable {
         guard isInsertion else { return nil }
         return URL(string: "https://typst.app/docs/reference/" + (documentationPath ?? Self.documentationPath(for: id)))
     }
-    public var example: String? { isInsertion ? try? TypstInsertion.make(id).text : nil }
+    public var example: String? { Self.examples[id] }
+    private static let examples = Dictionary(uniqueKeysWithValues: all.filter(\.isInsertion).compactMap { command in
+        (try? TypstInsertion.make(command.id).text).map { (command.id, $0) }
+    })
+    public var keyPath: String { Self.keyPaths[id] ?? key }
+    private static let keyPaths: [String: String] = Dictionary(uniqueKeysWithValues: all.map { command in
+        var path = [command.key]
+        var group = CommandGroup.all.first { $0.id == command.group }
+        while let current = group {
+            path.insert(current.key, at: 0)
+            group = CommandGroup.all.first { $0.id == current.parentID }
+        }
+        return (command.id, path.joined(separator: " "))
+    })
+    public var shortcuts: [DirectShortcut] { Self.directShortcuts[id] ?? [] }
+    private static let directShortcuts: [String: [DirectShortcut]] = [
+        "writing": [.init("1")], "split": [.init("2")], "preview": [.init("3")],
+        "outline": [.init("4")], "diagnostics": [.init("5")],
+        "new": [.init("n")], "open": [.init("o")], "save": [.init("s")],
+        "saveAs": [.init("s", modifiers: [.shift, .command])], "export": [.init("e", modifiers: [.shift, .command])],
+        "universe": [.init("u", modifiers: [.shift, .command])],
+        "completion": [.init(".", modifiers: [.control])],
+        "undo": [.init("z")], "redo": [.init("z", modifiers: [.shift, .command])],
+        "cut": [.init("x")], "copy": [.init("c")], "paste": [.init("v")], "selectAll": [.init("a")], "find": [.init("f")],
+        "fontLarger": [.init("+")], "fontSmaller": [.init("-")],
+        "indent": [.init("]")], "outdent": [.init("[")], "comment": [.init("/")],
+        "format": [.init("f", modifiers: [.option, .shift])]
+    ]
+    public var icon: String { Self.icons[id] ?? "command" }
+    private static let icons: [String: String] = [
+        "undo": "arrow-counter-clockwise", "redo": "arrow-clockwise", "cut": "scissors", "copy": "copy", "paste": "clipboard",
+        "selectAll": "selection-all", "find": "magnifying-glass", "fontLarger": "magnifying-glass-plus", "fontSmaller": "magnifying-glass-minus",
+        "heading": "text-h",
+        "image": "image",
+        "table": "table",
+        "math": "math-operations",
+        "equation": "equals",
+        "code": "file-code",
+        "link": "link",
+        "bullet": "list-bullets",
+        "numbered": "list-numbers",
+        "quote": "quotes",
+        "footnote": "asterisk-simple",
+        "label": "tag-simple",
+        "reference": "link-simple-horizontal",
+        "terms": "book-open-text",
+        "lineBreak": "arrow-elbow-down-left",
+        "bold": "text-b",
+        "italic": "text-italic",
+        "highlight": "highlighter",
+        "underline": "text-underline",
+        "strike": "text-strikethrough",
+        "superscript": "text-superscript",
+        "subscript": "text-subscript",
+        "smallcaps": "text-aa",
+        "textColor": "text-a-underline",
+        "paper": "file",
+        "margin": "bounding-box",
+        "fontSize": "arrows-out",
+        "pageNumber": "number-square-one",
+        "font": "text-t",
+        "language": "translate",
+        "leading": "arrows-out-line-vertical",
+        "paragraphSpacing": "paragraph",
+        "firstLineIndent": "arrow-line-right",
+        "justify": "text-align-justify",
+        "headingNumbering": "text-h-one",
+        "equationNumbering": "number-circle-one",
+        "header": "align-top-simple",
+        "footer": "align-bottom-simple",
+        "documentInfo": "info",
+        "fraction": "divide",
+        "squareRoot": "radical",
+        "nthRoot": "function",
+        "power": "arrow-up-right",
+        "mathSubscript": "arrow-down-right",
+        "binomial": "brackets-round",
+        "matrix": "grid-four",
+        "vector": "dots-three-vertical",
+        "cases": "brackets-curly",
+        "aligned": "list",
+        "sum": "sigma",
+        "integral": "wave-sine",
+        "limit": "arrow-line-down",
+        "greek": "pi",
+        "setMembership": "intersect",
+        "arrow": "arrow-right",
+        "upright": "text-align-left",
+        "accent": "arrow-line-up",
+        "align": "text-align-center",
+        "columns": "columns",
+        "grid": "grid-nine",
+        "block": "textbox",
+        "padding": "arrows-in-simple",
+        "stack": "stack-simple",
+        "pageBreak": "file-dashed",
+        "verticalSpace": "arrows-vertical",
+        "horizontalSpace": "arrows-horizontal",
+        "divider": "minus",
+        "contents": "list-dashes",
+        "bibliography": "books",
+        "citation": "book-bookmark",
+        "include": "files",
+        "import": "package",
+        "variable": "code",
+        "rawInline": "brackets-angle",
+        "universe": "planet",
+        "format": "broom",
+        "indent": "text-indent",
+        "outdent": "text-outdent",
+        "comment": "chat-text",
+        "completion": "magic-wand",
+        "writing": "pencil-simple",
+        "split": "sidebar-simple",
+        "preview": "eye",
+        "outline": "tree-structure",
+        "diagnostics": "warning-circle",
+        "revealPreview": "crosshair",
+        "restart": "plugs-connected",
+        "logs": "terminal-window",
+        "previewDark": "moon",
+        "styledSource": "sparkle",
+        "new": "file-plus",
+        "open": "folder-open",
+        "save": "floppy-disk",
+        "saveAs": "floppy-disk-back",
+        "export": "file-pdf",
+        "drafts": "clock-counter-clockwise",
+        "reload": "arrows-clockwise",
+    ]
     public func acceptsContext(_ mode: String) -> Bool { mode == "markup" || (supportsMath && mode == "math") }
 
     public init(_ id: String, _ group: String, _ key: String, _ title: String, _ detail: String, _ keywords: String = "", fields: [CommandField] = [], placement: InsertionPlacement? = nil, supportsMath: Bool = false, documentation: String? = nil, isInsertion: Bool? = nil) {
@@ -172,10 +301,19 @@ public struct WritingCommand: Identifiable, Sendable {
         .init("outdent", "code", "<", "减少缩进", "将当前行或选中的多行向左缩进。", "outdent unindent 取消缩进", isInsertion: false),
         .init("comment", "code", ";", "切换行注释", "注释或取消注释当前行与选中的多行。", "comment uncomment 注释", isInsertion: false),
         .init("completion", "code", ".", "语法补全", "查看光标位置可用的 Typst 名称和参数。", "completion autocomplete 补全", isInsertion: false),
+        .init("undo", "code", "z", "撤销", "撤销最近一次文稿编辑。", "undo 撤销", isInsertion: false),
+        .init("redo", "code", "y", "重做", "恢复刚刚撤销的编辑。", "redo 重做", isInsertion: false),
+        .init("cut", "code", "x", "剪切", "剪切选中的源码。", "cut 剪切", isInsertion: false),
+        .init("copy", "code", "c", "复制", "复制选中的原始 Typst 源码。", "copy 复制", isInsertion: false),
+        .init("paste", "code", "p", "粘贴", "在光标处粘贴文本。", "paste 粘贴", isInsertion: false),
+        .init("selectAll", "code", "a", "全选", "选中整篇文稿。", "select all 全选", isInsertion: false),
+        .init("find", "code", "s", "查找文稿", "在当前文稿中查找文字。", "find search 查找 搜索", isInsertion: false),
+        .init("fontLarger", "view", "+", "放大编辑文字", "放大编辑区字号，不改变成稿排版。", "zoom in editor font 放大 字号"),
+        .init("fontSmaller", "view", "-", "缩小编辑文字", "缩小编辑区字号，不改变成稿排版。", "zoom out editor font 缩小 字号"),
         .init("writing", "view", "w", "专注写作", "留出整个窗口，给正在写的文字。", "focus writing 专注"),
         .init("split", "view", "s", "并排预览", "一边写作，一边查看 Typst 成稿。", "split preview 分屏"),
         .init("preview", "view", "p", "阅读成稿", "用整个窗口查看排版结果。", "preview reading 预览"),
-        .init("outline", "view", "o", "文稿大纲", "沿着标题整理文章的结构。", "outline headings 大纲"),
+        .init("outline", "view", "o", "文章脉络", "在左侧留白中查看标题与章节，不移动正文。", "outline headings 大纲 目录 脉络"),
         .init("diagnostics", "view", "d", "检查文稿", "查看错误和建议，并跳转到对应位置。", "diagnostics errors 错误"),
         .init("revealPreview", "view", "r", "在成稿中定位", "找到光标所在段落的排版位置。", "reveal jump sync 定位"),
         .init("restart", "view", "l", "重新连接排版服务", "重启 Tinymist，并重新同步当前文稿。", "restart language server"),
@@ -191,11 +329,12 @@ public struct WritingCommand: Identifiable, Sendable {
         .init("reload", "file", "r", "重新加载磁盘版本", "本地编辑先保留为恢复副本，再读取磁盘文件。", "reload disk conflict 重新加载")
     ]
 
+    private static let searchIndex = all.map { "\($0.title) \($0.keywords) \($0.detail) \($0.shortcuts.map(\.label).joined(separator: " "))".lowercased() }
     public static func search(_ query: String) -> [Self] {
         let words = query.lowercased().split(whereSeparator: \.isWhitespace)
-        return all.filter { command in
-            let haystack = "\(command.title) \(command.keywords) \(command.detail)".lowercased()
-            return words.allSatisfy { haystack.contains($0) }
+        if words.isEmpty { return all }
+        return all.enumerated().compactMap { index, command in
+            words.allSatisfy { searchIndex[index].contains($0) } ? command : nil
         }
     }
 }

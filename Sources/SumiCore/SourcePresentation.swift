@@ -72,10 +72,18 @@ public enum SourcePresentation {
             } else { cursor += 1; continue }
             excluded.append(NSRange(location: start, length: cursor - start))
         }
+        func overlapsExcluded(_ range: NSRange) -> Bool {
+            var low = 0, high = excluded.count
+            while low < high {
+                let mid = (low + high) / 2
+                if NSMaxRange(excluded[mid]) <= range.location { low = mid + 1 } else { high = mid }
+            }
+            return low < excluded.count && excluded[low].location < NSMaxRange(range)
+        }
         func add(_ pattern: String, kind: (NSTextCheckingResult) -> SourceDecoration.Kind, markers: (NSTextCheckingResult) -> [NSRange]) {
             guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
             for match in regex.matches(in: text, range: NSRange(location: 0, length: source.length)) {
-                guard !excluded.contains(where: { NSIntersectionRange($0, match.range).length > 0 }),
+                guard !overlapsExcluded(match.range),
                       !markers(match).contains(where: { escaped($0.location) }) else { continue }
                 result.append(.init(kind: kind(match), range: match.range, markers: markers(match)))
             }
