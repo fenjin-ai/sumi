@@ -9,14 +9,6 @@ public enum AppLanguage: String, CaseIterable, Sendable, Identifiable {
         rawValue
     }
 
-    public var displayName: String {
-        switch self {
-        case .system: L10n.text("Follow System")
-        case .english: "English"
-        case .simplifiedChinese: "简体中文"
-        }
-    }
-
     public static func resolve(_ language: Self, preferredLanguages: [String] = Locale.preferredLanguages) -> Self {
         guard language == .system else {
             return language

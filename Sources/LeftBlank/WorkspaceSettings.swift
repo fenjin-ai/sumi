@@ -180,7 +180,7 @@ struct WritingSettingsView: View {
             LanguageSettingsSection()
             Section {
                 Picker(L10n.text("Appearance"), selection: $workspace.appearance) {
-                    Text(L10n.text("Match System")).tag(AppAppearance.system)
+                    Text(L10n.text("Follow System")).tag(AppAppearance.system)
                     Text(L10n.text("Light")).tag(AppAppearance.light)
                     Text(L10n.text("Dark")).tag(AppAppearance.dark)
                 }.accessibilityIdentifier("settings.appearance")
