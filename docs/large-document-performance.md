@@ -79,7 +79,7 @@ Each scenario uses production Workspace, NSTextView and real Tinymist:
    point and check the position, rather than only checking a selection integer.
 3. Search later text and scroll through 60 frames with native visible-region
    layout and bitmap painting.
-4. Insert 16 mixed Latin/CJK/emoji characters through the native editor, include
+4. Insert 80 mixed Latin/CJK/emoji characters through the native editor, include
    metric reads, then undo and verify the original source exactly.
 5. For SICP, export through Tinymist and require more than 400 PDF pages.
 6. Open the 448-page book in a 1920 × 1300 pt WebKit preview. Jump to pages
@@ -91,7 +91,23 @@ Each scenario uses production Workspace, NSTextView and real Tinymist:
 The test uses a hidden native window and CPU bitmap rendering. It does not
 measure physical display refresh, GPU compositing, human typing latency,
 continuous wheel/trackpad events, or the full asynchronous autosave/preview cycle.
-Typing samples time the synchronous editor/Workspace/metrics path. Broad 100 ms
-input and 200 ms navigation guards catch severe regressions without presenting
-a hardware-independent performance SLA. Real-window acceptance complements
+Typing samples time the synchronous editor/Workspace/metrics path. The first
+input is included, with no warm-up discard or automatic retry. For 80 inputs,
+CI requires wall-time p95 below 100 ms, every input below 250 ms wall time,
+and every input below 100 ms of main-thread CPU work. Navigation still has a
+200 ms maximum, including drawing. Thread CPU time helps distinguish work in
+the synchronous input path from time when a shared runner does not schedule
+that thread; it is not a substitute for the wall-time latency gates.
+
+The earlier 16-input sample made p95 equal to max. Main run 36952826611 failed
+on one 102.47 ms input, while its median was 12.23 ms. That report did not
+record per-input CPU time, so it cannot prove the outlier was scheduler noise.
+Reports now retain every input's wall, thread CPU, insert and metrics timing.
+The policy rejects sustained slow input and severe individual stalls while
+allowing an isolated short scheduling delay. These are instrumented-debug CI
+regression budgets, not a hardware-independent performance SLA.
+
+All book scenarios run even when one fails, and the script returns failure if
+any fails. Stale reports are cleared first; the summary and artifacts retain
+available evidence from the failing run. Real-window acceptance complements
 these tests; it does not replace them.
