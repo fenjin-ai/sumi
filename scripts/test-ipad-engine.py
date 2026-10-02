@@ -4,12 +4,26 @@
 import argparse
 import json
 import os
+import re
+import zlib
 from pathlib import Path
 import select
 import tempfile
 import subprocess
 import time
 import urllib.request
+
+
+def assert_pdf_draws_text(data):
+    streams = re.findall(rb"stream\r?\n(.*?)\r?\nendstream", data, re.S)
+    for stream in streams:
+        try:
+            commands = zlib.decompress(stream)
+        except zlib.error:
+            continue
+        if b"BT" in commands and (b"TJ" in commands or b"Tj" in commands):
+            return
+    raise AssertionError("PDF contains no text drawing commands; check engine fonts")
 
 
 class Engine:
@@ -137,6 +151,7 @@ def verify(library, scratch):
             first = engine.command("tinymist.exportPdf", [str(source)])
             first_bytes = Path(first["path"]).read_bytes()
             assert first_bytes.startswith(b"%PDF")
+            assert_pdf_draws_text(first_bytes)
             changed = "= Edited engine\n\nEmoji 👩🏽‍💻 and $x^3$.\n"
             engine.notify("textDocument/didChange", {
                 "textDocument": {"uri": source.as_uri(), "version": 2},
@@ -149,6 +164,7 @@ def verify(library, scratch):
             second = engine.command("tinymist.exportPdf", [str(source)])
             second_bytes = Path(second["path"]).read_bytes()
             assert second_bytes.startswith(b"%PDF")
+            assert_pdf_draws_text(second_bytes)
             assert second_bytes != first_bytes, "Export ignored the in-memory edit"
             # The engine must compile the open buffer without writing over disk.
             assert source.read_text() == original

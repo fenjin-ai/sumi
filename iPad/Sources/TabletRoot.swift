@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 struct TabletRoot: View {
     @ObservedObject var workspace: TabletWorkspace
     @State private var column: NavigationSplitViewColumn = .sidebar
+    @State private var visibility: NavigationSplitViewVisibility = .all
+    @State private var detailWidth: CGFloat = 0
     @State private var query = ""
     @State private var importing = false
     @State private var importingProject = false
@@ -12,7 +14,7 @@ struct TabletRoot: View {
     @State private var title = ""
 
     var body: some View {
-        NavigationSplitView(preferredCompactColumn: $column) {
+        NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $column) {
             List {
                 ForEach(workspace.documents
                     .filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) })
@@ -24,10 +26,10 @@ struct TabletRoot: View {
                             }
                         }
                     } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(item.title).font(.headline).foregroundStyle(.primary)
-                            Text(item.snippet).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
-                        }.padding(.vertical, 6)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(item.title).font(.system(size: 15, weight: .medium)).foregroundStyle(.primary)
+                            Text(item.snippet).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                        }.padding(.vertical, 3)
                     }.disabled(workspace.busy)
                         .swipeActions(allowsFullSwipe: false) {
                             Button(L10n.text("Move to Trash"), role: .destructive) {
@@ -36,9 +38,16 @@ struct TabletRoot: View {
                         }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(TabletTheme.background)
             .navigationTitle(L10n.text("Your writing"))
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: L10n.text("Search"))
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(L10n.text("Your writing")).font(.system(size: 15, weight: .medium))
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         ForEach(BuiltInTemplate.allCases) { template in
@@ -50,31 +59,40 @@ struct TabletRoot: View {
                         Button(L10n.text("Import Project…")) { importingProject = true }
                         Button(L10n.text("Templates & Packages")) { Task { await workspace.showUniverse() } }
                         Button(SampleBook.sicp.title) { Task { await workspace.addSampleBook() } }
-                    } label: { Label(L10n.text("New Document"), systemImage: "square.and.pencil") }
-                        .disabled(workspace.busy).accessibilityIdentifier("new-document")
+                    } label: {
+                        TabletIcon(name: "file-plus").frame(width: 44, height: 44)
+                            .accessibilityLabel(L10n.text("New Document"))
+                    }
+                    .disabled(workspace.busy).accessibilityIdentifier("new-document")
                 }
-                ToolbarItem(placement: .bottomBar) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button(L10n.text("Settings")) { workspace.panel = .settings }
                         Button(L10n.text("Trash")) { Task { await workspace.showTrash() } }
-                    } label: { Label(
-                        L10n.text("Settings"),
-                        systemImage: "gearshape",
-                    ) }
+                    } label: {
+                        TabletIcon(name: "dots-three-vertical").frame(width: 44, height: 44)
+                            .accessibilityLabel(L10n.text("Settings"))
+                    }
                 }
             }
         } detail: {
             if workspace.document != nil {
                 writing
             } else {
-                ContentUnavailableView(
-                    L10n.text("Your writing"),
-                    systemImage: "doc.text",
-                    description: Text(L10n.text("Choose a document to begin writing.")),
+                TabletEmptyState(
+                    title: L10n.text("Your writing"),
+                    icon: "book-open-text",
+                    detail: L10n.text("Choose a document to begin writing."),
                 )
             }
         }
         .tint(TabletTheme.accent)
+        .onChange(of: workspace.document?.id) { _, id in
+            if id != nil {
+                visibility = .detailOnly
+                column = .detail
+            }
+        }
         .fileImporter(
             isPresented: $importing,
             allowedContentTypes: [.plainText, UTType(filenameExtension: "typ") ?? .plainText],
@@ -133,30 +151,35 @@ struct TabletRoot: View {
             let sideBySide = geometry.size.width >= 800 && workspace.layout == .split
             let reading = workspace.layout == .preview
             VStack(spacing: 0) {
-                Picker(L10n.text("View"), selection: $workspace.layout) {
-                    Text(L10n.text("Writing")).tag(TabletWorkspace.Layout.writing)
-                    if geometry.size
-                        .width >= 800
-                    {
-                        Text(L10n.text("Side-by-side Preview")).tag(TabletWorkspace.Layout.split)
-                    }
-                    Text(L10n.text("Preview")).tag(TabletWorkspace.Layout.preview)
-                }.accessibilityIdentifier("editor-layout").pickerStyle(.segmented).padding(.horizontal).padding(
-                    .vertical,
-                    8,
-                )
                 HStack(spacing: 0) {
                     TabletEditor(workspace: workspace)
                         .frame(width: reading ? 0 : sideBySide ? geometry.size.width / 2 : geometry.size.width)
                         .clipped().opacity(reading ? 0 : 1).accessibilityHidden(reading)
                     ZStack {
-                        TabletPreview(url: workspace.previewURL)
-                        if workspace.previewURL == nil {
-                            ContentUnavailableView(
-                                L10n.text("Your words are becoming pages"),
-                                systemImage: "doc.text",
-                                description: Text(L10n.text(workspace.serviceStatus)),
+                        TabletPreview(workspace: workspace)
+                        if !workspace.previewReady {
+                            TabletEmptyState(
+                                title: L10n.text("Your words are becoming pages"),
+                                icon: "file-text",
+                                detail: workspace.previewIssue ?? L10n.text(workspace.serviceStatus),
                             )
+                        }
+                    }.overlay(alignment: .top) {
+                        if workspace.serviceStatus == "Document Needs Attention" {
+                            Button { workspace.panel = .checks } label: {
+                                HStack(spacing: 8) {
+                                    TabletIcon(name: "warning-circle", size: 16)
+                                    Text(workspace.diagnostics.first(where: { $0["severity"].int == 1 })?["message"]
+                                        .string ?? L10n.text("Document Needs Attention"))
+                                        .font(.system(size: 12)).lineLimit(2)
+                                    Spacer()
+                                    Text(L10n.text("Check Source")).font(.system(size: 12, weight: .medium))
+                                }.padding(12).frame(maxWidth: .infinity).background(TabletTheme.background)
+                            }.buttonStyle(.plain).accessibilityIdentifier("preview-error")
+                        }
+                    }.overlay(alignment: .leading) {
+                        if sideBySide {
+                            Rectangle().fill(TabletTheme.border).frame(width: 0.5)
                         }
                     }.frame(width: reading ? geometry.size.width : sideBySide ? geometry.size.width / 2 : 0)
                         .clipped().opacity(reading || sideBySide ? 1 : 0).accessibilityHidden(!reading && !sideBySide)
@@ -164,14 +187,17 @@ struct TabletRoot: View {
                 HStack {
                     Text(L10n.text(workspace.saveStatus)).accessibilityIdentifier("save-status")
                     Text(L10n.text(workspace.serviceStatus)).accessibilityIdentifier("engine-status")
+                        .accessibilityValue(workspace.previewReady ? L10n.text("Preview Updated") : L10n
+                            .text("Waiting for Typesetting"))
                     Spacer()
                     Text(L10n.format("%@ words", String(DocumentMetrics(workspace.text).wordCount)))
                     Button { workspace.panel = .checks } label: {
-                        Image(systemName: workspace.diagnostics
-                            .isEmpty ? "checkmark.circle" : "exclamationmark.circle")
+                        TabletIcon(name: workspace.diagnostics.isEmpty ? "check" : "warning-circle", size: 14)
                     }
                     .accessibilityLabel(L10n.text("Check Source")).frame(minWidth: 44, minHeight: 44)
-                }.font(.footnote).foregroundStyle(.secondary).padding(.horizontal)
+                }.font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 14)
+                    .background(TabletTheme.background)
+                    .overlay(alignment: .top) { Rectangle().fill(TabletTheme.border).frame(height: 0.5) }
             }
             .overlay {
                 if workspace.busy {
@@ -179,11 +205,13 @@ struct TabletRoot: View {
                 }
             }
             .onChange(of: geometry.size.width) { _, width in
+                detailWidth = width
                 if width < 800, workspace.layout == .split {
                     workspace.layout = .writing
                 }
             }
             .onAppear {
+                detailWidth = geometry.size.width
                 if geometry.size.width < 800, workspace.layout == .split {
                     workspace.layout = .writing
                 }
@@ -191,16 +219,34 @@ struct TabletRoot: View {
         }
         .navigationTitle(workspace.document?.title ?? L10n.text("Untitled"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(TabletTheme.background, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(workspace.document?.title ?? L10n.text("Untitled")).font(.system(size: 15, weight: .medium))
+                    .lineLimit(1)
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                layoutButton(.writing, icon: "pencil-simple", title: "Writing", key: "1")
+                if detailWidth >= 800 {
+                    layoutButton(.split, icon: "columns", title: "Side-by-side Preview", key: "2")
+                }
+                layoutButton(.preview, icon: "eye", title: "Preview", key: "3")
+            }
             ToolbarItem(placement: .topBarTrailing) {
-                Button { workspace.panel = .commands } label: { Label(
-                    L10n.text("Discover Commands"),
-                    systemImage: "command",
-                ) }
+                Button { workspace.panel = .commands } label: {
+                    TabletIcon(name: "command").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(L10n.text("Discover Commands"))
                 .keyboardShortcut("j").accessibilityIdentifier("commands")
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Menu(L10n.text("New Document")) {
+                        ForEach(BuiltInTemplate.allCases) { template in
+                            Button(template.title) { Task { await workspace.create(template) } }
+                        }
+                    }.accessibilityIdentifier("new-document")
                     Button(L10n.text("Outline")) { workspace.panel = .outline }.keyboardShortcut("4")
                     Button(L10n.text("Document History…")) { Task { await workspace.showHistory() } }
                     Button(L10n.text("Rename")) { title = workspace.document?.title ?? ""
@@ -211,8 +257,11 @@ struct TabletRoot: View {
                         .keyboardShortcut("e", modifiers: [.command, .shift]).disabled(!workspace.serviceReady)
                     Button(L10n.text("Templates & Packages")) { Task { await workspace.showUniverse() } }
                     Button(L10n.text("Reconnect")) { Task { await workspace.connect() } }
-                } label: { Label(L10n.text("Documents"), systemImage: "ellipsis.circle") }
-                    .accessibilityIdentifier("document-actions")
+                } label: {
+                    TabletIcon(name: "dots-three-vertical").frame(width: 44, height: 44)
+                        .accessibilityLabel(L10n.text("Documents"))
+                }
+                .accessibilityIdentifier("document-actions")
             }
         }
         .onChange(of: workspace.layout) { _, layout in
@@ -220,5 +269,29 @@ struct TabletRoot: View {
                 workspace.editor?.resignFirstResponder()
             }
         }
+    }
+
+    private func layoutButton(
+        _ layout: TabletWorkspace.Layout,
+        icon: String,
+        title: String,
+        key: KeyEquivalent,
+    ) -> some View {
+        Button { workspace.layout = layout } label: {
+            TabletIcon(name: icon).frame(width: 44, height: 44)
+                .foregroundStyle(workspace.layout == layout ? TabletTheme.accent : TabletTheme.secondary)
+                .overlay(alignment: .bottom) {
+                    if workspace
+                        .layout == layout
+                    {
+                        Capsule().fill(TabletTheme.accent).frame(width: 10, height: 1.5).padding(
+                            .bottom,
+                            4,
+                        )
+                    }
+                }
+        }.buttonStyle(.plain).accessibilityLabel(L10n.text(title)).accessibilityIdentifier("layout-" + layout.rawValue)
+            .accessibilityAddTraits(workspace.layout == layout ? .isSelected : [])
+            .keyboardShortcut(key)
     }
 }

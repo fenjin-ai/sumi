@@ -60,7 +60,7 @@ public final class TinymistClient {
         #endif
     }
 
-    public func start(root: URL, outputDirectory: URL) async throws {
+    public func start(root: URL, outputDirectory: URL, fontPaths: [URL] = []) async throws {
         stop()
         let transport = try makeTransport()
         let session = generation
@@ -133,6 +133,7 @@ public final class TinymistClient {
                 ],
             ],
             "initializationOptions": [
+                "fontPaths": fontPaths.map(\.path),
                 "exportPdf": "never",
                 "outputPath": outputDirectory.appendingPathComponent("$name").path,
                 "compileStatus": "enable",

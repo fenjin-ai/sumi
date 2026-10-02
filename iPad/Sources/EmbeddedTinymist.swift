@@ -65,10 +65,14 @@ final class EmbeddedTinymist: TinymistTransport {
         try? output.close()
     }
 
+    nonisolated static var fontCacheURL: URL {
+        AppDistribution.defaultStateDirectory.appendingPathComponent("Fonts")
+    }
+
     private nonisolated static func fontDirectory() -> URL {
         // CoreText exposes readable font file URLs on iPadOS. Cache those same
         // system fonts so Tinymist can resolve New York / PingFang as on Mac.
-        let directory = AppDistribution.defaultStateDirectory.appendingPathComponent("Fonts")
+        let directory = fontCacheURL
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let descriptors = CTFontCollectionCreateMatchingFontDescriptors(
             CTFontCollectionCreateFromAvailableFonts(nil),

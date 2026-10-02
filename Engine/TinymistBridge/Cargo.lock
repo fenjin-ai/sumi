@@ -2335,6 +2335,7 @@ dependencies = [
  "sync-ls",
  "tinymist",
  "tokio",
+ "typst-assets",
 ]
 
 [[package]]

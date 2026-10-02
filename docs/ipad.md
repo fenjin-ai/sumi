@@ -17,8 +17,9 @@ same framed LSP and local WebKit preview. It does not launch an executable. Pipe
 connect the Swift client to the engine without replacing application stdin/stdout
 or changing its working directory. Each document connection owns its worker and
 runtime. Closing the client delivers EOF and shuts down that worker. CoreText
-font URLs are copied into an application cache for the engine's explicit font
-search. Identical pagination still requires the same fonts and assets on both
+font URLs are copied into an application cache and explicitly included in LSP
+initialization, so package-cache options cannot replace the font search path.
+Typst's default fonts are also embedded as a fallback. Identical pagination still requires the same fonts and assets on both
 platforms; platform system font sets may differ.
 
 The UIKit editor preserves native selection, IME composition, undo, find,
@@ -45,7 +46,8 @@ link the static engine for the selected SDK. Builds are unsigned by default.
 
 The engine integration probe runs the C bridge in a native host executable. It
 checks initialization, Unicode edits, outline updates, live preview HTTP, PDF
-export from an unsaved buffer, and orderly shutdown. It establishes engine and
+export from an unsaved buffer (including actual text drawing commands), and
+orderly shutdown. It establishes engine and
 transport behavior, but does not replace iPad runtime testing.
 
 The UI test target checks editing, autosave, preview switching, rotation, command
@@ -63,19 +65,28 @@ Mac regression tests remain in `scripts/test.sh`.
 
 ## Current evidence and remaining work
 
-During implementation on October 2, 2026, the Mac regression suite passed with
-86.01% coverage, the embedded-engine integration passed, and the simulator app
-device app and UI test target compiled successfully. The local simulator could not be
-created on the external SSD: CoreSimulator reported Cocoa error 513 and POSIX
-`Operation not permitted` both in the Codex temporary directory and directly
-under `/Volumes/SSD/Developer`. UI tests have therefore been authored and built,
-but have not been executed locally. No internal-disk simulator fallback was used.
+On October 2, 2026, the Mac regression suite passed with 85.97% coverage,
+the embedded-engine integration passed, and both simulator and device builds
+succeeded. Signed UI tests ran on a physical iPad Air 13-inch (M4), iPadOS 26.6.1.
+They verified blank-page preview, valid source editing, autosave, live preview, rotation back to the
+editor, command insertion and the native PDF sharing sheet. The rendered preview
+was visually inspected, and the physical-device PDF was checked for actual text
+drawing commands. UI tests use local storage with iCloud disabled.
 
-Before shipping, run the UI suite and manually verify Chinese IMEs, VoiceOver,
-Dynamic Type, keyboard/trackpad editing, large books, background/relaunch recovery,
-preview after suspension, and signed iCloud synchronization with a Mac. Compare
-PDF pagination on both platforms using matching fonts. Device compilation does
-not establish on-device runtime behavior or signing/iCloud readiness.
+The initial blank preview was traced to missing fallback fonts and initialization
+options replacing the CoreText font directory. Both are corrected. iPad now uses
+the Mac Phosphor resources and syntax palette, with compact titles, rows and view
+controls. Preview chrome and WebKit rendering setup are shared with Mac.
+
+The local simulator could not be created on the external SSD: CoreSimulator
+reported Cocoa error 513 and POSIX `Operation not permitted`. No internal-disk
+simulator fallback was used; runtime evidence comes from the physical iPad.
+
+Before shipping, manually verify Chinese IMEs, VoiceOver, Dynamic Type,
+keyboard/trackpad editing, large books, background/relaunch recovery, preview
+after suspension, and iCloud synchronization with a Mac. Compare PDF pagination
+using matching fonts. Signed installation and UI tests do not establish all of
+these behaviors.
 
 The current project importer expects `main.typ` in the chosen folder. The iPad
 editor exposes one active entry file; Mac's included-file navigation, agent/MCP

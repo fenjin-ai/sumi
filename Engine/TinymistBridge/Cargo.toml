@@ -10,6 +10,8 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 tinymist = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175", default-features = false, features = ["system", "preview", "export", "no-content-hint"] }
 sync-ls = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175", features = ["system", "lsp", "server"] }
+# Always retain usable fallback fonts, even without desktop system fonts.
+typst-assets = { version = "=0.15.1", features = ["fonts"] }
 tokio = { version = "1", features = ["rt-multi-thread", "net", "time"] }
 
 [profile.release]

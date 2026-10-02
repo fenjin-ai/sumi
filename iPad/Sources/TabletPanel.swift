@@ -87,7 +87,7 @@ struct TabletPanel: View {
                                         Text(item.title)
                                         Text(item.detail).font(.subheadline).foregroundStyle(.secondary)
                                     }.padding(.vertical, 4)
-                                }
+                                }.accessibilityIdentifier("command-" + item.id)
                             }
                         }
                     }

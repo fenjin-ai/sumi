@@ -23,6 +23,8 @@ final class TabletWorkspace: ObservableObject {
     @Published var layout: Layout = .split
     @Published var panel: Panel?
     @Published var previewURL: URL?
+    @Published var previewReady = false
+    @Published var previewIssue: String?
     @Published var serviceReady = false
     @Published var serviceStatus = "Connecting"
     @Published var saveStatus = "Saved"
@@ -31,7 +33,7 @@ final class TabletWorkspace: ObservableObject {
     @Published var revisions: [DocumentRevision] = []
     @Published var outline: [JSONValue] = []
     @Published var diagnostics: [JSONValue] = []
-    @Published var fontSize: Double = UserDefaults.standard.object(forKey: "iPadEditorFontSize") as? Double ?? 17 {
+    @Published var fontSize: Double = UserDefaults.standard.object(forKey: "iPadEditorFontSize") as? Double ?? 15 {
         didSet { UserDefaults.standard.set(fontSize, forKey: "iPadEditorFontSize") }
     }
 
@@ -65,7 +67,9 @@ final class TabletWorkspace: ObservableObject {
                 at: AppDistribution.defaultStateDirectory,
                 withIntermediateDirectories: true,
             )
-            if UserDefaults.standard.object(forKey: "iPadCloudEnabled") as? Bool != false {
+            if UserDefaults.standard.object(forKey: "iPadCloudEnabled") == nil || UserDefaults.standard
+                .bool(forKey: "iPadCloudEnabled")
+            {
                 _ = try? await library.resumeICloud()
             }
             cloudEnabled = await library.isICloud
@@ -125,6 +129,8 @@ final class TabletWorkspace: ObservableObject {
             outline = []
             diagnostics = []
             previewURL = nil
+            previewReady = false
+            previewIssue = nil
             serviceReady = false
             saveStatus = "Saved"
             editor?.undoManager?.removeAllActions()
@@ -151,14 +157,23 @@ final class TabletWorkspace: ObservableObject {
             {
                 diagnostics = params["diagnostics"].array
             }
-            if method == "tinymist/compileStatus" {
-                serviceStatus = params["status"].string == "success" ? "Preview Updated" : "Typesetting"
+            if method == "tinymist/compileStatus" || method == "tinymist/status" {
+                switch params["status"].string {
+                case "compiling": serviceStatus = "Typesetting"
+                case "compileSuccess": serviceStatus = "Preview Updated"
+                case "compileError": serviceStatus = "Document Needs Attention"
+                default: break
+                }
             }
         }
         do {
             let exports = AppDistribution.defaultStateDirectory.appendingPathComponent("Exports")
             try FileManager.default.createDirectory(at: exports, withIntermediateDirectories: true)
-            try await client.start(root: document.folderURL, outputDirectory: exports)
+            try await client.start(
+                root: document.folderURL,
+                outputDirectory: exports,
+                fontPaths: [EmbeddedTinymist.fontCacheURL],
+            )
             guard generation == session else {
                 return
             }
@@ -600,6 +615,8 @@ extension TabletWorkspace {
                 client.stop()
                 document = nil
                 previewURL = nil
+                previewReady = false
+                previewIssue = nil
                 serviceReady = false
                 text = ""
                 savedText = ""

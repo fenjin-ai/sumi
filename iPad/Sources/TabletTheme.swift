@@ -1,15 +1,45 @@
+import LeftBlankCore
 import SwiftUI
 import UIKit
 
 @MainActor
 enum TabletTheme {
+    static let nativeBackground = adaptive(light: 0xFAFAFA, dark: 0x171A1D)
+    static let nativeBorder = adaptive(light: 0xDFE5E8, dark: 0x343A41)
+    static let background = Color(uiColor: nativeBackground)
+    static let border = Color(uiColor: nativeBorder)
+    static let secondary = Color(uiColor: nativeSecondary)
     static let nativeEditor = adaptive(light: 0xFFFFFF, dark: 0x1C1F23)
     static let nativeText = adaptive(light: 0x37474F, dark: 0xE0E2E5)
     static let nativeSecondary = adaptive(light: 0x586B75, dark: 0x9DA6B2)
     static let nativeAccent = adaptive(light: 0x673AB7, dark: 0xD9B97C)
     static let accent = Color(uiColor: nativeAccent)
 
-    private static func adaptive(light: UInt32, dark: UInt32) -> UIColor {
+    static let sourceText = adaptive(light: 0x37474F, dark: 0xD5D9DE)
+    static let sourceStrong = adaptive(light: 0x263238, dark: 0xEEE8DA)
+    static let sourceComment = adaptive(light: 0x637681, dark: 0x7C8793)
+    static let sourceString = adaptive(light: 0x526D42, dark: 0xA8B89A)
+    static let sourceKeyword = adaptive(light: 0x673AB7, dark: 0xBEA4C9)
+    static let sourceNumber = adaptive(light: 0x9C5700, dark: 0xD9B97C)
+    static let sourceFunction = adaptive(light: 0x326A83, dark: 0x9DBBCD)
+    static let sourceCode = adaptive(light: 0x455A64, dark: 0xBAC4CF)
+
+    static func color(for token: HighlightToken) -> UIColor {
+        let kind = token.kind.replacingOccurrences(of: "hljs-", with: "").components(separatedBy: " ").first ?? token
+            .kind
+        return switch kind {
+        case "comment", "punct", "delim", "meta": sourceComment
+        case "string", "regexp", "escape": sourceString
+        case "keyword", "operator", "selector-tag": sourceKeyword
+        case "number", "bool", "literal", "symbol", "bullet": sourceNumber
+        case "function", "title", "built_in", "type", "namespace", "link", "ref", "label": sourceFunction
+        case "heading", "strong": sourceStrong
+        case "raw", "code": sourceCode
+        default: token.modifiers.contains("math") ? sourceNumber : sourceText
+        }
+    }
+
+    private nonisolated static func adaptive(light: UInt32, dark: UInt32) -> UIColor {
         UIColor { traits in
             let value = traits.userInterfaceStyle == .dark ? dark : light
             return UIColor(
@@ -19,5 +49,56 @@ enum TabletTheme {
                 alpha: 1,
             )
         }
+    }
+}
+
+struct TabletIcon: View {
+    let name: String
+    var size: CGFloat = 18
+    var body: some View {
+        if let image = TabletIconStore.image(name, size: size) {
+            Image(uiImage: image).renderingMode(.template).resizable().frame(width: size, height: size)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+@MainActor private enum TabletIconStore {
+    private static var images: [String: UIImage] = [:]
+    static func image(_ name: String, size: CGFloat) -> UIImage? {
+        let key = "\(name)-\(size)"
+        if let image = images[key] {
+            return image
+        }
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent("Icons/\(name).pdf"),
+              let document = CGPDFDocument(url as CFURL), let page = document.page(at: 1)
+        else {
+            return nil
+        }
+        let box = page.getBoxRect(.mediaBox)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { context in
+            context.cgContext.translateBy(x: 0, y: size)
+            context.cgContext.scaleBy(x: size / box.width, y: -size / box.height)
+            context.cgContext.drawPDFPage(page)
+        }.withRenderingMode(.alwaysTemplate)
+        images[key] = image
+        return image
+    }
+}
+
+struct TabletEmptyState: View {
+    let title: String
+    let icon: String
+    var detail = ""
+    var body: some View {
+        VStack(spacing: 12) {
+            TabletIcon(name: icon, size: 28).foregroundStyle(TabletTheme.accent)
+            Text(title).font(.headline)
+            if !detail
+                .isEmpty
+            {
+                Text(detail).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+        }.frame(maxWidth: 320).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
