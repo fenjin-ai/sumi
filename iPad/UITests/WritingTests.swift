@@ -3,6 +3,16 @@ import XCTest
 
 @MainActor
 final class WritingTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
+    override func tearDown() {
+        XCUIApplication().terminate()
+        super.tearDown()
+    }
+
     private func startWriting() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-iPadCloudEnabled", "NO"]
@@ -68,6 +78,7 @@ final class WritingTests: XCTestCase {
 
     func testCommandInsertionAndPDFExport() {
         let app = startWriting()
+        let original = app.textViews["manuscript"].value as? String
         app.buttons["commands"].tap()
         expect(app.navigationBars["Discover Commands"].waitForExistence(timeout: 10)) == true
         app.buttons["command-heading"].tap()
@@ -75,6 +86,15 @@ final class WritingTests: XCTestCase {
         let editor = app.textViews["manuscript"]
         expect(editor.waitForExistence(timeout: 10)) == true
         expect((editor.value as? String)?.contains("=")) == true
+        let inserted = editor.value as? String
+        app.buttons["commands"].tap()
+        app.buttons["Undo"].tap()
+        expectation(for: NSPredicate { _, _ in editor.value as? String == original }, evaluatedWith: app)
+        waitForExpectations(timeout: 10)
+        app.buttons["commands"].tap()
+        app.buttons["Redo"].tap()
+        expectation(for: NSPredicate { _, _ in editor.value as? String == inserted }, evaluatedWith: app)
+        waitForExpectations(timeout: 10)
         let ready = NSPredicate(format: "label IN %@", ["Ready", "Preview Updated"])
         expectation(for: ready, evaluatedWith: app.staticTexts["engine-status"])
         waitForExpectations(timeout: 60)
@@ -146,9 +166,16 @@ final class WritingTests: XCTestCase {
         expect(apply.label) == "Insert Import"
         apply.tap()
         let editor = app.textViews["manuscript"]
-        expect(editor.waitForExistence(timeout: 10)) == true
+        let imported = NSPredicate { _, _ in
+            editor.isHittable && (editor.value as? String)?.contains("#import \"@preview/cetz:") == true
+        }
+        expectation(for: imported, evaluatedWith: app)
+        waitForExpectations(timeout: 15)
         let source = editor.value as? String ?? ""
-        expect(source.contains("#import \"@preview/cetz:")) == true
-        expect(source.hasSuffix(original ?? "")) == true
+        let importLines = source.split(separator: "\n").filter { $0.hasPrefix("#import ") }
+        expect(importLines.count) == 1
+        expect(importLines.first?.hasSuffix("\"")) == true
+        let preserved = source.split(separator: "\n").filter { !$0.hasPrefix("#import ") }
+        expect(preserved) == (original ?? "").split(separator: "\n")
     }
 }

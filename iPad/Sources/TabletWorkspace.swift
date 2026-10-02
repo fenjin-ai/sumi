@@ -473,15 +473,29 @@ extension TabletWorkspace {
         apply(TextEditing.lines(action, text: text, selection: selection))
     }
 
-    private func apply(_ edit: TextReplacement) {
+    private func apply(_ edit: TextReplacement, restoringSelection: NSRange? = nil) {
         guard let editor, editor.markedTextRange == nil,
-              let start = editor.position(from: editor.beginningOfDocument, offset: edit.range.location),
-              let end = editor.position(from: start, offset: edit.range.length),
-              let range = editor.textRange(from: start, to: end)
+              edit.range.location >= 0, edit.range.length >= 0,
+              edit.range.location <= editor.textStorage.length,
+              edit.range.length <= editor.textStorage.length - edit.range.location
         else {
             return
         }
-        editor.replace(range, withText: edit.text)
+        let previousSelection = editor.selectedRange
+        let inverse = TextReplacement(
+            range: NSRange(location: edit.range.location, length: edit.text.utf16.count),
+            text: (editor.text as NSString).substring(with: edit.range),
+        )
+        editor.undoManager?.registerUndo(withTarget: self) { workspace in
+            workspace.apply(inverse, restoringSelection: previousSelection)
+        }
+        // UITextInput replacement can apply typographic quote substitutions even
+        // to programmatic code. Edit storage verbatim and retain native undo.
+        editor.textStorage.replaceCharacters(in: edit.range, with: edit.text)
+        editor.selectedRange = restoringSelection ?? NSRange(
+            location: edit.range.location + edit.text.utf16.count,
+            length: 0,
+        )
         edited(editor.text, selection: editor.selectedRange)
     }
 

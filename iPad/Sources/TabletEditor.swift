@@ -44,8 +44,10 @@ struct TabletEditor: UIViewRepresentable {
                 length: 0,
             )
         }
-        view.isEditable = !workspace.busy && workspace.layout != .preview
-        view.typingAttributes = [.foregroundColor: TabletTheme.nativeText, .font: font]
+        let editable = !workspace.busy && workspace.layout != .preview
+        if view.isEditable != editable {
+            view.isEditable = editable
+        }
         let syntaxReady = workspace.highlightedText == workspace.text
         let syntaxChanged = syntaxReady && coordinator.styledText != workspace.highlightedText
         guard replaced || coordinator.fontSize != font.pointSize || syntaxChanged else {

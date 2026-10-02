@@ -29,7 +29,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Cache engine sources and platform build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: engine-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .tools/cargo-ipad
@@ -38,8 +39,9 @@ jobs:
           restore-keys: |
             ipad-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-rust-1.92.0-xcode-26.3-
       - name: Cache Swift package sources
+        id: swift-cache
         if: matrix.platform != 'engine'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .build/xcode-packages
           key: ipad-swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('Package.resolved', 'iPad/**/Package.resolved') }}
@@ -49,26 +51,66 @@ jobs:
       - name: Build native iPad app
         if: matrix.platform != 'engine'
         run: scripts/build-ipad.sh "${{ matrix.platform }}"
-      - name: Native writing, preview navigation, catalog and PDF sharing
+      # Save successful compilation before UI tests: a failing test must not
+      # discard a 15-minute Rust build and force another cold build on retry.
+      - name: Save compiled engine
+        if: steps.engine-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          path: |
+            .tools/cargo-ipad
+            Engine/TinymistBridge/target
+          key: ${{ steps.engine-cache.outputs.cache-primary-key }}
+      - name: Save resolved Swift packages
+        if: matrix.platform != 'engine' && steps.swift-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        timeout-minutes: 3
+        with:
+          path: .build/xcode-packages
+          key: ${{ steps.swift-cache.outputs.cache-primary-key }}
+      - name: Boot iPad simulator
+        id: simulator
         if: matrix.platform == 'simulator'
+        timeout-minutes: 3
         run: |
           source scripts/environment.sh
-          device=$(python3 - <<'PY'
+          python3 - <<'PY'
           import json
+          import os
           import subprocess
           inventory = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '-j']))
-          for runtime, entries in inventory['devices'].items():
-              if '.iOS-' not in runtime:
-                  continue
-              for entry in entries:
-                  if 'iPad' in entry['name']:
-                      print(entry['udid'])
-                      raise SystemExit(0)
-          raise SystemExit('No available iPad simulator for native UI tests')
+          runtimes = sorted((runtime for runtime in inventory['devices'] if '.iOS-' in runtime),
+                            key=lambda runtime: tuple(map(int, runtime.split('.iOS-')[1].split('-'))), reverse=True)
+          devices = []
+          for runtime in runtimes:
+              devices = [entry for entry in inventory['devices'][runtime] if 'iPad' in entry['name']]
+              if devices:
+                  break
+          if not devices:
+              raise SystemExit('No available iPad simulator for native UI tests')
+          device = sorted(devices, key=lambda entry: ('13-inch' not in entry['name'], entry['name']))[0]
+          print(f"Using {device['name']} on {runtime}", flush=True)
+          if device['state'] != 'Booted':
+              subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True)
+          subprocess.run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b'], check=True)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"device={device['udid']}\n")
           PY
-          )
+      - name: Native writing, preview navigation, catalog and PDF sharing
+        if: matrix.platform == 'simulator'
+        timeout-minutes: 12
+        env:
+          IPAD_SIMULATOR_ID: ${{ steps.simulator.outputs.device }}
+        run: |
+          source scripts/environment.sh
           xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
-            -destination "platform=iOS Simulator,id=$device" -derivedDataPath build/iPad \
+            -destination "platform=iOS Simulator,id=$IPAD_SIMULATOR_ID" -destination-timeout 30 \
+            -derivedDataPath build/iPad -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 150 \
+            -maximum-test-execution-time-allowance 180 \
             -clonedSourcePackagesDirPath .build/xcode-packages \
             -resultBundlePath build/iPad-writing.xcresult CODE_SIGNING_ALLOWED=NO test
       - name: Upload native iPad test results

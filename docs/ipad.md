@@ -66,22 +66,36 @@ engine integration, simulator build/UI tests and device build. Mac regression
 tests remain in `scripts/test.sh`. Platform build/release boundaries, engine
 tradeoffs and the feature-gap inventory are in [ipad-architecture.md](ipad-architecture.md).
 
+Successful compilation is cached before UI testing, so a failed UI test does not
+discard the Rust build. Cache uploads are bounded and optional. CI boots an iPad
+on the newest available iOS runtime explicitly, with a three-minute boot limit.
+UI execution is serial, with a twelve-minute step limit and 150/180-second
+default/maximum per-test allowances. Test cases stop at their first failure and
+terminate the app after each case.
+
 ## Current evidence and remaining work
 
-On October 2, 2026, the Mac regression suite passed with 86.00% coverage,
-the embedded-engine integration passed, and both simulator and device builds
-succeeded. Signed UI tests ran on a physical iPad Air 13-inch (M4), iPadOS 26.6.1.
-They verified blank-page preview, valid source editing, autosave, live preview, rotation back to the
-editor, command insertion and the native PDF sharing sheet. The rendered preview
+On October 2, 2026, the Mac regression suite passed with 85.89% coverage after
+merging the current main branch. The embedded-engine integration passed, and both
+simulator and device builds succeeded. All four expanded UI tests passed on a
+physical iPad Air 13-inch (M4), iPadOS 26.6.1, in 119 seconds. They verified
+full-selection replacement, autosave, live preview, rotation, command insertion,
+undo/redo, preview-to-source navigation, template discovery, package import and
+the native PDF sharing sheet. Earlier runs also verified blank-page preview.
+The rendered preview
 was visually inspected, and the physical-device PDF was checked for actual text
 drawing commands. UI tests use local storage with iCloud disabled.
 
 The shared catalog/gallery refactor and source-navigation callback also passed
-simulator and device compilation, including the expanded UI test target. The two
-new preview-navigation and catalog/import cases are awaiting physical execution:
-Xcode could not launch the test runner while the connected iPad was locked. The
-earlier physical results cover the original editing and command/PDF cases, not
-these new interactions.
+simulator and device compilation, including the expanded UI test target. GitHub
+CI's iOS 18.5 simulator passed preview-to-source navigation and command/PDF tests.
+It exposed selection instability after switching layouts and typographic quotes
+in programmatic package insertion. The editor now avoids changing typing
+attributes on selection-only updates and inserts code verbatim through text
+storage, with undo/redo registration. The package test waits for visible inserted
+source and checks preservation around the preamble insertion point. The expanded
+physical suite passed with these fixes; the updated GitHub simulator run has not
+yet been verified.
 
 The initial blank preview was traced to missing fallback fonts and initialization
 options replacing the CoreText font directory. Both are corrected. iPad now uses
