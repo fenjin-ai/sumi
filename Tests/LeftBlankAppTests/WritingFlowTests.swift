@@ -285,6 +285,33 @@ struct WritingFlowTests {
         #expect(app.workspace.mainFileURL == nil)
     }
 
+    @Test func printingCompilesCurrentWritingAndRejectsInvalidSource() async throws {
+        let app = try WritingFixture(text: "= Print flow\n")
+        defer { app.close() }
+        try await app.ready()
+        let editor = try #require(app.workspace.editor)
+        editor.insertSnippet(
+            Snippet(text: "\nLatest writing"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
+        let operation = try await app.workspace.makePrintOperation()
+        #expect(operation.jobTitle == app.workspace.title)
+        #expect(operation.showsPrintPanel)
+        #expect(operation.showsProgressPanel)
+        let view = try #require(operation.view)
+        let printedData = view.dataWithPDF(inside: view.bounds)
+        let printed = try #require(PDFDocument(data: printedData))
+        #expect(printed.string?.contains("Latest writing") == true)
+        #expect(!app.workspace.exporting)
+        editor.insertSnippet(
+            Snippet(text: "#unknown-function()"),
+            replacing: NSRange(location: 0, length: editor.string.utf16.count),
+        )
+        try await app.wait { app.workspace.diagnostics.contains { $0.severity == 1 } }
+        await #expect(throws: (any Error).self) { try await app.workspace.makePrintOperation() }
+        #expect(!app.workspace.exporting)
+    }
+
     @Test func nativeMenusDispatchToTheSameWritingWorkspace() async throws {
         let app = try WritingFixture(text: "= Menu flow\n")
         defer { app.close() }
@@ -292,8 +319,10 @@ struct WritingFlowTests {
         let delegate = AppDelegate(workspace: app.workspace)
         let previousMenu = NSApp.mainMenu
         let previousWindowsMenu = NSApp.windowsMenu
+        let previousServicesMenu = NSApp.servicesMenu
         defer { NSApp.mainMenu = previousMenu
             NSApp.windowsMenu = previousWindowsMenu
+            NSApp.servicesMenu = previousServicesMenu
         }
         delegate.installMenu()
         let menu = try #require(NSApp.mainMenu)
@@ -304,6 +333,22 @@ struct WritingFlowTests {
             "Window",
         ].map { L10n.text($0) })
         let entries = menu.items.flatMap { $0.submenu?.items ?? [] }
+        let printItem = try #require(entries.first { $0.title == L10n.text("Print…") })
+        #expect(printItem.keyEquivalent == "p")
+        #expect(printItem.keyEquivalentModifierMask == .command)
+        #expect(delegate.validateMenuItem(printItem))
+        app.workspace.exporting = true
+        #expect(!delegate.validateMenuItem(printItem))
+        app.workspace.exporting = false
+        #expect(NSApp.servicesMenu?.title == L10n.text("Services"))
+        #expect(entries.contains { $0.title == L10n.text("Hide Others") && $0.keyEquivalentModifierMask == [
+            .command,
+            .option,
+        ] })
+        #expect(entries.contains { $0.title == L10n.text("Toggle Full Screen") && $0.keyEquivalentModifierMask == [
+            .command,
+            .control,
+        ] })
         func choose(_ title: String) throws {
             let item = try #require(entries.first { $0.title == L10n.text(title) })
             let action = try #require(item.action)

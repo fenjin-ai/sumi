@@ -6,6 +6,66 @@ import SwiftUI
 import Testing
 
 extension WritingFlowTests {
+    @Test func cloudDefaultsOnPreservesOptOutAndResumesWithoutReimporting() async throws {
+        let app = try WritingFixture(text: "Local draft", startService: false)
+        defer { app.close() }
+        let cloud = app.root.appendingPathComponent("Cloud")
+        let library = LibraryController(workspace: app.workspace, cloudResolver: { cloud })
+        let original = try await library.store.create(title: "Original", text: "Local original")
+        await library.start()
+        #expect(library.cloudEnabled)
+        #expect(library.documents.contains { $0.id == original.id })
+        let cloudSource = try #require(library.documents.first { $0.id == original.id }?.sourceURL)
+        try Data("Remote edit".utf8).write(to: cloudSource)
+        let resumed = LibraryController(workspace: app.workspace, cloudResolver: { cloud })
+        await resumed.start()
+        #expect(resumed.cloudEnabled)
+        #expect(try await resumed.store.read(original.id).text == "Remote edit")
+        try await resumed.setCloudEnabled(false)
+        let disabled = LibraryController(
+            workspace: app.workspace,
+            cloudResolver: { throw LibraryError.cloudUnavailable },
+        )
+        await disabled.start()
+        #expect(!disabled.cloudEnabled)
+        #expect(disabled.syncMessage.isEmpty)
+    }
+
+    @Test func turningOffUnavailableDefaultSyncPersistsOptOut() async throws {
+        let app = try WritingFixture(text: "Local draft", startService: false)
+        defer { app.close() }
+        let library = LibraryController(
+            workspace: app.workspace,
+            cloudResolver: { throw LibraryError.cloudUnavailable },
+        )
+        await library.start()
+        try await library.setCloudEnabled(false)
+        let cloud = app.root.appendingPathComponent("Cloud")
+        let restarted = LibraryController(workspace: app.workspace, cloudResolver: { cloud })
+        await restarted.start()
+        #expect(!restarted.cloudEnabled)
+        #expect(restarted.syncMessage.isEmpty)
+    }
+
+    @Test func unavailableDefaultSyncKeepsLocalWritingAndRetriesNextLaunch() async throws {
+        let app = try WritingFixture(text: "Local draft", startService: false)
+        defer { app.close() }
+        let unavailable = LibraryController(
+            workspace: app.workspace,
+            cloudResolver: { throw LibraryError.cloudAccountUnavailable },
+        )
+        let original = try await unavailable.store.create(title: "Original", text: "Offline writing")
+        await unavailable.start()
+        #expect(!unavailable.cloudEnabled)
+        #expect(!unavailable.syncMessage.isEmpty)
+        #expect(try await unavailable.store.read(original.id).text == "Offline writing")
+        let cloud = app.root.appendingPathComponent("Cloud")
+        let retry = LibraryController(workspace: app.workspace, cloudResolver: { cloud })
+        await retry.start()
+        #expect(retry.cloudEnabled)
+        #expect(try await retry.store.read(original.id).text == "Offline writing")
+    }
+
     @Test func emptyTrashConfirmationCancelsThenDeletesWithoutTouchingOpenWriting() async throws {
         let app = try WritingFixture(text: "= Current writing\n", startService: false)
         defer { app.close() }

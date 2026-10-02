@@ -15,7 +15,7 @@ public enum LeftBlankApplication {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation {
     private let workspace: Workspace
     private var window: NSWindow?
     private var windowToolbar: WindowToolbar?
@@ -190,12 +190,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         #endif
         item(L10n.text("Settings…"), #selector(settings), ",", app, target: self)
         app.addItem(.separator())
+        let services = NSMenu(title: L10n.text("Services"))
+        let servicesItem = NSMenuItem(title: services.title, action: nil, keyEquivalent: "")
+        servicesItem.submenu = services
+        app.addItem(servicesItem)
+        NSApp.servicesMenu = services
+        app.addItem(.separator())
         item(
             L10n.format("Hide %@", AppDistribution.current.applicationName),
             #selector(NSApplication.hide(_:)),
             "h",
             app,
         )
+        item(
+            L10n.text("Hide Others"),
+            #selector(NSApplication.hideOtherApplications(_:)),
+            "h",
+            app,
+            modifiers: [.command, .option],
+        )
+        item(L10n.text("Show All"), #selector(NSApplication.unhideAllApplications(_:)), "", app)
+        app.addItem(.separator())
         item(
             L10n.format("Quit %@", AppDistribution.current.applicationName),
             #selector(NSApplication.terminate(_:)),
@@ -220,6 +235,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         item(L10n.text("Document History…"), #selector(documentHistory), "", file, target: self)
         item(L10n.text("Recover Draft Copy…"), #selector(recoverDraft), "", file, target: self)
         item(L10n.text("Export PDF…"), #selector(exportPDF), "e", file, modifiers: [.command, .shift], target: self)
+        file.addItem(.separator())
+        item(L10n.text("Print…"), #selector(printDocument), "p", file, target: self)
         file.addItem(.separator())
         item(L10n.text("Close Window"), #selector(NSWindow.performClose(_:)), "w", file)
         let edit = section(L10n.text("Edit"))
@@ -257,11 +274,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         view.addItem(.separator())
         item(L10n.text("Increase Text Size"), #selector(increaseFont), "+", view, target: self)
         item(L10n.text("Decrease Text Size"), #selector(decreaseFont), "-", view, target: self)
+        view.addItem(.separator())
+        item(
+            L10n.text("Toggle Full Screen"),
+            #selector(NSWindow.toggleFullScreen(_:)),
+            "f",
+            view,
+            modifiers: [.command, .control],
+        )
         let windowMenu = section(L10n.text("Window"))
         item(L10n.text("Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m", windowMenu)
         item(L10n.text("Zoom"), #selector(NSWindow.performZoom(_:)), "", windowMenu)
         NSApp.windowsMenu = windowMenu
         NSApp.mainMenu = menu
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(printDocument) {
+            return workspace.serviceReady && !workspace.exporting && !workspace.isLibraryHome
+        }
+        return true
     }
 
     @objc private func runWritingCommand(_ sender: NSMenuItem) {
@@ -348,6 +380,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func exportPDF() {
         workspace.exportPDF()
+    }
+
+    @objc private func printDocument() {
+        workspace.printDocument()
     }
 
     @objc private func palette() {

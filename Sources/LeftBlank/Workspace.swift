@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import LeftBlankCore
+import PDFKit
 import UniformTypeIdentifiers
 
 struct DiagnosticItem: Identifiable {
@@ -575,10 +576,7 @@ final class Workspace: ObservableObject {
             do {
                 try save(to: url)
             } catch { recordOperation("saveAs.failed", ["error": error.localizedDescription])
-                showMessage(
-                    error.localizedDescription,
-                    persistent: true,
-                )
+                showMessage(error.localizedDescription, persistent: true)
             }
         }
     }
@@ -828,8 +826,7 @@ final class Workspace: ObservableObject {
             searchMode = false
             activeCommand = nil
             query = ""
-            commandError =
-                nil
+            commandError = nil
             selectedCommandIndex = 0
         }
     }
@@ -898,10 +895,7 @@ final class Workspace: ObservableObject {
         let grid = !searchMode && paletteGroup == nil
         let step = grid ? 3 : 1
         if event.keyCode == 125 {
-            selectedCommandIndex = min(
-                selectedCommandIndex + step,
-                max(0, paletteEntryCount - 1),
-            )
+            selectedCommandIndex = min(selectedCommandIndex + step, max(0, paletteEntryCount - 1))
             return true
         }
         if event.keyCode == 126 {
@@ -1008,8 +1002,7 @@ final class Workspace: ObservableObject {
             closePalette()
         case "outline": sidePanel = sidePanel == .outline ? nil : .outline
             closePalette()
-        case "outlineExpand",
-             "outlineCollapse": expandOutline(command.id == "outlineExpand")
+        case "outlineExpand", "outlineCollapse": expandOutline(command.id == "outlineExpand")
             sidePanel = .outline
             closePalette()
         case "diagnostics": closePalette()
@@ -1218,11 +1211,8 @@ final class Workspace: ObservableObject {
                     "insertion.finished",
                     ["command": command.id, "insertedUTF16": String(plan.snippet.text.utf16.count)],
                 )
-            } catch { recordOperation(
-                "insertion.failed",
-                ["command": command.id, "error": error.localizedDescription],
-            )
-            commandError = error.localizedDescription
+            } catch { recordOperation("insertion.failed", ["command": command.id, "error": error.localizedDescription])
+                commandError = error.localizedDescription
             }
         }
     }
@@ -1365,19 +1355,7 @@ final class Workspace: ObservableObject {
         exporting = true
         defer { exporting = false }
         do {
-            try flushChanges()
-            let version = documentVersion
-            let result = try await client.command("tinymist.exportPdf", arguments: [compilationURL.path])
-            guard let path = result["path"].string
-            else {
-                throw ServiceError
-                    .remote(L10n.text("The document cannot be compiled. Resolve the errors before exporting."))
-            }
-            let data = try Data(contentsOf: URL(fileURLWithPath: path))
-            guard data.starts(with: Data("%PDF".utf8))
-            else {
-                throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF."))
-            }
+            let (data, version) = try await compiledPDF()
             try data.write(to: destination, options: .atomic)
             recordOperation("export.finished", ["exportedVersion": String(version)])
             showMessage(version == documentVersion ? L10n
@@ -1386,6 +1364,56 @@ final class Workspace: ObservableObject {
         } catch { recordOperation("export.failed", ["error": error.localizedDescription])
             throw error
         }
+    }
+
+    func printDocument() {
+        Task { @MainActor in
+            do {
+                let operation = try await makePrintOperation()
+                operation.run()
+            } catch { showMessage(error.localizedDescription, persistent: true) }
+        }
+    }
+
+    func makePrintOperation() async throws -> NSPrintOperation {
+        guard serviceReady, !exporting,
+              !isLibraryHome
+        else {
+            throw ServiceError.remote(L10n.text("Please wait for the typesetting service to be ready."))
+        }
+        exporting = true
+        defer { exporting = false }
+        let (data, _) = try await compiledPDF()
+        guard let document = PDFDocument(data: data), document.pageCount > 0,
+              let operation = document.printOperation(
+                  for: NSPrintInfo.shared.copy() as? NSPrintInfo,
+                  scalingMode: .pageScaleDownToFit,
+                  autoRotate: true,
+              )
+        else {
+            throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF."))
+        }
+        operation.jobTitle = title
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        return operation
+    }
+
+    private func compiledPDF() async throws -> (Data, Int) {
+        try flushChanges()
+        let version = documentVersion
+        let result = try await client.command("tinymist.exportPdf", arguments: [compilationURL.path])
+        guard let path = result["path"].string
+        else {
+            throw ServiceError
+                .remote(L10n.text("The document cannot be compiled. Resolve the errors before exporting."))
+        }
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        guard data.starts(with: Data("%PDF".utf8))
+        else {
+            throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF."))
+        }
+        return (data, version)
     }
 
     func requestCompletion() {
@@ -1518,8 +1546,7 @@ final class Workspace: ObservableObject {
         recordOperation("session.end")
         saveTask?.cancel()
         syncTask?.cancel()
-        syntaxTask?
-            .cancel()
+        syntaxTask?.cancel()
         library.stop()
         client.stop()
     }

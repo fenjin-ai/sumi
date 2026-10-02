@@ -22,10 +22,16 @@ final class LibraryController: ObservableObject {
     private let locationURL: URL
     var onSyncChange: ((Bool) -> Void)?
 
-    init(workspace: Workspace) {
+    init(
+        workspace: Workspace,
+        cloudResolver: @escaping DocumentLibrary.CloudResolver = { try LibraryCloudEnvironment.containerURL() },
+    ) {
         self.workspace = workspace
         locationURL = workspace.stateDirectory.appendingPathComponent("library-location.json")
-        store = DocumentLibrary(rootURL: workspace.stateDirectory.appendingPathComponent("Library"))
+        store = DocumentLibrary(
+            rootURL: workspace.stateDirectory.appendingPathComponent("Library"),
+            cloudResolver: cloudResolver,
+        )
     }
 
     func start() async {
@@ -33,7 +39,8 @@ final class LibraryController: ObservableObject {
             return
         }
         started = true
-        if (try? Data(contentsOf: locationURL)) == Data("icloud".utf8) {
+        let savedLocation = try? Data(contentsOf: locationURL)
+        if savedLocation == Data("icloud".utf8) {
             do { _ = try await store.resumeICloud()
                 cloudEnabled = true
                 onSyncChange?(true)
@@ -58,6 +65,10 @@ final class LibraryController: ObservableObject {
                 let assets = (try? Data(contentsOf: mark)).map { [WelcomeDocument.markFilename: $0] } ?? [:]
                 try await create(title: L10n.text("Welcome"), text: workspace.text, assets: assets)
             } catch { self.error = error.localizedDescription }
+        }
+        if savedLocation == nil {
+            do { try await setCloudEnabled(true) }
+            catch { syncMessage = error.localizedDescription }
         }
         await observeRoot()
         accountMonitor = LibraryAccountMonitor { [weak self] in
@@ -96,10 +107,7 @@ final class LibraryController: ObservableObject {
             do { try await action()
                 error = nil
             } catch { self.error = error.localizedDescription
-                workspace?.showMessage(
-                    error.localizedDescription,
-                    persistent: true,
-                )
+                workspace?.showMessage(error.localizedDescription, persistent: true)
             }
         }
     }
@@ -392,7 +400,11 @@ final class LibraryController: ObservableObject {
     }
 
     func setCloudEnabled(_ enabled: Bool) async throws {
-        guard let workspace, enabled != cloudEnabled else {
+        guard let workspace else {
+            return
+        }
+        if enabled == cloudEnabled {
+            try Data(enabled ? "icloud".utf8 : "local".utf8).write(to: locationURL, options: .atomic)
             return
         }
         if workspace.fileURL != nil {

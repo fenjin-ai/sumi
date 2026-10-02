@@ -1,7 +1,7 @@
 import Foundation
 
 /// Distribution identity is compiled into the app and its MCP helper together.
-/// Preview builds never adopt a production library or its cloud container.
+/// Local state stays separate; both distributions can use the shared iCloud library.
 public enum AppDistribution: Sendable {
     case standard
     case preview
@@ -28,10 +28,6 @@ public enum AppDistribution: Sendable {
 
     public var agentName: String {
         self == .preview ? "leftblank-preview" : "leftblank"
-    }
-
-    public var supportsICloud: Bool {
-        self == .standard
     }
 
     public func stateDirectory(applicationSupport: URL) -> URL {

@@ -30,9 +30,6 @@ public enum LibraryCloudEnvironment {
     }
 
     public static func containerURL(identifier: String = containerIdentifier) throws -> URL {
-        guard AppDistribution.current.supportsICloud else {
-            throw LibraryError.cloudNotConfigured
-        }
         let entitlements = signedEntitlements()
         let containers = entitlements["com.apple.developer.ubiquity-container-identifiers"] as? [String] ?? []
         guard containers.contains(identifier) else {
@@ -49,9 +46,6 @@ public enum LibraryCloudEnvironment {
     }
 
     public static func preferenceSyncAvailable() -> Bool {
-        guard AppDistribution.current.supportsICloud else {
-            return false
-        }
         let value = signedEntitlements()["com.apple.developer.ubiquity-kvstore-identifier"] as? String
         return value?.isEmpty == false && FileManager.default.ubiquityIdentityToken != nil
     }

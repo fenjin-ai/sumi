@@ -14,16 +14,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  lint:
-    name: Swift lint (zero warnings)
-    runs-on: macos-15
-    timeout-minutes: 10
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Strict SwiftFormat and SwiftLint
-        run: scripts/lint.sh
   integration:
     name: build and test
     runs-on: macos-15
@@ -38,6 +28,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      - name: Strict SwiftFormat and SwiftLint
+        run: scripts/lint.sh
       - name: Cache Swift package sources
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -115,7 +107,7 @@ jobs:
           retention-days: 14
   preview:
     name: Signed preview
-    needs: [lint, integration]
+    needs: integration
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: macos-15
     timeout-minutes: 60
@@ -149,6 +141,7 @@ jobs:
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          ICLOUD_PREVIEW_PROVISIONING_PROFILE: ${{ secrets.ICLOUD_PREVIEW_PROVISIONING_PROFILE }}
         run: scripts/release.sh
       - name: Cold-launch the signed package
         run: |

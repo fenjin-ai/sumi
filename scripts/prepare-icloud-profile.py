@@ -8,8 +8,9 @@ import plistlib
 import subprocess
 
 
-def entitlements(profile, team, identity, now):
-    app = 'app.leftblank.writer'
+def entitlements(profile, team, identity, now, app='app.leftblank.writer'):
+    if app not in ('app.leftblank.writer', 'app.leftblank.writer.preview'):
+        raise ValueError('Unsupported LeftBlank application identity.')
     container = 'iCloud.app.leftblank.writer'
     if profile.get('TeamIdentifier') != [team]:
         raise ValueError('Provisioning profile team does not match signing team.')
@@ -31,7 +32,7 @@ def entitlements(profile, team, identity, now):
         'com.apple.developer.ubiquity-container-identifiers': [container],
         'com.apple.developer.icloud-services': ['CloudDocuments'],
         'com.apple.developer.icloud-container-environment': 'Production',
-        'com.apple.developer.ubiquity-kvstore-identifier': f'{prefix}.{app}',
+        'com.apple.developer.ubiquity-kvstore-identifier': f'{prefix}.app.leftblank.writer',
     }
     allowed = profile.get('Entitlements', {})
     for key, requested in expected.items():
@@ -49,6 +50,7 @@ def entitlements(profile, team, identity, now):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--app', choices=['app.leftblank.writer', 'app.leftblank.writer.preview'], default='app.leftblank.writer')
     parser.add_argument('--profile', type=Path, required=True)
     parser.add_argument('--team', required=True)
     parser.add_argument('--identity', required=True)
@@ -56,7 +58,7 @@ def main():
     args = parser.parse_args()
     decoded = subprocess.check_output(['security', 'cms', '-D', '-i', str(args.profile)], stderr=subprocess.DEVNULL)
     profile = plistlib.loads(decoded)
-    result = entitlements(profile, args.team, args.identity, datetime.datetime.utcnow())
+    result = entitlements(profile, args.team, args.identity, datetime.datetime.utcnow(), args.app)
     args.output.write_bytes(plistlib.dumps(result))
     print('Validated Developer ID profile for LeftBlank iCloud Documents and preferences.')
 
