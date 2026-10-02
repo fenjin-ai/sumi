@@ -193,7 +193,9 @@ struct TabletPanel: View {
                     in: 12 ... 28,
                 )
                 Picker(L10n.text("Language"), selection: $language) {
-                    ForEach(AppLanguage.allCases, id: \.self) { language in Text(language.displayName).tag(language) }
+                    Text(L10n.text("Follow System")).tag(AppLanguage.system)
+                    Text("English").tag(AppLanguage.english)
+                    Text("简体中文").tag(AppLanguage.simplifiedChinese)
                 }.onChange(of: language) { _, language in L10n.setLanguage(language) }
             }
             Section("iCloud") {

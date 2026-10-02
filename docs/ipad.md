@@ -168,6 +168,14 @@ three minutes for initial discovery. Offline contracts cover a slow initial
 query, failure propagation and bounded diagnostics. Hosted-runner verification
 of the complete parallel suite remains pending.
 
+Run 37020341577 merged main's language-settings fix (#36), which removed
+`AppLanguage.displayName`. The iPad picker still used that property, so both
+platform builds failed before the UI jobs could run. The picker now uses the
+same explicit language labels as Mac, including the localized Follow System
+option. After integrating that main commit, local simulator test compilation,
+device compilation, the Mac language-switch regression and strict lint passed.
+This run did not exercise the simulator-discovery fix.
+
 The shared catalog/gallery refactor and source-navigation callback also passed
 simulator and device compilation, including the expanded UI test target. GitHub
 CI's iOS 18.5 simulator passed preview-to-source navigation and command/PDF tests.
