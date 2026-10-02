@@ -26,10 +26,15 @@ The new LeftBlank identity still requires CI-secret replacement, a release run a
 
 ## Verification and publication
 
+Stable tags now also build, upload and submit the Mac App Store release. Follow
+[Tag-driven releases](app-store-releases.md) to bump the versions, write the shared
+bilingual release message and retry a partial release. An empty-tag manual run
+continues to verify only Developer ID packaging.
+
 1. PR CI runs functional tests, coverage, large-book benchmarks and distribution-isolation checks without release credentials. After successful main CI, a separate job creates a Developer ID signed and notarized LeftBlank Preview package, uploads it for seven days, and publishes its signed update feed. See [Preview updates](preview-updates.md).
 2. A manual Release workflow on main verifies signing and notarization and saves an artifact without creating a public Release.
-3. Update the version and build number in `Resources/Info.plist`, then merge the verified commit into main.
-4. Push a matching version tag, such as `v0.3.0`. The workflow checks that main contains the tagged commit, runs functional tests and the 80% coverage gate, then signs, notarizes, staples and publishes.
+3. Run `release_metadata.py prepare` and finish the bilingual release message, then merge the verified commit into main.
+4. Push a matching version tag, such as `v0.6.0`. The workflow checks that main contains the tagged commit, runs functional tests and the 80% coverage gate, then signs, notarizes, staples and publishes.
 
 Missing credentials, invalid certificates, team mismatch, rejected notarization or timeout stop public publication. There is no fallback to development signing. The temporary signing keychain joins the search list so codesign can locate the identity and chain. Cleanup restores the old list and removes the temporary keychain, certificate and API key. Notarization submission results remain available for investigation; private keys are never uploaded as artifacts.
 
@@ -83,3 +88,17 @@ processed as a valid, App Store eligible build. Its ad-hoc sandbox cold-launch
 check also verified bundled resources, document-library creation and Tinymist
 connection. App Store approval and actual cloud account behavior remain separate
 from these checks.
+
+
+The App Store bootstrap builds Tinymist 0.15.8 at pinned commit
+`32f908199ee17ea295512bbc27166e890c438175` with the checked-in native TLS
+patch and lockfile changes. Reqwest then uses macOS Security Framework instead
+of Rust TLS. The source checkout, Cargo cache and target directory live under
+`.tools/tinymist-appstore-source`; Rust 1.92.0 is required. The GitHub download
+and Preview editions continue using the verified upstream release binary.
+
+The native TLS engine compiled all fourteen marketing documents, downloaded
+CeTZ and its dependencies into an empty isolated package cache, and passed the
+sandbox cold-launch smoke check. App Store packaging declares exempt OS
+provided encryption; this declaration must be revisited if a dependency adds
+another encryption implementation.
