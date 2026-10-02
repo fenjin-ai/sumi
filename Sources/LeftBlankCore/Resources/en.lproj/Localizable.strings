@@ -776,3 +776,7 @@
 "Your current writing will be preserved before restoring this version." = "Your current writing will be preserved before restoring this version.";
 
 "iCloud Sync" = "iCloud Sync";
+
+"Authors" = "Authors";
+"License" = "License";
+"This location is in an included file. Included-file editing is not available on iPad yet." = "This location is in an included file. Included-file editing is not available on iPad yet.";

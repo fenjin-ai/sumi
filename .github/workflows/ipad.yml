@@ -1,0 +1,81 @@
+name: iPad build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ipad-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: iPad ${{ matrix.platform }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [engine, simulator, device]
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      LEFTBLANK_DISTRIBUTION: appstore
+      CARGO_BUILD_JOBS: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Cache engine sources and platform build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tools/cargo-ipad
+            Engine/TinymistBridge/target
+          key: ipad-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-rust-1.92.0-xcode-26.3-${{ hashFiles('Engine/TinymistBridge/Cargo.lock', 'Engine/TinymistBridge/Cargo.toml', 'Engine/TinymistBridge/src/**') }}
+          restore-keys: |
+            ipad-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-rust-1.92.0-xcode-26.3-
+      - name: Cache Swift package sources
+        if: matrix.platform != 'engine'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build/xcode-packages
+          key: ipad-swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('Package.resolved', 'iPad/**/Package.resolved') }}
+      - name: In-process engine integration
+        if: matrix.platform == 'engine'
+        run: scripts/test-ipad-engine.sh
+      - name: Build native iPad app
+        if: matrix.platform != 'engine'
+        run: scripts/build-ipad.sh "${{ matrix.platform }}"
+      - name: Native writing, preview navigation, catalog and PDF sharing
+        if: matrix.platform == 'simulator'
+        run: |
+          source scripts/environment.sh
+          device=$(python3 - <<'PY'
+          import json
+          import subprocess
+          inventory = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '-j']))
+          for runtime, entries in inventory['devices'].items():
+              if '.iOS-' not in runtime:
+                  continue
+              for entry in entries:
+                  if 'iPad' in entry['name']:
+                      print(entry['udid'])
+                      raise SystemExit(0)
+          raise SystemExit('No available iPad simulator for native UI tests')
+          PY
+          )
+          xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
+            -destination "platform=iOS Simulator,id=$device" -derivedDataPath build/iPad \
+            -clonedSourcePackagesDirPath .build/xcode-packages \
+            -resultBundlePath build/iPad-writing.xcresult CODE_SIGNING_ALLOWED=NO test
+      - name: Upload native iPad test results
+        if: always() && matrix.platform == 'simulator'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ipad-writing
+          path: build/iPad-writing.xcresult
+          if-no-files-found: warn
+          retention-days: 14

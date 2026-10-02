@@ -51,7 +51,8 @@ orderly shutdown. It establishes engine and
 transport behavior, but does not replace iPad runtime testing.
 
 The UI test target checks editing, autosave, preview switching, rotation, command
-insertion and PDF sharing. Run it with an available iPad simulator:
+insertion, preview-to-source navigation, template discovery, package import and
+PDF sharing. Run it with an available iPad simulator:
 
 ```sh
 xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
@@ -60,18 +61,27 @@ xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
   CODE_SIGNING_ALLOWED=NO test
 ```
 
-CI has a separate iPad job for engine integration, both SDK builds and UI tests.
-Mac regression tests remain in `scripts/test.sh`.
+CI has a separate `.github/workflows/ipad.yml` workflow, with parallel jobs for
+engine integration, simulator build/UI tests and device build. Mac regression
+tests remain in `scripts/test.sh`. Platform build/release boundaries, engine
+tradeoffs and the feature-gap inventory are in [ipad-architecture.md](ipad-architecture.md).
 
 ## Current evidence and remaining work
 
-On October 2, 2026, the Mac regression suite passed with 85.97% coverage,
+On October 2, 2026, the Mac regression suite passed with 86.00% coverage,
 the embedded-engine integration passed, and both simulator and device builds
 succeeded. Signed UI tests ran on a physical iPad Air 13-inch (M4), iPadOS 26.6.1.
 They verified blank-page preview, valid source editing, autosave, live preview, rotation back to the
 editor, command insertion and the native PDF sharing sheet. The rendered preview
 was visually inspected, and the physical-device PDF was checked for actual text
 drawing commands. UI tests use local storage with iCloud disabled.
+
+The shared catalog/gallery refactor and source-navigation callback also passed
+simulator and device compilation, including the expanded UI test target. The two
+new preview-navigation and catalog/import cases are awaiting physical execution:
+Xcode could not launch the test runner while the connected iPad was locked. The
+earlier physical results cover the original editing and command/PDF cases, not
+these new interactions.
 
 The initial blank preview was traced to missing fallback fonts and initialization
 options replacing the CoreText font directory. Both are corrected. iPad now uses

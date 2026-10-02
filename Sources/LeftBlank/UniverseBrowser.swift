@@ -1,91 +1,6 @@
 import LeftBlankCore
 import SwiftUI
 
-@MainActor
-final class UniverseBrowserModel: ObservableObject {
-    @Published private(set) var snapshot: UniverseCatalogSnapshot? {
-        didSet { updateResults() }
-    }
-
-    @Published private(set) var isLoading = false
-    @Published private(set) var error: String?
-    @Published private(set) var previewGeneration = 0
-    @Published var query = "" {
-        didSet {
-            if query != oldValue {
-                selectedID = nil
-            }
-            updateResults()
-        }
-    }
-
-    @Published var mode: UniverseDiscoveryMode {
-        didSet {
-            if mode != oldValue {
-                selectedID = nil
-            }
-            updateResults()
-        }
-    }
-
-    @Published var group = "" {
-        didSet {
-            if group != oldValue {
-                selectedID = nil
-            }
-            updateResults()
-        }
-    }
-
-    @Published var selectedID: String?
-    private let store: UniverseCatalogStore
-
-    init(store: UniverseCatalogStore, mode: UniverseDiscoveryMode = .packages) {
-        self.store = store
-        self.mode = mode
-    }
-
-    @Published private(set) var results: [UniversePackage] = []
-    private func updateResults() {
-        results = snapshot?.discover(query, mode: mode, group: group) ?? []
-        if let selectedID, !results.contains(where: { $0.id == selectedID }) {
-            self.selectedID = nil
-        }
-    }
-
-    var selected: UniversePackage? {
-        results.first { $0.id == selectedID }
-    }
-
-    func changeMode(_ mode: UniverseDiscoveryMode) {
-        self.mode = mode
-        group = ""
-        selectedID = nil
-    }
-
-    func load(forceRefresh: Bool = false) async {
-        guard !isLoading else {
-            return
-        }
-        isLoading = true
-        error = nil
-        defer { isLoading = false }
-        if forceRefresh {
-            await UniversePreviewLoader.shared.allowRetry()
-            previewGeneration += 1
-        }
-        if snapshot == nil {
-            snapshot = await store.cached()
-            if snapshot == nil {
-                snapshot = await store.bundled()
-            }
-        }
-        do { snapshot = try await store.load(forceRefresh: forceRefresh) }
-        catch is CancellationError { return }
-        catch { self.error = error.localizedDescription }
-    }
-}
-
 /// A spacious discovery surface with separate document and writing-tool intents.
 /// Metadata and previews load before selection; package code is requested only
 /// when the writer explicitly creates a document or inserts an import.
@@ -529,7 +444,7 @@ struct UniverseBrowser: View {
                 if model.isLoading {
                     ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 12, height: 12)
                 }
-                Text(statusText).font(.system(size: 10))
+                Text(model.statusText).font(.system(size: 10))
                     .foregroundStyle(model.error == nil || model.snapshot != nil ? Theme.muted : Theme.red)
                     .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
                 if isApplying {
@@ -543,25 +458,6 @@ struct UniverseBrowser: View {
                 }.keyboardShortcut("r", modifiers: .command).disabled(model.isLoading || isApplying)
             }.padding(.horizontal, 24).frame(height: 44)
         }
-    }
-
-    private var statusText: String {
-        if model.snapshot?.source == .bundled {
-            return L10n
-                .text(model
-                    .error == nil ? "Browsing the included catalog · Checking for updates…" :
-                    "Offline · Browsing the included catalog")
-        }
-        if let error = model.error {
-            return error
-        }
-        guard let snapshot = model.snapshot else {
-            return L10n.text("Connecting to the catalog…")
-        }
-        if snapshot.source == .offlineCache {
-            return L10n.text("Offline · Browsing the saved catalog")
-        }
-        return L10n.format("%d results · Search by name or what you want to make", model.results.count)
     }
 
     private static let featuredPackageIcons = [

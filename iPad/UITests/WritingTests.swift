@@ -87,4 +87,68 @@ final class WritingTests: XCTestCase {
         add(screenshot)
         expect(visible) == true
     }
+
+    func testPreviewTapRevealsSourcePosition() {
+        let app = startWriting()
+        let editor = app.textViews["manuscript"]
+        editor.tap()
+        editor.press(forDuration: 1.2)
+        let selectAll = app.descendants(matching: .any)["Select All"].firstMatch
+        expect(selectAll.waitForExistence(timeout: 10)) == true
+        selectAll.tap()
+        editor.typeText("= Source navigation\nTap this paragraph to reveal its source.\n")
+        app.buttons["layout-preview"].tap()
+        expectation(
+            for: NSPredicate(format: "value == %@", "Preview Updated"),
+            evaluatedWith: app.staticTexts["engine-status"],
+        )
+        waitForExpectations(timeout: 60)
+        let preview = app.webViews.firstMatch
+        expect(preview.waitForExistence(timeout: 10)) == true
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        // The page fits the preview width; use page-scaled coordinates so the
+        // paragraph stays the target on both 11-inch and 13-inch devices.
+        let paragraphY = preview.frame.width * 0.157 / preview.frame.height
+        preview.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: paragraphY)).tap()
+        let revealed = NSPredicate { _, _ in editor.isHittable }
+        expectation(for: revealed, evaluatedWith: app)
+        waitForExpectations(timeout: 15)
+        expect((app.staticTexts["source-position"].value as? String)?.hasPrefix("1:")) == true
+        expect(editor.value as? String) == "= Source navigation\nTap this paragraph to reveal its source.\n"
+    }
+
+    func testTemplateDiscoveryAndPackageImport() {
+        let app = startWriting()
+        let original = app.textViews["manuscript"].value as? String
+        app.buttons["document-actions"].tap()
+        app.buttons["Templates & Packages"].tap()
+        expect(app.navigationBars["Templates & Packages"].waitForExistence(timeout: 10)) == true
+        let search = app.searchFields.firstMatch
+        expect(search.waitForExistence(timeout: 10)) == true
+        search.tap()
+        search.typeText("basic-resume")
+        let resume = app.descendants(matching: .any)["universe.result.basic-resume"].firstMatch
+        expect(resume.waitForExistence(timeout: 20)) == true
+        let gallery = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        gallery.lifetime = .keepAlways
+        add(gallery)
+        search.buttons["Clear text"].tap()
+        app.buttons["Writing tools"].tap()
+        search.tap()
+        search.typeText("cetz")
+        let package = app.descendants(matching: .any)["universe.result.cetz"].firstMatch
+        expect(package.waitForExistence(timeout: 20)) == true
+        package.tap()
+        let apply = app.buttons["universe.apply"]
+        expect(apply.waitForExistence(timeout: 10)) == true
+        expect(apply.label) == "Insert Import"
+        apply.tap()
+        let editor = app.textViews["manuscript"]
+        expect(editor.waitForExistence(timeout: 10)) == true
+        let source = editor.value as? String ?? ""
+        expect(source.contains("#import \"@preview/cetz:")) == true
+        expect(source.hasSuffix(original ?? "")) == true
+    }
 }

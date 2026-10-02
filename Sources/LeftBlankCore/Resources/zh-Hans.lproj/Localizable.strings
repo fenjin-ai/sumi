@@ -776,3 +776,7 @@
 "Your current writing will be preserved before restoring this version." = "恢复此版本前，会保留当前内容。";
 
 "iCloud Sync" = "iCloud 同步";
+
+"Authors" = "作者";
+"License" = "许可";
+"This location is in an included file. Included-file editing is not available on iPad yet." = "这个位置位于被引用的文件中，iPad 暂不支持编辑被引用文件。";

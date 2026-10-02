@@ -19,11 +19,12 @@ struct TabletPanel: View {
                 case .checks: checks
                 case .history: history
                 case .settings: settings
-                case .universe: universe
+                case .universe: TabletUniverseBrowser(workspace: workspace)
                 case .trash: trash
                 }
             }
             .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { dismiss() } } }
         }
     }
@@ -156,30 +157,6 @@ struct TabletPanel: View {
                 ContentUnavailableView(L10n.text("No history yet"), systemImage: "clock")
             }
         }
-    }
-
-    private var universe: some View {
-        List(workspace.packages
-            .filter { query.isEmpty || ($0.name + " " + $0.description).localizedCaseInsensitiveContains(query)
-            }) { package in
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(package.name).font(.headline)
-                    Text(package.description).font(.subheadline).foregroundStyle(.secondary)
-                    Text(package.reference).font(.caption.monospaced())
-                    HStack {
-                        Link(L10n.text("Documentation"), destination: package.documentationURL)
-                        Spacer()
-                        if package.isTemplate {
-                            Button(L10n.text("Use Template")) { Task { await workspace.createTemplate(package) } }
-                                .disabled(workspace.busy || !package
-                                    .isCompatible(with: "0.15.1"))
-                        } else {
-                            Button(L10n.text("Insert Import")) { workspace.addPackage(package) }
-                                .disabled(workspace.document == nil)
-                        }
-                    }.buttonStyle(.bordered)
-                }.padding(.vertical, 8)
-            }.searchable(text: $query, prompt: L10n.text("Search Packages"))
     }
 
     private var trash: some View {

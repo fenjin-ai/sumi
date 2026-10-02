@@ -12,13 +12,14 @@ final class TabletWorkspace: ObservableObject {
         }
     }
 
-    @Published var packages: [UniversePackage] = []
     @Published var trashedDocuments: [LibraryDocument] = []
-    private let catalog = UniverseCatalogStore(cacheURL: AppDistribution.defaultStateDirectory
-        .appendingPathComponent("Universe.json"))
     @Published var documents: [LibraryDocument] = []
     @Published var document: LibraryDocument?
-    @Published var text = ""
+    @Published var text = "" {
+        didSet { metrics = DocumentMetrics(text) }
+    }
+
+    private(set) var metrics = DocumentMetrics("")
     @Published var selection = NSRange(location: 0, length: 0)
     @Published var layout: Layout = .split
     @Published var panel: Panel?
@@ -144,6 +145,17 @@ final class TabletWorkspace: ObservableObject {
         }
         let session = generation
         serviceStatus = "Connecting"
+        client.onShowDocument = { [weak self] params in
+            guard let self, let target = SourceLocation(params) else {
+                return
+            }
+            guard target.url.resolvingSymlinksInPath() == self.document?.sourceURL.resolvingSymlinksInPath() else {
+                message = L10n
+                    .text("This location is in an included file. Included-file editing is not available on iPad yet.")
+                return
+            }
+            jump(target.position)
+        }
         client.onDisconnect = { [weak self] error in
             self?.serviceReady = false
             self?.message = error
@@ -412,10 +424,13 @@ final class TabletWorkspace: ObservableObject {
     }
 
     func jump(_ position: TextPosition) {
-        let offset = position.offset(in: text)
+        let offset = metrics.offset(at: position)
         selection = NSRange(location: offset, length: 0)
-        layout = .writing
+        if layout == .preview {
+            layout = .writing
+        }
         panel = nil
+        editor?.isEditable = !busy
         editor?.selectedRange = selection
         editor?.scrollRangeToVisible(selection)
         editor?.becomeFirstResponder()
@@ -506,16 +521,8 @@ extension TabletWorkspace {
 }
 
 extension TabletWorkspace {
-    func showUniverse() async {
+    func showUniverse() {
         panel = .universe
-        let cached = await catalog.cached()
-        let bundled = await catalog.bundled()
-        if let snapshot = cached ?? bundled {
-            packages = snapshot.packages
-        }
-        do {
-            packages = try await catalog.load().packages
-        } catch { message = error.localizedDescription }
     }
 
     func addPackage(_ package: UniversePackage) {

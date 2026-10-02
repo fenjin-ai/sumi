@@ -57,7 +57,7 @@ struct TabletRoot: View {
                         }
                         Button(L10n.text("Import a document…")) { importing = true }
                         Button(L10n.text("Import Project…")) { importingProject = true }
-                        Button(L10n.text("Templates & Packages")) { Task { await workspace.showUniverse() } }
+                        Button(L10n.text("Templates & Packages")) { workspace.showUniverse() }
                         Button(SampleBook.sicp.title) { Task { await workspace.addSampleBook() } }
                     } label: {
                         TabletIcon(name: "file-plus").frame(width: 44, height: 44)
@@ -118,7 +118,7 @@ struct TabletRoot: View {
         }
         .sheet(item: $workspace.panel) { panel in
             TabletPanel(workspace: workspace, panel: panel)
-                .presentationDetents(panel == .commands ? [.large] : [.medium, .large])
+                .presentationDetents(panel == .commands || panel == .universe ? [.large] : [.medium, .large])
         }
         .sheet(isPresented: Binding(get: { workspace.shareURL != nil }, set: {
             if !$0 {
@@ -190,7 +190,11 @@ struct TabletRoot: View {
                         .accessibilityValue(workspace.previewReady ? L10n.text("Preview Updated") : L10n
                             .text("Waiting for Typesetting"))
                     Spacer()
-                    Text(L10n.format("%@ words", String(DocumentMetrics(workspace.text).wordCount)))
+                    let position = workspace.metrics.position(at: workspace.selection.location)
+                    Text("\(position.line + 1):\(position.character + 1)")
+                        .accessibilityIdentifier("source-position")
+                        .accessibilityValue("\(position.line):\(position.character)")
+                    Text(L10n.format("%@ words", String(workspace.metrics.wordCount)))
                     Button { workspace.panel = .checks } label: {
                         TabletIcon(name: workspace.diagnostics.isEmpty ? "check" : "warning-circle", size: 14)
                     }
@@ -255,7 +259,7 @@ struct TabletRoot: View {
                     Button(L10n.text("Save")) { Task { await workspace.save() } }.keyboardShortcut("s")
                     Button(L10n.text("Export PDF…")) { Task { await workspace.exportPDF() } }
                         .keyboardShortcut("e", modifiers: [.command, .shift]).disabled(!workspace.serviceReady)
-                    Button(L10n.text("Templates & Packages")) { Task { await workspace.showUniverse() } }
+                    Button(L10n.text("Templates & Packages")) { workspace.showUniverse() }
                     Button(L10n.text("Reconnect")) { Task { await workspace.connect() } }
                 } label: {
                     TabletIcon(name: "dots-three-vertical").frame(width: 44, height: 44)
