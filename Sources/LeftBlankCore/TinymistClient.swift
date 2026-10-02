@@ -24,11 +24,22 @@ public enum ServiceError: LocalizedError {
 
 @MainActor
 public final class TinymistClient {
-    public init() {}
+    private let makeTransport: @MainActor () throws -> any TinymistTransport
+
+    public init(makeTransport: (@MainActor () throws -> any TinymistTransport)? = nil) {
+        self.makeTransport = makeTransport ?? {
+            #if os(macOS)
+                return ProcessTinymistTransport()
+            #else
+                throw ServiceError.unavailable
+            #endif
+        }
+    }
+
     public var onNotification: ((String, JSONValue) -> Void)?
     public var onShowDocument: ((JSONValue) -> Void)?
     public var onDisconnect: ((String) -> Void)?
-    private var process: Process?
+    private var transport: (any TinymistTransport)?
     private var writer: JSONRPCWriter?
     private var output: FileHandle?
     private var errorOutput: FileHandle?
@@ -42,32 +53,16 @@ public final class TinymistClient {
     public private(set) var semanticTokenModifiers: [String] = []
 
     public static var binaryURL: URL? {
-        if let override = ProcessInfo.processInfo.environment["LEFTBLANK_TINYMIST"],
-           FileManager.default.isExecutableFile(atPath: override)
-        {
-            return URL(fileURLWithPath: override)
-        }
-        let candidates = [
-            Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/tinymist"),
-            URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".tools/tinymist"),
-            URL(fileURLWithPath: "/opt/homebrew/bin/tinymist"), URL(fileURLWithPath: "/usr/local/bin/tinymist"),
-        ]
-        return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
+        #if os(macOS)
+            ProcessTinymistTransport.binaryURL
+        #else
+            nil
+        #endif
     }
 
     public func start(root: URL, outputDirectory: URL) async throws {
         stop()
-        guard let binary = Self.binaryURL else {
-            throw ServiceError.unavailable
-        }
-        let process = Process()
-        let stdin = Pipe(), stdout = Pipe(), stderr = Pipe()
-        process.executableURL = binary
-        process.arguments = ["lsp"]
-        process.currentDirectoryURL = root
-        process.standardInput = stdin
-        process.standardOutput = stdout
-        process.standardError = stderr
+        let transport = try makeTransport()
         let session = generation
         let reader = JSONRPCReader { [weak self] result in
             DispatchQueue.main.async { [weak self] in
@@ -80,29 +75,26 @@ public final class TinymistClient {
                 }
             }
         }
-        stdout.fileHandleForReading.readabilityHandler = { handle in
+        transport.output.readabilityHandler = { handle in
             let data = handle.availableData
             if !data.isEmpty {
                 reader.append(data)
             }
         }
         // Drain stderr without logging manuscript content.
-        stderr.fileHandleForReading.readabilityHandler = { handle in _ = handle.availableData }
-        process.terminationHandler = { [weak self] process in
-            let status = process.terminationStatus
-            DispatchQueue.main.async { [weak self] in
-                guard let self, generation == session else {
-                    return
-                }
-                stop()
-                onDisconnect?(L10n.format(
-                    "The typesetting service exited (%@). Your writing is still safe.",
-                    String(status),
-                ))
+        transport.errorOutput?.readabilityHandler = { handle in _ = handle.availableData }
+        transport.onExit = { [weak self] status in
+            guard let self, generation == session else {
+                return
             }
+            stop()
+            onDisconnect?(L10n.format(
+                "The typesetting service exited (%@). Your writing is still safe.",
+                String(status),
+            ))
         }
-        self.process = process
-        writer = JSONRPCWriter(handle: stdin.fileHandleForWriting) { [weak self] error in
+        self.transport = transport
+        writer = JSONRPCWriter(handle: transport.input) { [weak self] error in
             DispatchQueue.main.async { [weak self] in
                 guard let self, generation == session else {
                     return
@@ -110,9 +102,9 @@ public final class TinymistClient {
                 connectionFailed(error)
             }
         }
-        output = stdout.fileHandleForReading
-        errorOutput = stderr.fileHandleForReading
-        try process.run()
+        output = transport.output
+        errorOutput = transport.errorOutput
+        try transport.start(root: root)
         let packageCache = outputDirectory.deletingLastPathComponent().appendingPathComponent("PackageCache")
         try BundledPackages.prepare(in: packageCache)
         let response = try await request("initialize", [
@@ -174,15 +166,13 @@ public final class TinymistClient {
         semanticTokenModifiers = []
         output?.readabilityHandler = nil
         errorOutput?.readabilityHandler = nil
-        process?.terminationHandler = nil
-        if process?.isRunning == true {
-            process?.terminate()
-        }
+        transport?.onExit = nil
+        transport?.stop()
         writer?.close()
         writer = nil
         output = nil
         errorOutput = nil
-        process = nil
+        transport = nil
         let waiting = pending
         pending.removeAll()
         timeouts.values.forEach { $0.cancel() }
@@ -247,7 +237,7 @@ public final class TinymistClient {
     }
 
     private func write(_ object: [String: Any]) throws {
-        guard let writer, process?.isRunning == true else {
+        guard let writer, transport?.isRunning == true else {
             throw ServiceError.disconnected
         }
         try writer.send(JSONValue(foundation: object))

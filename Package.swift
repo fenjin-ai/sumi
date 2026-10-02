@@ -14,13 +14,20 @@ let updaterProducts: [Target.Dependency] = preview ? [.product(name: "Sparkle", 
 let package = Package(
     name: "LeftBlank",
     defaultLocalization: "en",
-    platforms: [.macOS(.v14)],
-    products: [.executable(name: "LeftBlank", targets: ["LeftBlankLauncher"]),
+    platforms: [.macOS(.v14), .iOS(.v17)],
+    products: [.library(name: "LeftBlankCore", targets: ["LeftBlankCore"]),
+               .executable(name: "LeftBlank", targets: ["LeftBlankLauncher"]),
                .executable(name: "LeftBlankMCP", targets: ["LeftBlankMCP"])],
-    dependencies: [.package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", exact: "0.12.1")] +
+    dependencies: [.package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", exact: "0.12.1"),
+                   .package(url: "https://github.com/weichsel/ZIPFoundation.git", exact: "0.9.20")] +
         updaterPackages,
     targets: [
-        .target(name: "LeftBlankCore", resources: [.process("Resources")], swiftSettings: distributionSettings),
+        .target(
+            name: "LeftBlankCore",
+            dependencies: ["ZIPFoundation"],
+            resources: [.process("Resources")],
+            swiftSettings: distributionSettings,
+        ),
         .target(name: "LeftBlankAutomation", dependencies: ["LeftBlankCore"]),
         .target(
             name: "LeftBlankMCPServer",

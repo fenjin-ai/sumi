@@ -9,6 +9,8 @@ strict: true
 included:
   - Package.swift
   - Sources
+  - iPad/Sources
+  - iPad/UITests
   - Tests
   - Benchmarks
   - scripts

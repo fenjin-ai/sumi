@@ -1,0 +1,47 @@
+[package]
+name = "leftblank-tinymist"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+tinymist = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175", default-features = false, features = ["system", "preview", "export", "no-content-hint"] }
+sync-ls = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175", features = ["system", "lsp", "server"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "time"] }
+
+[profile.release]
+opt-level = "s"
+debug = false
+strip = "debuginfo"
+
+# Match the patches used by the pinned macOS Tinymist release.
+[patch.crates-io]
+typst = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-bundle = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-eval = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-html = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-layout = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-library = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-macros = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-pdf = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-realize = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-render = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-svg = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-syntax = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-timing = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-utils = { git = "https://github.com/Myriad-Dreamin/typst.git", tag = "tinymist/v0.15.1" }
+typst-ansi-hl = { git = "https://github.com/Myriad-Dreamin/typst-ansi-hl.git", rev = "3867cb7229ec6b3e3c8f5b1222af96f98bba9bff" }
+typstyle-core = { git = "https://github.com/Myriad-Dreamin/typstyle.git", rev = "992f36112200bc0ea61df8a7c2af6d9ae56781dd" }
+reflexo = { git = "https://github.com/Myriad-Dreamin/typst.ts.git", rev = "98ea19e0c32277646bf435b246477882ad818c9f" }
+reflexo-typst = { git = "https://github.com/Myriad-Dreamin/typst.ts.git", rev = "98ea19e0c32277646bf435b246477882ad818c9f" }
+reflexo-vec2svg = { git = "https://github.com/Myriad-Dreamin/typst.ts.git", rev = "98ea19e0c32277646bf435b246477882ad818c9f" }
+typst-shim = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175" }
+tinymist-analysis = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175" }
+tinymist-std = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175" }
+tinymist-vfs = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175" }
+tinymist-world = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175" }
+tinymist-project = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175" }
+tinymist-task = { git = "https://github.com/Myriad-Dreamin/tinymist.git", rev = "32f908199ee17ea295512bbc27166e890c438175" }

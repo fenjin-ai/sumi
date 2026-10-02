@@ -742,3 +742,37 @@
 "Hide Others" = "Hide Others";
 "Show All" = "Show All";
 "Toggle Full Screen" = "Toggle Full Screen";
+
+"Back" = "Back";
+
+"Choose a document to begin writing." = "Choose a document to begin writing.";
+
+"Format Document" = "Format Document";
+
+"Import Project…" = "Import Project…";
+
+"No history yet" = "No history yet";
+
+"OK" = "OK";
+
+"Recovered Draft" = "Recovered Draft";
+
+"Restore this version?" = "Restore this version?";
+
+"Search" = "Search";
+
+"Search Packages" = "Search Packages";
+
+"Templates & Packages" = "Templates & Packages";
+
+"Text size: %@" = "Text size: %@";
+
+"Toggle Comment" = "Toggle Comment";
+
+"Trash" = "Trash";
+
+"Use Template" = "Use Template";
+
+"Your current writing will be preserved before restoring this version." = "Your current writing will be preserved before restoring this version.";
+
+"iCloud Sync" = "iCloud Sync";

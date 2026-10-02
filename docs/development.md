@@ -17,6 +17,8 @@ GitHub Actions uses `macos-15` with Xcode 26.3 for both pull requests and signed
 
 The source is split into the launcher, testable native app, core document logic and local agent integration. Bundled third-party licenses are listed in `Resources/ThirdParty.txt`.
 
+See [iPad development and validation](ipad.md) for the native iPad target and embedded engine.
+
 ## Scope and verification
 
 LeftBlank remains a development preview. It has one active editing buffer, with the main compilation entry preserved when navigating into included files. It does not provide collaborative accounts, Vim emulation, arbitrary visual editing of typeset pages.

@@ -1,6 +1,24 @@
 {
-  "originHash" : "ed786bbc69ad2953b82919060ea61202f8b023f89acc05e454840f8df8cbb08a",
+  "originHash" : "dba5f19937f69389fd4369d11ef52b40e02c60c13a0995ae3eb6fdb331c88d82",
   "pins" : [
+    {
+      "identity" : "cwlcatchexception",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattgallagher/CwlCatchException.git",
+      "state" : {
+        "revision" : "07b2ba21d361c223e25e3c1e924288742923f08c",
+        "version" : "2.2.1"
+      }
+    },
+    {
+      "identity" : "cwlpreconditiontesting",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattgallagher/CwlPreconditionTesting.git",
+      "state" : {
+        "revision" : "0139c665ebb45e6a9fbdb68aabfd7c39f3fe0071",
+        "version" : "2.2.2"
+      }
+    },
     {
       "identity" : "eventsource",
       "kind" : "remoteSourceControl",
@@ -11,12 +29,12 @@
       }
     },
     {
-      "identity" : "sparkle",
+      "identity" : "nimble",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sparkle-project/Sparkle.git",
+      "location" : "https://github.com/Quick/Nimble.git",
       "state" : {
-        "revision" : "eef1a539a373c1f1a320624b1130fc5de7b2e100",
-        "version" : "2.10.0"
+        "revision" : "cc945f7bdf3b485adedc315e18685c065059b4ca",
+        "version" : "13.8.0"
       }
     },
     {
