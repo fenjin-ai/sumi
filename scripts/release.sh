@@ -40,8 +40,9 @@ import base64, os, pathlib, sys
 folder = pathlib.Path(sys.argv[1])
 (folder / "certificate.p12").write_bytes(base64.b64decode(os.environ["SIGNING_CERTIFICATE_P12"], validate=True))
 (folder / "notary.p8").write_text(os.environ["APP_STORE_CONNECT_PRIVATE_KEY"])
-if os.environ.get("ICLOUD_PROVISIONING_PROFILE"):
-    (folder / "icloud.provisionprofile").write_bytes(base64.b64decode(os.environ["ICLOUD_PROVISIONING_PROFILE"], validate=True))
+profile_key = "ICLOUD_PREVIEW_PROVISIONING_PROFILE" if os.environ.get("LEFTBLANK_DISTRIBUTION") == "preview" else "ICLOUD_PROVISIONING_PROFILE"
+if os.environ.get(profile_key):
+    (folder / "icloud.provisionprofile").write_bytes(base64.b64decode(os.environ[profile_key], validate=True))
 PY
 security create-keychain -p "$keychain_password" "$keychain"
 security set-keychain-settings -lut 21600 "$keychain"
@@ -60,12 +61,17 @@ test "$(printf '%s\n' "$identities" | awk 'NF {n++} END {print n+0}')" = 1 || { 
 scripts/build.sh release
 app=build/LeftBlank.app
 entitlements=""
+bundle_id=app.leftblank.writer
 if [ "$distribution" = preview ]; then
   app="build/LeftBlank Preview.app"
-else
-  python3 scripts/prepare-icloud-profile.py --profile "$signing_dir/icloud.provisionprofile" --team "$APPLE_TEAM_ID" --identity "$identities" --output "$signing_dir/icloud.entitlements"
+  bundle_id=app.leftblank.writer.preview
+fi
+if [ -f "$signing_dir/icloud.provisionprofile" ]; then
+  python3 scripts/prepare-icloud-profile.py --app "$bundle_id" --profile "$signing_dir/icloud.provisionprofile" --team "$APPLE_TEAM_ID" --identity "$identities" --output "$signing_dir/icloud.entitlements"
   cp "$signing_dir/icloud.provisionprofile" "$app/Contents/embedded.provisionprofile"
   entitlements="$signing_dir/icloud.entitlements"
+else
+  echo 'Preview has no iCloud provisioning profile; documents will stay local.'
 fi
 scripts/sign-app.sh "$app" "$identities" "$keychain" "$entitlements"
 if [ -n "$entitlements" ]; then

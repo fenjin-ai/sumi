@@ -4,7 +4,7 @@ import LeftBlankTestSupport
 @testable import LeftBlankCore
 
 struct DistributionIsolationTests {
-    @Test func previewAndProductionKeepIndependentLibrariesAndPreferences() async throws {
+    @Test func previewAndProductionKeepIndependentLocalLibrariesAndPreferences() async throws {
         let root = TestPaths.temporaryDirectory.appendingPathComponent("distribution-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }

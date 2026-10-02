@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import PDFKit
 import LeftBlankCore
 import UniformTypeIdentifiers
 
@@ -811,17 +812,46 @@ final class Workspace: ObservableObject {
         recordOperation("export.begin")
         exporting = true
         defer { exporting = false }
+        do {
+            let (data, version) = try await compiledPDF()
+            try data.write(to: destination, options: .atomic)
+            recordOperation("export.finished", ["exportedVersion": String(version)])
+            showMessage(version == documentVersion ? L10n.format("PDF exported: %@", destination.lastPathComponent) : L10n.text("PDF exported using the document version from when export began."))
+        } catch { recordOperation("export.failed", ["error": error.localizedDescription]); throw error }
+    }
+
+    func printDocument() {
+        Task { @MainActor in
             do {
-                try flushChanges()
-                let version = documentVersion
-                let result = try await client.command("tinymist.exportPdf", arguments: [compilationURL.path])
-                guard let path = result["path"].string else { throw ServiceError.remote(L10n.text("The document cannot be compiled. Resolve the errors before exporting.")) }
-                let data = try Data(contentsOf: URL(fileURLWithPath: path))
-                guard data.starts(with: Data("%PDF".utf8)) else { throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF.")) }
-                try data.write(to: destination, options: .atomic)
-                recordOperation("export.finished", ["exportedVersion": String(version)])
-                showMessage(version == documentVersion ? L10n.format("PDF exported: %@", destination.lastPathComponent) : L10n.text("PDF exported using the document version from when export began."))
-            } catch { recordOperation("export.failed", ["error": error.localizedDescription]); throw error }
+                let operation = try await makePrintOperation()
+                operation.run()
+            } catch { showMessage(error.localizedDescription, persistent: true) }
+        }
+    }
+
+    func makePrintOperation() async throws -> NSPrintOperation {
+        guard serviceReady, !exporting, !isLibraryHome else { throw ServiceError.remote(L10n.text("Please wait for the typesetting service to be ready.")) }
+        exporting = true
+        defer { exporting = false }
+        let (data, _) = try await compiledPDF()
+        guard let document = PDFDocument(data: data), document.pageCount > 0,
+              let operation = document.printOperation(for: NSPrintInfo.shared.copy() as? NSPrintInfo, scalingMode: .pageScaleDownToFit, autoRotate: true) else {
+            throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF."))
+        }
+        operation.jobTitle = title
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        return operation
+    }
+
+    private func compiledPDF() async throws -> (Data, Int) {
+        try flushChanges()
+        let version = documentVersion
+        let result = try await client.command("tinymist.exportPdf", arguments: [compilationURL.path])
+        guard let path = result["path"].string else { throw ServiceError.remote(L10n.text("The document cannot be compiled. Resolve the errors before exporting.")) }
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        guard data.starts(with: Data("%PDF".utf8)) else { throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF.")) }
+        return (data, version)
     }
 
     func requestCompletion() {

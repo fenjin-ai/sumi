@@ -40,6 +40,17 @@ class ProfileValidation(unittest.TestCase):
         self.assertEqual(result['com.apple.developer.icloud-services'], ['CloudDocuments'])
         self.assertNotIn('keychain-access-groups', result)
 
+    def test_preview_uses_own_app_identity_and_shared_cloud_storage(self):
+        profile = copy.deepcopy(self.profile)
+        profile['Entitlements']['com.apple.application-identifier'] = 'TESTPREFIX.app.leftblank.writer.preview'
+        result = module.entitlements(profile, 'TESTTEAM', self.identity, self.now, 'app.leftblank.writer.preview')
+        self.assertEqual(result['com.apple.application-identifier'], 'TESTPREFIX.app.leftblank.writer.preview')
+        self.assertEqual(result['com.apple.developer.ubiquity-kvstore-identifier'], 'TESTPREFIX.app.leftblank.writer')
+        self.assertEqual(result['com.apple.developer.ubiquity-container-identifiers'], ['iCloud.app.leftblank.writer'])
+        with self.assertRaises(ValueError): self.validate(profile)
+        with self.assertRaises(ValueError):
+            module.entitlements(self.profile, 'TESTTEAM', self.identity, self.now, 'app.leftblank.writer.preview')
+
     def test_rejects_invalid_distribution_identity_and_expiry(self):
         for key, value in [('TeamIdentifier', ['OTHER']), ('ExpirationDate', self.now), ('ProvisionsAllDevices', False), ('ProvisionedDevices', ['test']), ('DeveloperCertificates', [b'other']), ('ApplicationIdentifierPrefix', [])]:
             with self.subTest(key=key):
