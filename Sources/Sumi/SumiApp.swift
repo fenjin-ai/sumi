@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         settingsController = WorkspaceSettings(workspace: workspace)
         dockIcon = DockIconController()
-        workspace.recordOperation("application.iconLoaded")
+        if dockIcon?.isAvailable == true { workspace.recordOperation("application.iconLoaded") }
         installMenu()
         let writingWindow = WritingWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         writingWindow.workspace = workspace

@@ -10,6 +10,7 @@ extension WritingFlowTests {
         let originalAppearance = NSApp.appearance
         let originalIcon = NSApp.applicationIconImage
         let dockIcon = DockIconController()
+        #expect(dockIcon.isAvailable)
         defer { withExtendedLifetime(dockIcon) {}; NSApp.appearance = originalAppearance; NSApp.applicationIconImage = originalIcon }
         var icons: [AppAppearance: Data] = [:]
         let suite = "Sumi.appearance.test." + UUID().uuidString

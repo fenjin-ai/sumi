@@ -66,6 +66,7 @@ final class DockIconController {
     private var observer: AnyCancellable?
     private let light: NSImage?
     private let dark: NSImage?
+    var isAvailable: Bool { light != nil && dark != nil }
 
     init() {
         var resources = Bundle.main.resourceURL
