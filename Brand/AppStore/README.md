@@ -76,7 +76,7 @@ python3 Brand/AppStore/tools/validate.py
 官网已采用纸张拼贴首屏、六题材场景展台和可下载样稿，发布于 https://leftblank.app。
 商店记录 Apple ID 为 6818442294；名称、两种语言各八张截图与介绍已保存，价格设为免费，选择全部 175 个国家和地区及未来新增地区。隐私摘要为不收集数据，欧盟声明为个人非商业项目的非经营者。
 
-0.5.0（9）构建使用 App Sandbox、继承沙盒的 Tinymist 与 MCP helper，以及正式 iCloud 配置。安装包通过 Apple 校验并完成上传。上传不等于获准上架；审核结果以 App Store Connect 为准。重做构建与签名参见 `docs/signing.md`。
+0.5.0（10）构建使用 App Sandbox、继承沙盒的 Tinymist 与 MCP helper，以及正式 iCloud 配置。App Store 引擎使用 macOS 原生 TLS。安装包通过 Apple 校验并完成上传。上传不等于获准上架；审核结果以 App Store Connect 为准。重做构建与签名参见 `docs/signing.md`。
 
 ## Apple 官方规格
 

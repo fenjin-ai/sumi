@@ -3,6 +3,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/environment.sh
 mkdir -p .tools
+if [ "${LEFTBLANK_DISTRIBUTION:-direct}" = appstore ]; then
+  scripts/build-tinymist-appstore.sh
+  exit 0
+fi
 version=0.15.8
 case "$(uname -m)" in
   arm64) arch=aarch64; expected=c3e8673fe4b7d8d21ad6d90e3c0684317191e1350758f7eaa02b5bde84339885 ;;
