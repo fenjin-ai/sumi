@@ -9,10 +9,9 @@
 - `metadata/`：名称、副标题、关键词、推广文本、完整描述的独立文本文件，以及对应的 `fields.json`。上传时使用内容本身，不需要文件末尾的换行。
 - `samples/`：十四份原创 Typst 样稿，含中英文各七种题材，可导入留白后继续修改。
 - `raw/`：真实应用窗口的原始 JPEG，保留制作来源。
-- `video/`：两条 24 秒、1920 × 1080、30 fps 的无声宣传短片，以及 App Preview 的录制分镜与字幕。
-- `tools/`：重做宣传图、剪辑宣传片和校验素材的脚本。
+- `tools/`：重做宣传图和校验素材的脚本。
 
-PNG 的尺寸与色彩格式符合当前 Apple 的 Mac 截图规格。它们使用本地 release 构建的真实界面，尚未与最终 Mac App Store 构建逐项比对。短片用真实截图做平移缩放和淡入淡出，是可用于网站与社交媒体的宣传素材；它不是实际操作录屏，不应直接作为 App Preview 提交。正式预览视频按附带分镜录制。
+PNG 的尺寸与色彩格式符合 Apple 的 Mac 截图规格，使用真实应用界面。按最终要求不制作或提交宣传视频。
 
 ## 命名和搜索
 
@@ -58,14 +57,13 @@ Typst 的能力会随着包与输出工具扩展。留白这套宣传以已经�
 
 ## 重做素材
 
-从 SSD 上的该工作树执行。依赖 macOS、Python 3、librsvg 的 `rsvg-convert`、ImageMagick 的 `magick`；短片另需 `ffmpeg` 与 `ffprobe`。
+从 SSD 上的该工作树执行。依赖 macOS、Python 3、librsvg 的 `rsvg-convert`、ImageMagick 的 `magick`。
 
 ```sh
 export TMPDIR=/Volumes/SSD/Developer/Codex/tmp
 export TMP=/Volumes/SSD/Developer/Codex/tmp
 export TEMP=/Volumes/SSD/Developer/Codex/tmp
 python3 Brand/AppStore/tools/render.py
-python3 Brand/AppStore/tools/video.py
 python3 Brand/AppStore/tools/validate.py
 ```
 
@@ -73,16 +71,15 @@ python3 Brand/AppStore/tools/validate.py
 
 原始构建基于 `26ec58c`，通过 `scripts/build.sh release` 构建。十四份样稿已用该工作树的 Tinymist 0.15.8 编译为页面图进行检查；新增样稿不依赖外部图片，图解只使用已经随应用分发的 CeTZ 0.5.2。检查文字、数学、图形、输入控件和页面结果后，生成最终 PNG。此验证不等于 App Store 分发验收。
 
-## 提交前还需要确认的内容
+## 商店与网站
 
-这次完成的是素材，没有上传或提交应用。最终提交需要一个可用的 Mac App Store 构建，再核对截图中的每个场景、系统要求和描述。仓库现有发布文档主要覆盖 Developer ID 分发；App Sandbox 下的 Tinymist、文档与资源访问，以及本地代理连接，需要单独验证。
+官网已采用纸张拼贴首屏、六题材场景展台和可下载样稿，发布于 https://leftblank.app。
+商店记录 Apple ID 为 6818442294；名称、两种语言各八张截图与介绍已保存，价格设为免费，选择全部 175 个国家和地区及未来新增地区。隐私摘要为不收集数据，欧盟声明为个人非商业项目的非经营者。
 
-价格、销售区域、版权主体、支持网址、隐私政策网址、隐私标签与年龄分级取决于实际提交版本和账号信息，未在素材中虚构。当前文案不宣传 iCloud 同步、内置 AI、协作、PPTX 或动画导出，也没有宣称所有扩展包均能离线工作。确认最终版本后，可以再增加经过验证的场景。
+0.5.0（9）构建使用 App Sandbox、继承沙盒的 Tinymist 与 MCP helper，以及正式 iCloud 配置。安装包通过 Apple 校验并完成上传。上传不等于获准上架；审核结果以 App Store Connect 为准。重做构建与签名参见 `docs/signing.md`。
 
 ## Apple 官方规格
 
 核对日期为 2026 年 10 月 2 日。名称与副标题各不超过 30 字符；关键词不超过 100 字符；推广文本不超过 170 字符。当前文本均已校验。关键词不承担排名保证，推广文本也不是搜索关键词字段。见 [产品页指南](https://developer.apple.com/app-store/product-page/)。
 
 Mac 截图要求 16:10，可用 2880 × 1800 等指定尺寸；每组 1 至 10 张，不含 alpha 通道。见 [截图规格](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)。
-
-Mac App Preview 使用 1920 × 1080，15 至 30 秒，最多 30 fps，采用 Apple 接受的视频编码；提交时重新核对音轨等完整技术要求。见 [App Preview 规格](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications/) 与 [App Preview 制作指南](https://developer.apple.com/app-store/app-previews/)。

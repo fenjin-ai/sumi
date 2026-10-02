@@ -17,8 +17,20 @@ if [ -d "$framework" ]; then
   codesign "${args[@]}" "$framework/Versions/B/Updater.app"
   codesign "${args[@]}" "$framework"
 fi
-codesign "${args[@]}" "$app/Contents/Helpers/tinymist"
-codesign "${args[@]}" "$app/Contents/Helpers/LeftBlankMCP"
+distribution=$(/usr/libexec/PlistBuddy -c 'Print LeftBlankDistribution' "$app/Contents/Info.plist")
+helper_args=("${args[@]}")
+if [ "$distribution" = appstore ]; then
+  helper_args+=(--entitlements Resources/LeftBlank.Helper.entitlements)
+  if [ -z "$entitlements" ]; then
+    if [ "$identity" != - ]; then
+      echo 'App Store signing requires validated provisioning-profile entitlements.' >&2
+      exit 1
+    fi
+    entitlements=Resources/LeftBlank.AppStore.entitlements
+  fi
+fi
+codesign "${helper_args[@]}" "$app/Contents/Helpers/tinymist"
+codesign "${helper_args[@]}" "$app/Contents/Helpers/LeftBlankMCP"
 if [ -n "$entitlements" ]; then args+=(--entitlements "$entitlements"); fi
 codesign "${args[@]}" "$app"
 codesign --verify --deep --strict "$app"
