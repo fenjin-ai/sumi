@@ -745,6 +745,8 @@
 "Choose" = "选择";
 "Import File…" = "导入文件…";
 "Document Resources" = "文稿素材";
+"Library Documents" = "文库文章";
+"Changes to the original document appear here." = "原文章的修改也会反映在这里。";
 "Choose a file to insert." = "请选择要插入的文件。";
 "Imported files are saved with this document." = "导入的文件会随此文稿一起保存。";
 "You can also drop images here or paste a screenshot with ⌘V." = "也可以将图片拖入编辑区，或用 ⌘V 粘贴截图。";

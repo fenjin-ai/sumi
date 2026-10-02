@@ -5,28 +5,46 @@ import UniformTypeIdentifiers
 enum ResourceSelection {
     case file(URL)
     case existing(DocumentResource)
+    case libraryDocument(LibraryDocument)
 
     var name: String {
         switch self {
         case let .file(url): url.lastPathComponent
         case let .existing(resource): resource.name
+        case let .libraryDocument(document): document.title
         }
     }
 }
 
 extension Workspace {
+    /// Resources stay with the article being edited, including when it is part of another document.
+    var resourceRoot: URL {
+        let source = documentURL.standardizedFileURL.path
+        return library.documents.first { source.hasPrefix($0.folderURL.standardizedFileURL.path + "/") }?
+            .sourceURL.deletingLastPathComponent() ?? compilationURL.deletingLastPathComponent()
+    }
+
     func loadResources(for command: WritingCommand) {
         guard let kind = command.fields.first?.resourceKind else {
             return
         }
-        let document = documentURL, root = compilationURL.deletingLastPathComponent()
+        let document = documentURL, root = resourceRoot
+        let owner = managedDocumentID
         Task {
             do {
                 let resources = try await resourceStore.list(kind: kind, in: root, relativeTo: document)
+                let documents: [LibraryDocument] = if kind == .document || kind == .module, let owner {
+                    try await library.store.list().filter {
+                        $0.id != owner && $0.sourceURL.standardizedFileURL != document.standardizedFileURL
+                    }
+                } else {
+                    []
+                }
                 guard documentURL == document, activeCommand?.id == command.id else {
                     return
                 }
                 availableResources = resources
+                availableLibraryDocuments = documents
             } catch { commandError = error.localizedDescription }
         }
     }
@@ -68,8 +86,23 @@ extension Workspace {
             return [resource]
         case let .file(url):
             return try await resourceStore.importResources(
-                [.file(url)], kind: kind, in: compilationURL.deletingLastPathComponent(), relativeTo: documentURL,
+                [.file(url)], kind: kind, in: resourceRoot, relativeTo: documentURL,
             )
+        case let .libraryDocument(document):
+            guard kind == .document || kind == .module,
+                  availableLibraryDocuments.contains(where: { $0.id == document.id })
+            else {
+                throw DocumentResourceError.invalidLocation
+            }
+            let result = try await library.store.read(document.id)
+            guard !result.document.isTrashed else {
+                throw DocumentResourceError.invalidLocation
+            }
+            return [DocumentResource(
+                url: result.document.sourceURL,
+                relativeTo: documentURL,
+                name: result.document.title,
+            )]
         }
     }
 
@@ -110,7 +143,7 @@ extension Workspace {
             return
         }
         let resources = try await resourceStore.importResources(
-            inputs, kind: kind, in: compilationURL.deletingLastPathComponent(), relativeTo: document,
+            inputs, kind: kind, in: resourceRoot, relativeTo: document,
         )
         guard revision == version, documentURL == document, editor.selectedRange() == range,
               editor.isEditable, !editor.hasMarkedText()

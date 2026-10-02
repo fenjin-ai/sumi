@@ -745,6 +745,8 @@
 "Choose" = "Choose";
 "Import File…" = "Import File…";
 "Document Resources" = "Document Resources";
+"Library Documents" = "Library Documents";
+"Changes to the original document appear here." = "Changes to the original document appear here.";
 "Choose a file to insert." = "Choose a file to insert.";
 "Imported files are saved with this document." = "Imported files are saved with this document.";
 "You can also drop images here or paste a screenshot with ⌘V." = "You can also drop images here or paste a screenshot with ⌘V.";
