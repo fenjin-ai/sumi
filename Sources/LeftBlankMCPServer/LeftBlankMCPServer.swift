@@ -16,7 +16,7 @@ public enum LeftBlankMCPServer {
             }
             do {
                 let args = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(request.arguments ?? [:]))
-                let result = try await bridge(AutomationRequest(String(request.name.dropFirst(5)), arguments: args))
+                let result = try await bridge(AutomationRequest(String(request.name.dropFirst("leftblank_".count)), arguments: args))
                 return try toolResult(result)
             } catch let failure as AutomationFailure {
                 return try toolResult(.object(["code": .string(failure.code), "message": .string(failure.message)]), isError: true)

@@ -37,13 +37,13 @@ Development builds use `scripts/build.sh release`. Set `LEFTBLANK_DISTRIBUTION=p
 
 ## Completed verification
 
-On 2026-10-01, all release credentials were configured for `leftblank-app/leftblank`, and [a manual release run](https://github.com/leftblank-app/leftblank/actions/runs/36824914236) passed on commit `72f7d8e`, app version **0.2.0**, build **3**. This generated an Actions artifact only, without a public tag or Release.
+On 2026-10-01, before the LeftBlank rename, all release credentials were configured for `fenjin-ai/sumi`, and [a manual release run](https://github.com/leftblank-app/leftblank/actions/runs/36824914236) passed on commit `72f7d8e`, app version **0.2.0**, build **3**. This generated an Actions artifact only, without a public tag or Release.
 
 - 36 functional and integration tests passed; production coverage was 88.57%, above the 80% gate.
 - The arm64 app and Tinymist helper were signed by `Developer ID Application: Fenjin Wang (X6BK42MX95)` with hardened runtime and secure timestamps. The certificate expires on 2031-09-17.
 - Apple submission `ae76e6c3-2354-4259-8e60-7e6411c5271c` returned `Accepted`, and its ticket was stapled.
 - An independently downloaded final ZIP passed SHA-256, `codesign --verify --deep --strict`, `stapler validate` and Gatekeeper (`source=Notarized Developer ID`). The signed Tinymist helper ran successfully.
 
-That run's `release-macos-15` artifact contains `LeftBlank-0.2.0-macOS-arm64.zip` and its `.sha256`. Actions artifacts expire after seven days; tagged public Releases use persistent downloadable attachments. This historical validation does not claim that every later development build is notarized.
+That run's `release-macos-15` artifact contains `Sumi-0.2.0-macOS-arm64.zip` and its `.sha256`. Actions artifacts expire after seven days; tagged public Releases use persistent downloadable attachments. This historical validation does not claim that every later development build is notarized.
 
 References: [Apple notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow), [App Store Connect API keys](https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api), [GitHub signing setup](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications).
