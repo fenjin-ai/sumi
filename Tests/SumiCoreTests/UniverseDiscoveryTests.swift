@@ -69,7 +69,11 @@ private func discoveryDirectory() throws -> URL {
 @Test func universeTemplateProjectValidationPreservesNestedSourcesAndAssets() async throws {
     let root = try discoveryDirectory()
     defer { try? FileManager.default.removeItem(at: root) }
-    let project = root.appendingPathComponent("project")
+    let storage = root.appendingPathComponent("storage")
+    try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+    let linkedStorage = root.appendingPathComponent("linked-storage")
+    try FileManager.default.createSymbolicLink(at: linkedStorage, withDestinationURL: storage)
+    let project = linkedStorage.appendingPathComponent("project")
     let nested = project.appendingPathComponent("chapters")
     try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
     let source = "= Template\n#image(\"../image.svg\")\n"
@@ -77,6 +81,7 @@ private func discoveryDirectory() throws -> URL {
     let asset = Data("<svg xmlns=\"http://www.w3.org/2000/svg\"/>".utf8)
     try asset.write(to: project.appendingPathComponent("image.svg"))
     let prepared = try UniverseTemplateInstaller.validateProject(at: project, entrypoint: "chapters/main.typ")
+    #expect(prepared.directoryURL.path == project.resolvingSymlinksInPath().path)
     let library = DocumentLibrary(rootURL: root.appendingPathComponent("library"))
     let document = try await library.importProject(at: prepared.directoryURL, mainFile: prepared.mainFileURL, title: "A template")
     #expect(try await library.read(document.id).text == source)
@@ -84,11 +89,22 @@ private func discoveryDirectory() throws -> URL {
     for entry in ["../outside.typ", "/etc/passwd", "chapters/main.txt", "chapters//main.typ"] {
         #expect(throws: UniverseTemplateError.self) { try UniverseTemplateInstaller.validateProject(at: project, entrypoint: entry) }
     }
+    let linkedProject = root.appendingPathComponent("linked-project")
+    try FileManager.default.createSymbolicLink(at: linkedProject, withDestinationURL: project)
+    #expect(throws: UniverseTemplateError.self) { try UniverseTemplateInstaller.validateProject(at: linkedProject, entrypoint: "chapters/main.typ") }
     let outside = root.appendingPathComponent("outside.typ")
     try Data("Private".utf8).write(to: outside)
     try FileManager.default.createSymbolicLink(at: project.appendingPathComponent("link.typ"), withDestinationURL: outside)
     #expect(throws: UniverseTemplateError.self) { try UniverseTemplateInstaller.validateProject(at: project, entrypoint: "chapters/main.typ") }
     #expect(try String(contentsOf: outside, encoding: .utf8) == "Private")
+    try FileManager.default.removeItem(at: project.appendingPathComponent("link.typ"))
+    let linkedFolder = project.appendingPathComponent("linked-folder")
+    try FileManager.default.createSymbolicLink(at: linkedFolder, withDestinationURL: root)
+    #expect(throws: UniverseTemplateError.self) { try UniverseTemplateInstaller.validateProject(at: project, entrypoint: "chapters/main.typ") }
+    try FileManager.default.removeItem(at: linkedFolder)
+    try FileManager.default.removeItem(at: nested.appendingPathComponent("main.typ"))
+    try FileManager.default.createSymbolicLink(at: nested.appendingPathComponent("main.typ"), withDestinationURL: outside)
+    #expect(throws: UniverseTemplateError.self) { try UniverseTemplateInstaller.validateProject(at: project, entrypoint: "chapters/main.typ") }
 }
 
 /// Network is deliberately opt-in. Exercises the real official registry, manifest parser,

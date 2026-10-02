@@ -51,11 +51,14 @@ public enum UniverseTemplateInstaller {
             throw UniverseTemplateError.invalidProject
         }
         let manager = FileManager.default
-        let directory = directory.standardizedFileURL
+        let requestedDirectory = directory.standardizedFileURL
         let keys: Set<URLResourceKey> = [.isSymbolicLinkKey, .isRegularFileKey, .isDirectoryKey, .fileSizeKey]
-        let root = try directory.resourceValues(forKeys: keys)
-        guard root.isDirectory == true, root.isSymbolicLink != true,
-              directory.resolvingSymlinksInPath().path == directory.path else { throw UniverseTemplateError.invalidProject }
+        let root = try requestedDirectory.resourceValues(forKeys: keys)
+        guard root.isDirectory == true, root.isSymbolicLink != true else { throw UniverseTemplateError.invalidProject }
+        // Storage may live behind an ancestor link (for example, on an external
+        // disk). Resolve that location after rejecting a linked project root;
+        // every entry inside the project still has to be a real file/directory.
+        let directory = requestedDirectory.resolvingSymlinksInPath()
         var enumerationFailed = false
         guard let enumerator = manager.enumerator(at: directory, includingPropertiesForKeys: Array(keys), errorHandler: { _, _ in enumerationFailed = true; return false }) else { throw UniverseTemplateError.invalidProject }
         var count = 0, bytes = 0
