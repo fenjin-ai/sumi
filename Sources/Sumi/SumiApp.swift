@@ -22,6 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private var settingsController: WorkspaceSettings?
     private var languageObserver: AnyCancellable?
+    #if SUMI_PREVIEW
+    private let previewUpdater = PreviewUpdater()
+    #endif
 
     init(workspace: Workspace = Workspace()) {
         self.workspace = workspace
@@ -41,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         writingWindow.workspace = workspace
         workspace.window = writingWindow
         window = writingWindow
-        window.title = workspace.title + " — " + L10n.text("Sumi")
+        window.title = workspace.title + " — " + AppDistribution.current.applicationName
         window.titleVisibility = .hidden
         window.toolbarStyle = .unifiedCompact
         windowToolbar = WindowToolbar(workspace: workspace)
@@ -54,18 +57,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrameAutosaveName("SumiMainWindow")
         window.center()
         window.makeKeyAndOrderFront(nil)
-        workspace.onTitleChange = { [weak self] title in self?.window.title = title + " — " + L10n.text("Sumi") }
+        workspace.onTitleChange = { [weak self] title in self?.window.title = title + " — " + AppDistribution.current.applicationName }
         workspace.onShortcutChange = { [weak self] in self?.installMenu() }
         languageObserver = NotificationCenter.default.publisher(for: .sumiLanguageChanged).sink { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.installMenu()
                 self?.settingsWindow?.title = L10n.text("Settings")
-                if let self { self.window.title = self.workspace.title + " — " + L10n.text("Sumi") }
+                if let self { self.window.title = self.workspace.title + " — " + AppDistribution.current.applicationName }
             }
         }
         workspace.startService()
         Task { await workspace.library.start() }
         NSApp.activate(ignoringOtherApps: true)
+        #if SUMI_PREVIEW
+        previewUpdater.start()
+        #endif
         DispatchQueue.main.async { [weak self] in
             guard let self, !self.workspace.paletteOpen, let editor = self.workspace.editor else { return }
             self.window.makeFirstResponder(editor)
@@ -79,6 +85,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window?.makeFirstResponder(nil)
         guard workspace.prepareToClose() else { return .terminateCancel }
         guard workspace.history.hasPendingWrites else { return .terminateNow }
+        // Sparkle requests a normal NSApp termination. Failure to preserve writing cancels updates,
+        // and pending history finishes before Sparkle can replace the app.
         // Autosave queues history off the main actor. Allow the final checkpoint
         // to finish before exiting, including a quit immediately after typing.
         Task { @MainActor in
@@ -122,12 +130,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             entry.representedObject = id; entry.target = self
             menu.addItem(entry)
         }
-        let app = section(L10n.text("Sumi"))
-        item(L10n.text("About Sumi"), #selector(about), "", app, target: self)
+        let app = section(AppDistribution.current.applicationName)
+        item(L10n.format("About %@", AppDistribution.current.applicationName), #selector(about), "", app, target: self)
+        #if SUMI_PREVIEW
+        app.addItem(previewUpdater.makeCheckMenuItem())
+        app.addItem(previewUpdater.makeAutomaticChecksMenuItem())
+        #endif
         item(L10n.text("Settings…"), #selector(settings), ",", app, target: self)
         app.addItem(.separator())
-        item(L10n.text("Hide Sumi"), #selector(NSApplication.hide(_:)), "h", app)
-        item(L10n.text("Quit Sumi"), #selector(NSApplication.terminate(_:)), "q", app)
+        item(L10n.format("Hide %@", AppDistribution.current.applicationName), #selector(NSApplication.hide(_:)), "h", app)
+        item(L10n.format("Quit %@", AppDistribution.current.applicationName), #selector(NSApplication.terminate(_:)), "q", app)
         let file = section(L10n.text("Documents"))
         item(L10n.text("New Document"), #selector(newDocument), "n", file, target: self)
         item(L10n.text("Your writing…"), #selector(openLibrary), "o", file, target: self)
@@ -175,8 +187,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         workspace.execute(command)
     }
     @objc private func about() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: L10n.text("Sumi"), .applicationVersion: version, .credits: NSAttributedString(string: L10n.text("Ink for your thoughts"))])
+        let release = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+        let commit = Bundle.main.object(forInfoDictionaryKey: "SumiCommit") as? String
+        let version = AppDistribution.current == .preview ? "\(release) (\(build))" + (commit.map { " · " + String($0.prefix(7)) } ?? "") : release
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: AppDistribution.current.applicationName, .applicationVersion: version, .credits: NSAttributedString(string: L10n.text("Ink for your thoughts"))])
     }
     @objc private func settings() {
         if settingsController == nil { settingsController = WorkspaceSettings(workspace: workspace) }

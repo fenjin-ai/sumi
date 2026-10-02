@@ -728,3 +728,12 @@
 
 "Appearance" = "Appearance";
 "Match System" = "Match System";
+
+// Preview distribution and updates.
+"Sumi Preview" = "Sumi Preview";
+"About %@" = "About %@";
+"Hide %@" = "Hide %@";
+"Quit %@" = "Quit %@";
+"Check for Updates…" = "Check for Updates…";
+"Automatically Check for Updates" = "Automatically Check for Updates";
+"Preview keeps its own library on this Mac. Import a copy to try your writing; iCloud sync is available in Sumi." = "Preview keeps its own library on this Mac. Import a copy to try your writing; iCloud sync is available in Sumi.";

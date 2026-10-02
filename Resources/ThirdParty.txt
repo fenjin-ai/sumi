@@ -36,3 +36,8 @@ Additional Highlight.js 11.11.1 Scheme grammar (BSD-3-Clause)
 https://github.com/highlightjs/cdn-release/blob/11.11.1/build/languages/scheme.min.js
 SHA-256: b16f50dbe365947bdc670369a4bf079bfea2804a09e4b9e89c0faa87fd7f46d8
 Uses the same bundled highlightjs-LICENSE.
+
+Sumi Preview additionally bundles Sparkle 2.10.0 for software updates (MIT).
+https://github.com/sparkle-project/Sparkle/tree/2.10.0
+Sparkle and its external component notices are in Licenses/Sparkle-LICENSE.txt.
+The framework is not included in direct or App Store builds.
