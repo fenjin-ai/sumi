@@ -15,6 +15,8 @@ import tempfile
 import time
 import uuid
 
+from running_app import verify_running_app
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -64,6 +66,7 @@ def main():
                     localized = any('此中有真意，欲辨已忘言' in source.read_text()
                                     for source in (state / 'Library/Documents').glob('*/main.typ'))
                     if ready and localized and icon_loaded:
+                        verify_running_app(relocated, process.pid)
                         print('PASS: relocated app launched, app icon and Chinese resources loaded, library created, Tinymist ready.')
                         return
                     time.sleep(0.1)

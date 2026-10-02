@@ -76,8 +76,8 @@ final class LibraryController: ObservableObject {
     }
 
     func associate(_ url: URL) {
-        let entry = workspace?.mainFileURL ?? url
-        let document = documents.first { $0.sourceURL.standardizedFileURL == entry.standardizedFileURL }
+        let entry = (workspace?.mainFileURL ?? url).resolvingSymlinksInPath().standardizedFileURL
+        let document = documents.first { $0.sourceURL.resolvingSymlinksInPath().standardizedFileURL == entry }
         workspace?.managedDocumentID = document?.id
         workspace?.managedTitle = document?.title
     }

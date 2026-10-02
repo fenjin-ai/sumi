@@ -98,3 +98,34 @@ python3 scripts/test-preview-release.py
 Local development packages are ad hoc signed. Download a published Preview to
 verify the complete Developer ID, Gatekeeper and installation path. App Store
 configuration checks cover updater exclusion, not App Store submission readiness.
+
+## Verify an installed update
+
+Use a published, signed Preview and a disposable library for upgrade testing.
+After choosing **Install and Relaunch**, let Sparkle finish without invoking an
+automation API that opens or activates the app. Some UI inspection APIs launch
+the target if it is not running. Calling one while Sparkle replaces the bundle
+can start the old executable before it is moved away, leaving a running process
+whose executable no longer exists. Authorization services and accessibility can
+then fail even though the replacement bundle on disk is valid.
+
+Observe the process table without activating the app. Wait for the old PID and
+this app's Sparkle installer to exit and for a new app PID to appear. Do not
+terminate another app's Sparkle helpers. Check that new PID before reconnecting
+the UI tool:
+
+```sh
+python3 scripts/running_app.py --app '/path/to/Sumi Preview.app' \
+  --pid NEW_PID --expected-build EXPECTED_BUILD
+```
+
+This check reads the kernel's executable path and rejects a removed or relocated
+live executable. Reading `CFBundleVersion` from disk alone is insufficient.
+Then verify **About Sumi Preview**, **Check for Updates** (up to date), and saved
+writing. Cold-launch CI also verifies the process path, while a regression test
+replaces a bundle underneath a disposable process and confirms rejection.
+These checks complement, but do not replace, an interactive upgrade test.
+
+If a real installation is left in this state, cancel the update dialog, quit
+normally so writing is saved, and reopen the installed app. Do not force-kill the
+editor, erase update preferences, or weaken signature verification.
