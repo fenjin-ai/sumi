@@ -105,6 +105,38 @@ jobs:
           path: build/coverage
           if-no-files-found: warn
           retention-days: 14
+  memory:
+    name: Memory safety (${{ matrix.check }})
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: macos-15
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [leaks, address]
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      LEFTBLANK_DISTRIBUTION: preview
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Cache Swift package sources
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .build/repositories
+            .build/checkouts
+            .build/artifacts
+          key: memory-${{ matrix.check }}-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('Package.resolved') }}
+      - name: Check memory
+        run: scripts/check-memory.sh "${{ matrix.check }}"
+      - name: Upload memory diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: memory-${{ matrix.check }}-macos-15
+          path: build/memory
+          if-no-files-found: warn
+          retention-days: 14
   preview:
     name: Signed preview
     needs: integration
