@@ -42,6 +42,6 @@ python3 design/sigma/generate.py
 python3 design/sigma/generate.py --raster
 ```
 
-The generator writes `Brand/` and `Resources/AppIcon.svg`; `--raster` also updates `Resources/AppIcon.icns`. SVG uses a scalable 1024-pixel coordinate system. The 16/32-pixel app icons and favicons use the same skeleton with optical corrections of 1.55× stroke width and 1.12× glyph size. Light and dark transparent marks share the same contour.
+The generator writes `Brand/` and `Resources/AppIcon.svg`; `--raster` also updates `Resources/AppIcon.icns` and `Resources/AppIconLight.icns`. SVG uses a scalable 1024-pixel coordinate system. The 16/32-pixel app icons and favicons use the same skeleton with optical corrections of 1.55× stroke width and 1.12× glyph size. Light and dark transparent marks share the same contour.
 
 Change `HEIGHT`, `WIDTH`, `WEIGHT`, `CORNER` or the pressure function in the generator, then regenerate all assets. Do not edit individual copies by hand. Temporary files live in the repository's `build/` directory and are cleaned up automatically.

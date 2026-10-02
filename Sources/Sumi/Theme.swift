@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import SumiCore
 
@@ -55,6 +56,35 @@ enum Theme {
         case .light: NSApp.appearance = NSAppearance(named: .aqua)
         case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
         }
+    }
+}
+
+/// Cache the two raster assets and observe AppKit's effective appearance so
+/// explicit choices and live system changes use the same Dock update path.
+@MainActor
+final class DockIconController {
+    private var observer: AnyCancellable?
+    private let light: NSImage?
+    private let dark: NSImage?
+
+    init() {
+        var resources = Bundle.main.resourceURL
+        #if DEBUG
+        if resources.map({ !FileManager.default.fileExists(atPath: $0.appendingPathComponent("AppIcon.icns").path) }) ?? true {
+            resources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources")
+        }
+        #endif
+        light = resources.flatMap { NSImage(contentsOf: $0.appendingPathComponent("AppIconLight.icns")) }
+        dark = resources.flatMap { NSImage(contentsOf: $0.appendingPathComponent("AppIcon.icns")) }
+        update()
+        observer = NSApp.publisher(for: \.effectiveAppearance, options: [.new]).sink { [weak self] _ in
+            Task { @MainActor [weak self] in self?.update() }
+        }
+    }
+
+    private func update() {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        if let image = isDark ? dark : light { NSApp.applicationIconImage = image }
     }
 }
 

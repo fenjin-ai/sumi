@@ -15,9 +15,18 @@ struct PreviewView: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         config.userContentController.add(context.coordinator, name: "sumiPreviewReady")
         let css = """
+        // Tinymist paints both the body and page gaps with this variable using
+        // !important. Setting body.style.background alone cannot override it.
+        const chromeStyle = document.createElement('style');
+        chromeStyle.textContent = `
+            :root { --typst-preview-background-color: var(--sumi-canvas) !important; }
+            html, body, #typst-container-main, #typst-app {
+                background-color: var(--sumi-canvas) !important;
+            }
+        `;
+        document.head.appendChild(chromeStyle);
         window.sumiSetChrome = (background, scheme) => {
-            document.documentElement.style.background = background;
-            document.body.style.background = background;
+            document.documentElement.style.setProperty('--sumi-canvas', background);
             document.documentElement.style.colorScheme = scheme;
         };
         window.sumiSetChrome('\(PreviewWebView.chromeColor(for: NSApp.effectiveAppearance))', '\(PreviewWebView.chromeScheme(for: NSApp.effectiveAppearance))');
@@ -80,7 +89,7 @@ struct PreviewView: NSViewRepresentable {
         let view = PreviewWebView(frame: .zero, configuration: config)
         view.onWillLoad = { [weak coordinator = context.coordinator] in coordinator?.onLoading() }
         view.navigationDelegate = context.coordinator
-        view.underPageBackgroundColor = Theme.nativePanel
+        view.applyChromeAppearance()
         view.setAccessibilityLabel(L10n.text("Document Preview"))
         _ = view.load(URLRequest(url: url))
         context.coordinator.loadedURL = url
@@ -179,9 +188,11 @@ final class PreviewWebView: WKWebView {
     func applyChromeAppearance() {
         // Recolor the surrounding canvas without touching the document's own
         // Light/Dark choice, scroll position, zoom or Tinymist render state.
-        underPageBackgroundColor = Theme.nativePanel
-        guard !isLoading else { return }
+        // WebKit snapshots this color for rubber-banding; resolve it now instead
+        // of passing a dynamic NSColor that can retain the previous appearance.
         let background = Self.chromeColor(for: effectiveAppearance)
+        underPageBackgroundColor = NSColor(hex: Self.chromeScheme(for: effectiveAppearance) == "dark" ? 0x22262B : 0xFAFAFA)
+        guard !isLoading else { return }
         let scheme = Self.chromeScheme(for: effectiveAppearance)
         evaluateJavaScript("window.sumiSetChrome?.('\(background)', '\(scheme)')", completionHandler: nil)
     }

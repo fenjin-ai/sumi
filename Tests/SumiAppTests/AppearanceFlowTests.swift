@@ -8,7 +8,10 @@ extension WritingFlowTests {
     @Test func appearanceSwitchPersistsWithoutChangingWritingSelectionOrUndo() async throws {
         _ = NSApplication.shared
         let originalAppearance = NSApp.appearance
-        defer { NSApp.appearance = originalAppearance }
+        let originalIcon = NSApp.applicationIconImage
+        let dockIcon = DockIconController()
+        defer { withExtendedLifetime(dockIcon) {}; NSApp.appearance = originalAppearance; NSApp.applicationIconImage = originalIcon }
+        var icons: [AppAppearance: Data] = [:]
         let suite = "Sumi.appearance.test." + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -41,6 +44,9 @@ extension WritingFlowTests {
             app.workspace.appearance = preference
             await app.layout()
             try await app.wait { settings.preferences.values.appearance == preference.rawValue }
+            let icon = try #require(NSApp.applicationIconImage?.tiffRepresentation)
+            if let earlier = icons[preference] { #expect(icon == earlier) }
+            icons[preference] = icon
             let appearance = editor.effectiveAppearance
             #expect(appearance.bestMatch(from: [.aqua, .darkAqua]) == (preference == .dark ? .darkAqua : .aqua))
             #expect(resolvedHex(editor.backgroundColor, appearance: appearance) == (preference == .dark ? 0x1C1F23 : 0xFFFFFF))
@@ -55,6 +61,7 @@ extension WritingFlowTests {
             #expect(LibraryPreferences(defaults: defaults).values.appearance == preference.rawValue)
             #expect(!app.workspace.previewDark, "Appearance is independent of preview document colors")
         }
+        #expect(icons[.light] != icons[.dark], "The Dock must display different raster artwork in each appearance")
         editor.undoManager?.undo()
         #expect(editor.string == source && app.workspace.text == source)
         editor.undoManager?.redo()
@@ -64,6 +71,9 @@ extension WritingFlowTests {
         // global macOS preference. AppKit delivers the same appearance callback.
         app.workspace.appearance = .system
         #expect(NSApp.appearance == nil)
+        await app.layout()
+        let inheritedIcon = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? AppAppearance.dark : .light
+        #expect(NSApp.applicationIconImage?.tiffRepresentation == icons[inheritedIcon])
         for inherited in [NSAppearance.Name.darkAqua, .aqua] {
             app.window.appearance = NSAppearance(named: inherited)
             await app.layout()
@@ -83,7 +93,7 @@ extension WritingFlowTests {
 }
 
 @MainActor
-private func resolvedHex(_ color: NSColor, appearance: NSAppearance) -> UInt32 {
+func resolvedHex(_ color: NSColor, appearance: NSAppearance) -> UInt32 {
     var value: UInt32 = 0
     appearance.performAsCurrentDrawingAppearance {
         guard let rgb = color.usingColorSpace(.sRGB) else { return }
