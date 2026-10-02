@@ -83,6 +83,7 @@ final class Workspace: ObservableObject {
     @Published var fieldValues: [String: String] = [:]
     @Published var resourceSelection: ResourceSelection?
     @Published var availableResources: [DocumentResource] = []
+    @Published var availableLibraryDocuments: [LibraryDocument] = []
     let resourceStore = DocumentResourceStore()
     @Published var commandError: String?
     @Published var selectedCommandIndex = 0
@@ -351,8 +352,12 @@ final class Workspace: ObservableObject {
                 if fileURL == nil {
                     _ = try DocumentStorage.write(text, to: draftURL, baseline: nil)
                 }
+                let root = try await library.store.compilationRoot(for: compilationURL)
+                guard serviceGeneration == generation else {
+                    return
+                }
                 try await client.start(
-                    root: compilationURL.deletingLastPathComponent(),
+                    root: root,
                     outputDirectory: stateDirectory.appendingPathComponent("Exports"),
                 )
                 guard serviceGeneration == generation else {
@@ -840,6 +845,7 @@ final class Workspace: ObservableObject {
         activeCommand = nil
         resourceSelection = nil
         availableResources = []
+        availableLibraryDocuments = []
         commandError = nil
         editor?.isEditable = layout != .preview && !documentTransitionInProgress
         if layout != .preview, let editor {
@@ -875,6 +881,7 @@ final class Workspace: ObservableObject {
         fieldValues = Dictionary(uniqueKeysWithValues: command.fields.map { ($0.id, $0.initial) })
         resourceSelection = nil
         availableResources = []
+        availableLibraryDocuments = []
         if command.fields.isEmpty {
             execute(command)
         } else {

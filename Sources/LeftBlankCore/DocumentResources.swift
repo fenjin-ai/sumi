@@ -29,6 +29,16 @@ public struct DocumentResource: Identifiable, Sendable, Equatable {
     public var id: String {
         relativePath
     }
+
+    public init(url: URL, relativeTo document: URL, name: String? = nil) {
+        let base = document.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.pathComponents
+        let target = url.resolvingSymlinksInPath().standardizedFileURL.pathComponents
+        let common = zip(base, target).prefix { $0 == $1 }.count
+        let path = Array(repeating: "..", count: base.count - common) + target.dropFirst(common)
+        self.url = url
+        relativePath = path.joined(separator: "/")
+        self.name = name ?? url.lastPathComponent
+    }
 }
 
 public enum DocumentResourceError: LocalizedError {
@@ -78,7 +88,7 @@ public actor DocumentResourceStore {
             else {
                 continue
             }
-            resources.append(resource(at: url, relativeTo: document))
+            resources.append(DocumentResource(url: url, relativeTo: document))
         }
         return resources.sorted { $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending }
     }
@@ -146,7 +156,7 @@ public actor DocumentResourceStore {
                 try manager.createDirectory(at: itemDirectory, withIntermediateDirectories: false)
                 let destination = itemDirectory.appendingPathComponent(name)
                 try CoordinatedFileAccess.write(destination) { try data.write(to: $0, options: .atomic) }
-                return resource(at: destination, relativeTo: document, name: name)
+                return DocumentResource(url: destination, relativeTo: document, name: name)
             }
         } catch {
             try? manager.removeItem(at: batch)
@@ -169,18 +179,6 @@ public actor DocumentResourceStore {
             throw DocumentResourceError.invalidLocation
         }
         return root
-    }
-
-    private func resource(at url: URL, relativeTo document: URL, name: String? = nil) -> DocumentResource {
-        let base = document.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.pathComponents
-        let target = url.standardizedFileURL.pathComponents
-        let common = zip(base, target).prefix { $0 == $1 }.count
-        let path = Array(repeating: "..", count: base.count - common) + target.dropFirst(common)
-        return DocumentResource(
-            url: url,
-            relativePath: path.joined(separator: "/"),
-            name: name ?? url.lastPathComponent,
-        )
     }
 
     private func png(_ data: Data) throws -> Data {

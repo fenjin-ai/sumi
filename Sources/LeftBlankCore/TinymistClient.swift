@@ -137,6 +137,7 @@ public final class TinymistClient {
             ],
             "initializationOptions": [
                 "fontPaths": (fontPaths + [bundledFont].compactMap(\.self)).map(\.path),
+                "rootPath": root.path,
                 "exportPdf": "never",
                 "outputPath": outputDirectory.appendingPathComponent("$name").path,
                 "compileStatus": "enable",

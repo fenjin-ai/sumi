@@ -277,14 +277,32 @@ struct CommandPalette: View {
                         Text(L10n.text("Document Resources"))
                     }.menuStyle(.borderlessButton)
                 }
+                if !workspace.availableLibraryDocuments.isEmpty {
+                    Menu {
+                        ForEach(workspace.availableLibraryDocuments) { document in
+                            Button(document.title) {
+                                workspace.resourceSelection = .libraryDocument(document)
+                            }
+                        }
+                    } label: {
+                        Text(L10n.text("Library Documents"))
+                    }.menuStyle(.borderlessButton)
+                }
                 Button(L10n.text("Import File…")) { workspace.chooseResource(for: command) }
                     .buttonStyle(.bordered)
             }
             Text(workspace.resourceSelection?.name ?? L10n.text("Choose a file to insert."))
                 .font(.system(size: 11)).foregroundStyle(Theme.secondary).lineLimit(2)
-            Text(L10n.text("Imported files are saved with this document."))
+            Text(L10n.text(resourceHelp))
                 .font(.system(size: 10)).foregroundStyle(Theme.muted)
         }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var resourceHelp: String {
+        if case .libraryDocument? = workspace.resourceSelection {
+            return "Changes to the original document appear here."
+        }
+        return "Imported files are saved with this document."
     }
 
     private var footer: some View {

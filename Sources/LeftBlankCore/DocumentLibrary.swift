@@ -332,6 +332,12 @@ public actor DocumentLibrary {
         }
     }
 
+    /// Managed entries share a compilation root so standard Typst paths can reference other documents.
+    public func compilationRoot(for sourceURL: URL) throws -> URL {
+        try documentID(for: sourceURL) == nil ? sourceURL.deletingLastPathComponent() :
+            rootURL.appendingPathComponent("Documents", isDirectory: true)
+    }
+
     public func documentID(for sourceURL: URL) throws -> UUID? {
         let source = sourceURL.standardizedFileURL
         let documentsRoot = rootURL.appendingPathComponent("Documents").standardizedFileURL
