@@ -15,7 +15,7 @@ struct FloatingOutline: View {
     private var panelWidth: CGFloat {
         // A pinned outline stays inside the existing margin. Hover can briefly
         // expand it for reading long headings without moving the manuscript.
-        min(224, max(hovering ? 180 : 30, availableMargin - 24))
+        min(224, max(hovering ? 180 : 28, availableMargin - 24))
     }
     private var navigation: OutlineNavigation { workspace.outlineNavigation }
     private var current: Int? { workspace.activeOutlineIndex.map { navigation.visibleAncestor(of: $0) } }
@@ -25,9 +25,9 @@ struct FloatingOutline: View {
         if !workspace.outline.isEmpty || workspace.sidePanel == .outline {
             VStack(alignment: .leading, spacing: 0) {
                 if expanded {
-                    HStack(spacing: 8) {
+                    HStack(spacing: panelWidth < 70 ? 0 : 8) {
                         if panelWidth >= 140 {
-                            Text(L10n.text("Outline")).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.muted)
+                            Text(L10n.text("Outline")).font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.secondary)
                         }
                         Spacer(minLength: 0)
                         if panelWidth >= 140, !navigation.branches.isEmpty {
@@ -43,20 +43,18 @@ struct FloatingOutline: View {
                             ZStack {
                                 PhosphorIcon(name: "push-pin", size: 14)
                                     .opacity(pinned && pinHovering ? 0 : 1)
-                                    .rotationEffect(.degrees(pinned && pinHovering ? -35 : 0))
                                 PhosphorIcon(name: "x", size: 14)
                                     .opacity(pinned && pinHovering ? 1 : 0)
-                                    .rotationEffect(.degrees(pinned && pinHovering ? 0 : 35))
                             }
-                            .foregroundStyle(pinned ? Theme.text : Theme.muted)
-                            .frame(width: 24, height: 24).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
+                            .foregroundStyle(pinned ? Theme.text : Theme.secondary)
+                            .frame(width: 28, height: 28)
+                        }.buttonStyle(QuietControlStyle())
                             .accessibilityIdentifier("outline.pin")
                             .accessibilityLabel(L10n.text(pinned ? "Unpin outline" : "Pin outline"))
                             .learningHelp(L10n.text(pinned ? "Unpin outline" : "Pin outline"), shortcut: "⌘4")
                             .onHover { pinHovering = $0 }
                             .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: pinHovering)
-                    }.padding(.horizontal, panelWidth < 70 ? 2 : 10).padding(.top, 6).padding(.bottom, 4)
+                    }.padding(.horizontal, panelWidth < 70 ? 0 : 10).padding(.top, 6).padding(.bottom, 4)
                     ScrollViewReader { proxy in
                         ScrollView {
                             LazyVStack(alignment: .leading, spacing: 2) {
@@ -85,7 +83,7 @@ struct FloatingOutline: View {
             }
             .frame(width: expanded ? panelWidth : 30, alignment: .leading)
             .background {
-                if expanded {
+                if expanded && panelWidth >= 70 {
                     // Opaque beside the text on narrow windows, blending into the
                     // existing margin on wide ones. No card, border or drop shadow.
                     LinearGradient(stops: [.init(color: Theme.editor, location: 0), .init(color: Theme.editor, location: 0.88), .init(color: Theme.editor.opacity(0), location: 1)], startPoint: .leading, endPoint: .trailing)
@@ -109,9 +107,9 @@ struct FloatingOutline: View {
     }
     private func foldButton(expand: Bool) -> some View {
         Button { workspace.expandOutline(expand) } label: {
-            PhosphorIcon(name: expand ? "caret-double-down" : "caret-double-up", size: 13)
-                .foregroundStyle(Theme.muted).frame(width: 18, height: 24).contentShape(Rectangle())
-        }.buttonStyle(.plain)
+            PhosphorIcon(name: expand ? "caret-double-down" : "caret-double-up", size: 14)
+                .foregroundStyle(Theme.secondary).frame(width: 28, height: 28)
+        }.buttonStyle(QuietControlStyle())
             .accessibilityIdentifier(expand ? "outline.expandAll" : "outline.collapseAll")
             .accessibilityLabel(L10n.text(expand ? "Expand All Headings" : "Collapse All Headings"))
             .learningHelp(L10n.text(expand ? "Expand All Headings" : "Collapse All Headings"), shortcut: "⌘\(workspace.commandKey.uppercased()) → v " + (expand ? "e" : "c"))
@@ -139,7 +137,7 @@ struct FloatingOutline: View {
                     }
                     Spacer(minLength: 0)
                 }.padding(.vertical, 9).contentShape(Rectangle())
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plain).accessibilityLabel(item.title)
         }.foregroundStyle(index == current ? Theme.text : Theme.secondary)
             .padding(.leading, panelWidth < 70 ? 3 : CGFloat(3 + min(item.level - 1, 4) * 7)).padding(.trailing, 6)
     }

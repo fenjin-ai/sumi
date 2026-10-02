@@ -56,7 +56,7 @@ struct CommandPalette: View {
             ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
                 Button { workspace.enterGroup(group.id) } label: {
                     HStack(spacing: 13) {
-                        PhosphorIcon(name: group.icon, size: 22).foregroundStyle(index == workspace.selectedCommandIndex ? Theme.accent : Theme.secondary)
+                        PhosphorIcon(name: group.icon, size: 18).foregroundStyle(index == workspace.selectedCommandIndex ? Theme.accent : Theme.secondary)
                         VStack(alignment: .leading, spacing: 6) {
                             Text(group.title).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.text)
                             Text(group.subtitle).font(.system(size: 10)).foregroundStyle(Theme.secondary).lineLimit(1)
@@ -64,8 +64,12 @@ struct CommandPalette: View {
                         Spacer(minLength: 0)
                         Keycap(value: group.key)
                     }.padding(.horizontal, 14).frame(height: 66).contentShape(Rectangle())
-                }.buttonStyle(PaletteButtonStyle())
-                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(index == workspace.selectedCommandIndex ? Theme.accent.opacity(0.5) : Theme.border.opacity(0.4)))
+                }.buttonStyle(QuietControlStyle())
+                    .background(index == workspace.selectedCommandIndex ? Theme.secondary.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 5))
+                    .overlay(alignment: .leading) {
+                        if index == workspace.selectedCommandIndex { Capsule().fill(Theme.accent).frame(width: 2, height: 18) }
+                    }
+                    .accessibilityAddTraits(index == workspace.selectedCommandIndex ? .isSelected : [])
             }
         }
     }
@@ -190,11 +194,5 @@ private struct CommandRow: View {
                 .background(selected ? Theme.border.opacity(0.75) : (hovered ? Theme.border.opacity(0.35) : Color.clear), in: RoundedRectangle(cornerRadius: 5))
                 .overlay(alignment: .leading) { if selected { Capsule().fill(Theme.accent).frame(width: 2, height: 16) } }
         }.buttonStyle(.plain).onHover { hovered = $0 }
-    }
-}
-
-struct PaletteButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.background(configuration.isPressed ? Theme.border : Theme.background.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
     }
 }

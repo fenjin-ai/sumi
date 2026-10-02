@@ -49,6 +49,14 @@ extension WritingFlowTests {
         await app.layout()
         #expect(scroll.convert(scroll.bounds, to: nil) == frame)
         #expect(editor.textContainerInset == inset)
+        app.workspace.layout = .split
+        await app.layout()
+        let pin = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }.first { $0.title == L10n.text("Unpin outline") })
+        let pinFrame = pin.convert(pin.bounds, to: nil)
+        let sourceLeadingEdge = editor.convert(NSPoint(x: editor.textContainerInset.width, y: 0), to: nil).x
+        #expect(pinFrame.maxX <= sourceLeadingEdge, "The pinned compact rail must fit beside the first source character")
+        app.workspace.layout = .writing
+        await app.layout()
         app.workspace.jump(to: 16)
         app.workspace.sidePanel = nil
         app.workspace.togglePalette()
@@ -165,17 +173,31 @@ extension WritingFlowTests {
             anchor.dismiss()
         }
         #expect(app.workspace.text == "= Learn\n")
+        app.window.orderFront(nil)
+        func click(_ anchor: HelpAnchor, nearEdge: Bool = false) throws {
+            let point = anchor.convert(NSPoint(x: nearEdge ? 3 : anchor.bounds.midX, y: anchor.bounds.midY), to: nil)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                app.window.sendEvent(try #require(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: app.window.windowNumber,
+                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1)))
+            }
+        }
+        // Compact glyphs still have full-sized targets, including the empty
+        // area beside the icon. Exercise the production responder path.
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            app.window.appearance = NSAppearance(named: appearance)
+            for (title, layout) in [("Read the Preview", EditorLayout.preview), ("Focus on Writing", .writing), ("Side-by-side Preview", .split)] {
+                await app.layout()
+                let anchor = try #require(anchors.first { $0.title == L10n.text(title) })
+                try click(anchor, nearEdge: true)
+                #expect(app.workspace.layout == layout)
+                #expect(app.workspace.text == "= Learn\n")
+            }
+        }
         app.workspace.layout = .split
         await app.layout()
-        app.window.orderFront(nil)
-        await app.layout()
         let reveal = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }.first { $0.title == L10n.text("Preview") })
-        let center = reveal.convert(NSPoint(x: reveal.bounds.midX, y: reveal.bounds.midY), to: nil)
-        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            app.window.sendEvent(try #require(NSEvent.mouseEvent(with: type, location: center, modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: app.window.windowNumber,
-                context: nil, eventNumber: 0, clickCount: 1, pressure: 1)))
-        }
+        try click(reveal)
         await app.layout()
         for dark in [false, true, false] {
             app.workspace.previewDark = dark
@@ -184,6 +206,20 @@ extension WritingFlowTests {
                 .first { $0.title == L10n.text("Preview Colors") })
             #expect(colors.bounds.width == 68)
             #expect(colors.bounds.height == 28)
+        }
+        let zoomOut = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }.first { $0.title == L10n.text("Zoom Out") })
+        let zoomIn = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }.first { $0.title == L10n.text("Zoom In") })
+        app.workspace.previewZoom = 1
+        await app.layout()
+        try click(zoomIn, nearEdge: true)
+        #expect(abs(app.workspace.previewZoom - 1.1) < 0.001)
+        try click(zoomOut, nearEdge: true)
+        #expect(abs(app.workspace.previewZoom - 1) < 0.001)
+        for (limit, anchor) in [(0.5, zoomOut), (2.0, zoomIn)] {
+            app.workspace.previewZoom = limit
+            await app.layout()
+            try click(anchor)
+            #expect(abs(app.workspace.previewZoom - limit) < 0.001)
         }
     }
 }

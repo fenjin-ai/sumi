@@ -137,14 +137,34 @@ struct QuietButton: View {
     var shortcut: String? = nil
     var detail: String? = nil
     var active = false
+    var iconSize: CGFloat = 16
+    var hitSize: CGFloat = 30
     var action: () -> Void
-    @State private var hovering = false
     var body: some View {
         Button(action: action) {
-            PhosphorIcon(name: icon).foregroundStyle(active ? Theme.accent : Theme.secondary)
-                .frame(width: 30, height: 30)
-                .background(hovering || active ? Theme.border.opacity(0.5) : Color.clear, in: RoundedRectangle(cornerRadius: 5))
-        }.buttonStyle(.plain).accessibilityLabel(help).learningHelp(help, shortcut: shortcut, detail: detail).onHover { hovering = $0 }
+            PhosphorIcon(name: icon, size: iconSize).foregroundStyle(active ? Theme.accent : Theme.secondary)
+                .frame(width: hitSize, height: hitSize)
+                .overlay(alignment: .bottom) {
+                    if active { Capsule().fill(Theme.accent).frame(width: 8, height: 1.5).padding(.bottom, 1) }
+                }
+        }.buttonStyle(QuietControlStyle()).accessibilityLabel(help)
+            .accessibilityAddTraits(active ? .isSelected : [])
+            .learningHelp(help, shortcut: shortcut, detail: detail)
+    }
+}
+
+/// One flat interaction treatment for compact controls throughout the app.
+/// The hit area stays larger than the glyph; only hover or a press adds a wash.
+struct QuietControlStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+    @State private var hovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .background(Theme.secondary.opacity(enabled ? (configuration.isPressed ? 0.14 : (hovering ? 0.08 : 0)) : 0), in: RoundedRectangle(cornerRadius: 5))
+            .opacity(enabled ? 1 : 0.4)
+            .onHover { hovering = $0 }
     }
 }
 
