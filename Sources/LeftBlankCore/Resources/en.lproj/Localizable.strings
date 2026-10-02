@@ -425,7 +425,6 @@
 "Show source in Finder" = "Show source in Finder";
 "Show the selection literally without interpreting its Typst syntax." = "Show the selection literally without interpreting its Typst syntax.";
 "Showing Last Preview · Check Source" = "Showing Last Preview · Check Source";
-"Showing the last successful preview while your changes are typeset" = "Showing the last successful preview while your changes are typeset";
 "Side-by-side Preview" = "Side-by-side Preview";
 "Sign in to iCloud and enable iCloud Drive in System Settings before turning on sync." = "Sign in to iCloud and enable iCloud Drive in System Settings before turning on sync.";
 "Small Capitals" = "Small Capitals";
@@ -520,7 +519,6 @@
 "Vertical Space" = "Vertical Space";
 "View" = "View";
 "Waiting for Typesetting" = "Waiting for Typesetting";
-"Waiting for the first successful preview" = "Waiting for the first successful preview";
 "Welcome" = "Welcome";
 "What would you like to do?" = "What would you like to do?";
 "Window" = "Window";
