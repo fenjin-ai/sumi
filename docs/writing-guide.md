@@ -29,6 +29,16 @@ Frequent actions have direct shortcuts as well as discoverable paths. `⌘]` / `
 
 The outline appears in the left margin without moving the text. Hover to explore headings, then use the small pin to keep them visible; hovering the pinned control reveals its close action. `⌘4` also pins or dismisses it. The command panel keeps a stable height through searching, selection and parameter entry; its guide stays in the same place.
 
+## Images and document resources
+
+Use `⌘J → i → i` to choose an existing image from **Document Resources** or **Import File…** to bring in a new one. Add a caption and insert. You can also drop one or more image files at a position in the editor, or paste a screenshot with `⌘V`. Ordinary text paste and text dragging keep their normal behavior.
+
+LeftBlank saves its own copy with the document and inserts the reference for you. Moving or deleting the original file does not break the image. Images travel with the library document, iCloud sync and source-project export. Undo removes the insertion; the resource remains available for redo, document history and reuse.
+
+PNG, JPEG, GIF, SVG, PDF and WebP keep their original format. Other macOS-readable image formats, such as HEIC and TIFF, are converted to PNG. Audio and video are not embedded in typeset pages; dropping them shows an explanation and leaves the text unchanged.
+
+Bibliography, Include Document and Import Local Module use the same resource picker. You can also drop or paste bibliography files and self-contained `.typ` documents. For a Typst document with relative dependencies, import its whole project through the library first, then choose its existing resources.
+
 ## Writing and preview
 
 Editor styling gently emphasizes headings, bold, italics and inline code. Moving the caret into a paragraph reveals its full source. Copying, saving and undo always use the original text. Change editor styling in Settings.
