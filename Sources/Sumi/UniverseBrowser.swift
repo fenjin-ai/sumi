@@ -303,7 +303,8 @@ struct UniverseBrowser: View {
                     .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(model.selected?.id == package.id ? Theme.accent.opacity(0.75) : Theme.border.opacity(0.5), lineWidth: 1))
             } else {
                 HStack(alignment: .top) {
-                    PhosphorIcon(name: packageIcon(package), size: 25).foregroundStyle(Theme.accent.opacity(0.85))
+                    PhosphorIcon(name: packageIcon(package), size: 22)
+                        .foregroundStyle(model.selected?.id == package.id ? Theme.accent : Theme.secondary)
                     Spacer()
                     PhosphorIcon(name: "arrow-up-right", size: 13).foregroundStyle(Theme.muted)
                 }.padding(.bottom, 7)
@@ -418,7 +419,13 @@ struct UniverseBrowser: View {
         return L10n.format("%d results · Search by name or what you want to make", model.results.count)
     }
 
+    private static let featuredPackageIcons = [
+        "cetz": "pencil-simple", "fletcher": "tree-structure", "lilaq": "wave-sine",
+        "codly": "code", "tablex": "table", "glossarium": "book-open-text", "physica": "function"
+    ]
+
     private func packageIcon(_ package: UniversePackage) -> String {
+        if let icon = Self.featuredPackageIcons[package.name] { return icon }
         if package.categories.contains("visualization") { return "bounding-box" }
         if package.categories.contains("text") || package.categories.contains("languages") { return "text-aa" }
         if package.categories.contains("layout") { return "layout" }

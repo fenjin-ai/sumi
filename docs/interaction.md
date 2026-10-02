@@ -9,6 +9,35 @@
 - Command discovery occupies a fixed 320 pt bottom panel. Categories, search results, empty state and parameter forms share the same outer geometry. A fixed guide shows syntax and shortcuts. Pointer hover changes row background without moving keyboard selection or scrolling. Keyboard navigation only brings the target into view.
 - Forms use two columns with internal scrolling, verified at an 820×540 pt window. The category grid supports directional navigation in three columns.
 
+## Control design
+
+The document title and writing actions explicitly disable the native toolbar
+item border. On macOS 26, this also removes the automatically added Liquid Glass
+capsule; a SwiftUI plain button style alone does not remove that container.
+Traffic lights, toolbar positioning and native keyboard behavior remain AppKit's.
+
+Toolbar glyphs use the same Phosphor Regular family at 16 pt inside 30 pt targets.
+The library uses a pair of pages instead of detailed book spines. The selected
+writing mode has an accent glyph and a fine underline, with no second box inside
+the toolbar. Hover and press use a restrained neutral wash. The same interaction
+style covers compact pane controls, outline header actions and document checks;
+outline and preview controls use 14 pt glyphs inside 28 pt targets. Pin-to-close
+crossfades without rotating the symbols. The compact pinned outline fits inside
+the 36 pt source margin and has no opaque backing that could hide the first
+character. Disabled zoom actions stop at the limits.
+
+Command categories and command rows both mark keyboard selection at the leading
+edge, avoiding a grid of competing borders. Diagnostic lists use a quiet flat
+surface and hairline instead of a dark drop shadow. Light and dark colors come
+from the shared dynamic palette. Learning hints, VoiceOver names and full-target
+pointer clicks remain available in both appearances.
+
+The broader audit covers the library, template and package discovery, Settings,
+history comparison and insertion forms. Those surfaces retain their existing
+layout and native form controls. Featured drawing, chart, code, table, glossary
+and science packages have recognizable individual symbols; ordinary package
+cards use category symbols in neutral ink, with accent reserved for selection.
+
 ## Performance work
 
 - Phosphor PDF images are cached by name rather than repeatedly opened and parsed during view updates.

@@ -37,7 +37,7 @@ struct DocumentCheckButton: View {
                 PhosphorIcon(name: workspace.checkIcon, size: 13).foregroundStyle(workspace.checkColor)
                 Text(workspace.checkLabel).font(.system(size: 10)).foregroundStyle(Theme.secondary)
             }.padding(.horizontal, 6).frame(height: 26).contentShape(Rectangle())
-        }.buttonStyle(.plain).accessibilityIdentifier("checks.toggle")
+        }.buttonStyle(QuietControlStyle()).accessibilityIdentifier("checks.toggle")
             .accessibilityLabel(L10n.text("Document Checks") + ": " + workspace.checkLabel)
             .learningHelp(L10n.text("Document Checks"), shortcut: "⌘5")
     }
@@ -84,9 +84,8 @@ struct DocumentChecksPopup: View {
                 }.frame(height: min(292, CGFloat(workspace.diagnostics.count) * 82))
             }
         }
-        .foregroundStyle(Theme.text).background(Theme.panel, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border.opacity(0.35)))
-        .shadow(color: .black.opacity(0.28), radius: 18, y: 8)
+        .foregroundStyle(Theme.text).background(Theme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border.opacity(0.6)))
         .accessibilityIdentifier("checks.popup")
     }
 }

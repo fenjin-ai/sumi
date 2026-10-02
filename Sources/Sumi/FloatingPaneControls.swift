@@ -21,11 +21,11 @@ struct FloatingPaneControls<Controls: View>: View {
                     PhosphorIcon(name: icon, size: 12)
                     Text(title).font(.system(size: 10))
                 }.padding(.horizontal, 7).frame(height: 28).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityLabel(title).learningHelp(title)
+            }.buttonStyle(QuietControlStyle()).accessibilityLabel(title).learningHelp(title)
                 .accessibilityValue(L10n.text(expanded ? "Expanded" : "Collapsed"))
         }.foregroundStyle(Theme.secondary)
             .padding(.horizontal, 3).padding(.vertical, 2)
-            .background(Theme.panel.opacity(expanded ? 0.97 : 0.85), in: RoundedRectangle(cornerRadius: 8))
+            .background(Theme.panel, in: RoundedRectangle(cornerRadius: 6))
             .fixedSize()
             .onHover { inside in
                 dismissTask?.cancel()

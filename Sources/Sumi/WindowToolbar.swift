@@ -56,6 +56,9 @@ final class WindowToolbar: NSObject, NSToolbarDelegate {
             item.label = L10n.text("Writing Views and Export")
             item.view = NSHostingView(rootView: WritingActions(workspace: workspace).frame(height: 30))
         } else { return nil }
+        // AppKit adds Liquid Glass behind custom toolbar views on macOS 26,
+        // independently of SwiftUI's button style. Keep both groups unframed.
+        item.isBordered = false
         return item
     }
 }
@@ -76,10 +79,8 @@ private struct DocumentTitle: View {
     @ObservedObject private var localization = AppLocalization.shared
     var body: some View {
         HStack(spacing: 8) {
-            Button { workspace.openLibrary() } label: {
-                PhosphorIcon(name: "books", size: 16).foregroundStyle(Theme.muted).frame(width: 26, height: 30)
-            }.buttonStyle(.plain).accessibilityLabel(L10n.text("Your writing"))
-                .learningHelp(L10n.text("Your writing"), shortcut: "⌘O")
+            QuietButton(icon: "files", help: L10n.text("Your writing"), shortcut: "⌘O") { workspace.openLibrary() }
+                .accessibilityIdentifier("toolbar.library")
             EditableDocumentName(title: workspace.title, documentID: workspace.managedDocumentID,
                 onOpen: { workspace.openLibrary() },
                 onRename: { [id = workspace.managedDocumentID] title in
@@ -100,11 +101,11 @@ private struct WritingActions: View {
     @ObservedObject var workspace: Workspace
     @ObservedObject private var localization = AppLocalization.shared
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             QuietButton(icon: "pencil-simple", help: L10n.text("Focus on Writing"), shortcut: WritingCommand.all.first { $0.id == "writing" }?.shortcuts.first?.label, detail: L10n.text("A quiet space for your words."), active: workspace.layout == .writing) { workspace.layout = .writing }
             QuietButton(icon: "columns", help: L10n.text("Side-by-side Preview"), shortcut: WritingCommand.all.first { $0.id == "split" }?.shortcuts.first?.label, detail: L10n.text("Write on the left, see the live page on the right."), active: workspace.layout == .split) { workspace.layout = .split }
             QuietButton(icon: "eye", help: L10n.text("Read the Preview"), shortcut: WritingCommand.all.first { $0.id == "preview" }?.shortcuts.first?.label, detail: L10n.text("Fill the workspace with your finished pages."), active: workspace.layout == .preview) { workspace.layout = .preview }
-            Rectangle().fill(Theme.border).frame(width: 1, height: 14)
+            Rectangle().fill(Theme.border.opacity(0.65)).frame(width: 1, height: 12).padding(.horizontal, 5)
             QuietButton(icon: "arrow-square-out", help: L10n.text("Export PDF"), shortcut: WritingCommand.all.first { $0.id == "export" }?.shortcuts.first?.label, detail: L10n.text("Export the current document in its original colors.")) { workspace.exportPDF() }.disabled(workspace.exporting)
         }.fixedSize().disabled(workspace.isLibraryHome)
     }

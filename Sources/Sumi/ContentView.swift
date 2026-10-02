@@ -35,7 +35,7 @@ struct ContentView: View {
                             .overlay(alignment: .topLeading) {
                                 if workspace.layout != .preview {
                                     FloatingOutline(workspace: workspace, availableMargin: max(36, (editorWidth - 740) / 2))
-                                        .padding(.leading, 14).padding(.top, 64)
+                                        .padding(.leading, 6).padding(.top, 64)
                                 }
                             }
                             .opacity(workspace.layout == .preview ? 0 : 1)
@@ -98,16 +98,16 @@ struct ContentView: View {
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(workspace.previewDark ? Theme.accent : Theme.secondary)
                             .frame(width: 68, height: 28).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityIdentifier("preview-colors")
+                    }.buttonStyle(QuietControlStyle()).accessibilityIdentifier("preview-colors")
                         .learningHelp(L10n.text("Preview Colors"), shortcut: "⌘\(workspace.commandKey.uppercased()) → v n", detail: L10n.text("Only changes preview colors. Exported PDFs are unchanged."))
-                    Button { workspace.previewZoom = max(0.5, workspace.previewZoom - 0.1) } label: {
-                        Text("−").frame(width: 22, height: 28).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityLabel(L10n.text("Zoom Out")).learningHelp(L10n.text("Zoom Out"))
+                    QuietButton(icon: "minus", help: L10n.text("Zoom Out"), iconSize: 14, hitSize: 28) {
+                        workspace.previewZoom = max(0.5, workspace.previewZoom - 0.1)
+                    }.disabled(workspace.previewZoom <= 0.5)
                     Text("\(Int((workspace.previewZoom * 100).rounded()))%")
                         .font(.system(size: 10, design: .monospaced)).frame(width: 32)
-                    Button { workspace.previewZoom = min(2, workspace.previewZoom + 0.1) } label: {
-                        Text("+").frame(width: 22, height: 28).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityLabel(L10n.text("Zoom In")).learningHelp(L10n.text("Zoom In"))
+                    QuietButton(icon: "plus", help: L10n.text("Zoom In"), iconSize: 14, hitSize: 28) {
+                        workspace.previewZoom = min(2, workspace.previewZoom + 0.1)
+                    }.disabled(workspace.previewZoom >= 2)
                 }.padding(8)
             }
             .overlay(alignment: .bottomLeading) {
