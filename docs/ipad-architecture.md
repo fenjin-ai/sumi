@@ -68,21 +68,25 @@ not a substitute for these measurements.
 | Platform | Build and validation | Distribution |
 | --- | --- | --- |
 | Mac | SwiftPM, `scripts/test.sh`, existing Mac CI and book benchmarks | Existing signed preview and Mac release workflows |
-| iPad | Xcode target, `scripts/build-ipad.sh`, `.github/workflows/ipad.yml` | Development installation works; TestFlight/App Store automation is not configured |
+| iPad | Xcode target, `scripts/build-ipad.sh`, iPad jobs in `.github/workflows/ci.yml` | Development installation works; TestFlight/App Store automation is not configured |
 
-The iPad workflow runs engine integration, simulator build/UI tests, and device
-build in parallel jobs with independent engine caches. Mac CI still validates
-shared code and the Mac app. Shared changes trigger both workflows. The simulator
-job runs the UI suite on both 11-inch and 13-inch devices, completing boot,
-testing and shutdown for one device before starting the other. Each command has
-a timeout; failed boot/test operations save resource diagnostics, and failed
-shutdown stops the suite to avoid overlapping simulators. CI device
+One `build and test` workflow contains Mac and iPad validation. Mac regression
+and main-only App Store distribution validation run independently. PRs avoid
+the distribution rebuild; main checks it before preview packaging. The iPad build matrix runs engine
+integration, simulator compilation and device compilation in parallel, using
+independent engine caches. It produces the simulator test Products once and
+passes them to a two-size UI matrix. Each size runs the full suite on its own
+standard macOS runner; no runner boots two iPads. Each command has a timeout,
+and failed boot/test operations save resource diagnostics. CI device
 builds are unsigned; simulator tests do not establish physical-device performance.
 
 The current main-branch ruleset requires `build and test` and 80% coverage, but
-does not yet require the new `iPad engine`, `iPad simulator` and `iPad device`
-checks. Add those checks to repository merge requirements before treating iPad
-validation as an enforced release gate. This PR does not change repository rules.
+has no separate iPad check requirements. The existing `build and test` check now
+aggregates Mac regression, Mac App Store validation, all iPad builds and both UI
+sizes. A failed, cancelled or unexpectedly skipped prerequisite cannot produce
+a successful aggregate. Only the main-only App Store job's expected skip is
+accepted on PRs. This PR does not change repository rules. The main-only Mac preview
+still depends on Mac validation; platform release targets remain independent.
 
 Existing Mac release tags do not publish an iPad build. Apple supports adding an
 [iOS platform to the same app record](https://developer.apple.com/help/app-store-connect/create-an-app-record/add-platforms)

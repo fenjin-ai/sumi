@@ -28,17 +28,26 @@ class SimulatorContracts(unittest.TestCase):
         self.quiet.__enter__()
         self.addCleanup(self.quiet.__exit__, None, None, None)
 
-    def test_newest_runtime_with_both_sizes(self):
+    def test_newest_runtime_for_requested_size(self):
         inventory = {
             'com.apple.CoreSimulator.SimRuntime.iOS-26-10': [DEVICES[0][1]],
             'com.apple.CoreSimulator.SimRuntime.iOS-26-2': [device for _, device in DEVICES],
             'com.apple.CoreSimulator.SimRuntime.iOS-18-5': [device for _, device in DEVICES],
         }
-        self.assertEqual(runner.select_devices(inventory), DEVICES)
+        for size, device in DEVICES:
+            self.assertEqual(runner.select_device(inventory, size), device)
         with self.assertRaises(RuntimeError):
-            runner.select_devices({'com.apple.CoreSimulator.SimRuntime.iOS-26-10': [DEVICES[0][1]]})
+            runner.select_device({'com.apple.CoreSimulator.SimRuntime.iOS-26-10': [DEVICES[0][1]]}, '13-inch')
 
-    def exercise(self, failure=None):
+    def test_invocation_requires_one_explicit_size_before_any_boot(self):
+        with patch.object(runner, 'inventory') as inventory, contextlib.redirect_stderr(io.StringIO()):
+            for arguments in ([], ['--size', 'both']):
+                with self.assertRaises(SystemExit) as error:
+                    runner.main(arguments)
+                self.assertEqual(error.exception.code, 2)
+            inventory.assert_not_called()
+
+    def exercise(self, failure=None, size='11-inch'):
         active = set()
         events = []
         result_paths = []
@@ -65,30 +74,31 @@ class SimulatorContracts(unittest.TestCase):
                 raise subprocess.TimeoutExpired(args, timeout)
             return subprocess.CompletedProcess(args, 0)
 
+        device = next(device for label, device in DEVICES if label == size)
         with patch.object(runner, 'run', side_effect=command), patch.object(runner, 'diagnostics'):
-            passed = runner.test_devices(DEVICES, self.root / 'test.xctestrun', self.root)
+            passed = runner.test_device(size, device, self.root / 'test.xctestrun', self.root)
         self.assertFalse(active)
         self.assertEqual(len(result_paths), len(set(result_paths)))
         return passed, events
 
-    def test_sizes_never_overlap_and_keep_separate_results(self):
-        passed, events = self.exercise()
-        self.assertTrue(passed)
-        self.assertEqual(events, [('bootstatus', 'small'), ('test', 'small'), ('shutdown', 'small'),
-                                  ('bootstatus', 'large'), ('test', 'large'), ('shutdown', 'large')])
+    def test_each_invocation_runs_only_its_size_and_full_suite(self):
+        for size, device in DEVICES:
+            passed, events = self.exercise(size=size)
+            self.assertTrue(passed)
+            self.assertEqual(events, [(operation, device['udid']) for operation in ('bootstatus', 'test', 'shutdown')])
 
-    def test_boot_failure_cleans_up_and_other_size_still_runs(self):
+    def test_boot_failure_cleans_up_without_testing(self):
         passed, events = self.exercise(('bootstatus', 'small'))
         self.assertFalse(passed)
         self.assertNotIn(('test', 'small'), events)
-        self.assertIn(('test', 'large'), events)
+        self.assertEqual(events[-1], ('shutdown', 'small'))
 
     def test_test_failure_cleans_up_and_cannot_report_success(self):
         passed, events = self.exercise(('test', 'small'))
         self.assertFalse(passed)
-        self.assertLess(events.index(('shutdown', 'small')), events.index(('bootstatus', 'large')))
+        self.assertEqual(events[-1], ('shutdown', 'small'))
 
-    def test_shutdown_failure_stops_before_other_size(self):
+    def test_shutdown_failure_cannot_report_success(self):
         with self.assertRaises(subprocess.TimeoutExpired):
             self.exercise(('shutdown', 'small'))
 

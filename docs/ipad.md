@@ -88,24 +88,42 @@ xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
   CODE_SIGNING_ALLOWED=NO test
 ```
 
-CI has a separate `.github/workflows/ipad.yml` workflow, with parallel jobs for
-engine integration, simulator build/UI tests and device build. Mac regression
-tests remain in `scripts/test.sh`. Platform build/release boundaries, engine
+Mac and iPad share one `.github/workflows/ci.yml` workflow. Mac regression and
+Mac App Store validation (main only) run alongside the iPad engine/simulator/device
+build matrix. After those iPad prerequisites pass, two UI jobs run the full suite on
+11-inch and 13-inch devices on separate standard macOS runners. The existing
+`build and test` check aggregates Mac and iPad results and rejects failed,
+cancelled or unexpectedly skipped prerequisites. PRs expect the main-only
+App Store check to be skipped; main requires it to pass. Mac regression tests remain in
+`scripts/test.sh`. Platform build/release boundaries, engine
 tradeoffs and the feature-gap inventory are in [ipad-architecture.md](ipad-architecture.md).
+
+```mermaid
+flowchart LR
+    mac[Mac regression] --> gate[build and test]
+    store[Mac App Store validation - main only] --> gate
+    builds[iPad engine and simulator/device builds] --> small[11-inch UI]
+    builds --> large[13-inch UI]
+    small --> gate
+    large --> gate
+```
 
 Successful compilation is cached before UI testing, so a failed UI test does not
 discard the Rust build. Cache uploads are bounded and optional. The simulator
-build produces an `.xctestrun` bundle; UI testing consumes that bundle without
-resolving or rebuilding packages again. `scripts/ipad_simulator.py` selects the
-newest available iOS runtime with both 11-inch and 13-inch iPads. Each device is
-booted, tested and shut down before the next starts; serial test execution alone
-does not prevent two prebooted devices from competing for runner resources.
+build produces an `.xctestrun` bundle once. Its Products directory is transferred
+in a compressed tar archive, preserving executable permissions and symlinks.
+The intermediate artifact is retained for one day. Both UI runners consume this
+same build without resolving or rebuilding packages. Each invocation of
+`scripts/ipad_simulator.py --size <11-inch|13-inch>` selects and boots only its
+requested size on the newest available iOS runtime, then shuts it down after
+testing. The two sizes cannot compete for resources on the same machine.
 Boot readiness is limited to four minutes, UI execution to twelve minutes per
-device, and shutdown to one minute. The combined step is limited to 38 minutes.
+device, and shutdown to one minute. Each UI step is limited to 19 minutes and
+its job to 30 minutes, including artifact transfer and result upload.
 Boot monitoring prints migration progress. Failures include bounded device,
 memory and process diagnostics; test results are saved separately for each size.
-Shutdown failure prevents starting another device. Timeouts kill the command's
-process group before cleanup. Offline lifecycle contracts run in the engine job.
+Shutdown failure fails that job. Timeouts kill the command's process group before
+cleanup. Offline lifecycle contracts run in the engine job.
 Tests retain 150/180-second default/maximum per-test allowances, stop at their
 first failure, and terminate the app after each case.
 
@@ -133,8 +151,10 @@ timed out during concurrent 11/13-inch simulator boot, before UI tests started.
 After requesting the second boot, `simctl boot` took almost three minutes; even
 artifact and cleanup commands slowed down. Resource contention is the likely
 cause, though that run did not collect memory diagnostics. The workflow now
-runs complete device lifecycles sequentially; the revised CI has not yet been
-verified on a hosted runner.
+isolates the two sizes on separate runners. Seven offline lifecycle contracts
+passed, and a real compiled Products archive was relocated and verified for
+`.xctestrun` paths, executable permissions, binary checksums and the bundled font.
+The unified parallel CI still needs hosted-runner verification.
 
 The shared catalog/gallery refactor and source-navigation callback also passed
 simulator and device compilation, including the expanded UI test target. GitHub

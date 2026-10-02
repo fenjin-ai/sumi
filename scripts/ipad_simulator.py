@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Run native UI tests on one iPad simulator at a time."""
+"""Run the full native UI suite on one requested iPad size."""
 
+import argparse
 import json
 import os
 from pathlib import Path
@@ -35,22 +36,18 @@ def inventory():
                           30, capture=True).stdout)['devices']
 
 
-def select_devices(devices):
+def select_device(devices, size):
     runtimes = sorted((runtime for runtime in devices if '.iOS-' in runtime),
                       key=lambda runtime: tuple(map(int, runtime.split('.iOS-')[1].split('-'))),
                       reverse=True)
     for runtime in runtimes:
-        selected = []
-        for size in ('11-inch', '13-inch'):
-            matches = [entry for entry in devices[runtime]
-                       if 'iPad' in entry['name'] and size in entry['name']]
-            if not matches:
-                break
-            selected.append((size, sorted(matches, key=lambda entry: entry['name'])[0]))
-        if len(selected) == 2:
-            print(f"Using {runtime}: {', '.join(device['name'] for _, device in selected)}", flush=True)
-            return selected
-    raise RuntimeError('No available iOS runtime with both 11-inch and 13-inch iPads')
+        matches = [entry for entry in devices[runtime]
+                   if 'iPad' in entry['name'] and size in entry['name']]
+        if matches:
+            device = sorted(matches, key=lambda entry: entry['name'])[0]
+            print(f"Using {device['name']} on {runtime}", flush=True)
+            return device
+    raise RuntimeError(f'No available iOS runtime with a {size} iPad')
 
 
 def diagnostics(path):
@@ -78,37 +75,37 @@ def shutdown(device):
         states = [entry['state'] for entries in inventory().values()
                   for entry in entries if entry['udid'] == device['udid']]
         if states != ['Shutdown']:
-            raise RuntimeError(f"Could not shut down {device['name']}; refusing to boot another iPad")
+            raise RuntimeError(f"Could not shut down {device['name']}")
 
 
-def test_devices(devices, bundle, results):
-    passed = True
-    for size, device in devices:
-        print(f"::group::{size}: boot, native UI tests, shutdown", flush=True)
+def test_device(size, device, bundle, results):
+    print(f"::group::{size}: boot, native UI tests, shutdown", flush=True)
+    try:
+        # bootstatus also initiates the boot and reports migration progress.
+        run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b', '-d'], 240)
+        run(['xcodebuild', '-xctestrun', str(bundle),
+             '-destination', f"platform=iOS Simulator,id={device['udid']}",
+             '-destination-timeout', '30', '-parallel-testing-enabled', 'NO',
+             '-maximum-concurrent-test-simulator-destinations', '1',
+             '-test-timeouts-enabled', 'YES', '-default-test-execution-time-allowance', '150',
+             '-maximum-test-execution-time-allowance', '180',
+             '-resultBundlePath', str(results / f'{size}.xcresult'), 'test-without-building'], 720)
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        print(f"::error::{size}: {error}", flush=True)
+        diagnostics(results / f'{size}-diagnostics.log')
+        return False
+    finally:
         try:
-            # bootstatus also initiates the boot and reports migration progress.
-            run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b', '-d'], 240)
-            run(['xcodebuild', '-xctestrun', str(bundle),
-                 '-destination', f"platform=iOS Simulator,id={device['udid']}",
-                 '-destination-timeout', '30', '-parallel-testing-enabled', 'NO',
-                 '-maximum-concurrent-test-simulator-destinations', '1',
-                 '-test-timeouts-enabled', 'YES', '-default-test-execution-time-allowance', '150',
-                 '-maximum-test-execution-time-allowance', '180',
-                 '-resultBundlePath', str(results / f'{size}.xcresult'), 'test-without-building'], 720)
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
-            passed = False
-            print(f"::error::{size}: {error}", flush=True)
-            diagnostics(results / f'{size}-diagnostics.log')
+            shutdown(device)
         finally:
-            # Finish the complete lifecycle before starting the other size.
-            try:
-                shutdown(device)
-            finally:
-                print('::endgroup::', flush=True)
-    return passed
+            print('::endgroup::', flush=True)
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--size', choices=('11-inch', '13-inch'), required=True)
+    args = parser.parse_args(argv)
     root = Path(__file__).resolve().parent.parent
     bundles = list((root / 'build/iPad/Build/Products').glob('*.xctestrun'))
     if len(bundles) != 1:
@@ -116,8 +113,8 @@ def main():
     results = root / 'build/iPad-writing'
     results.mkdir(parents=True, exist_ok=True)
     run(['sysctl', 'hw.memsize', 'hw.ncpu'], 10)
-    devices = select_devices(inventory())
-    return 0 if test_devices(devices, bundles[0], results) else 1
+    device = select_device(inventory(), args.size)
+    return 0 if test_device(args.size, device, bundles[0], results) else 1
 
 
 if __name__ == '__main__':
