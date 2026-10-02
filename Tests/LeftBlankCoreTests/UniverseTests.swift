@@ -1,7 +1,7 @@
-import LeftBlankTestSupport
 import Foundation
-import Testing
 @testable import LeftBlankCore
+import LeftBlankTestSupport
+import Testing
 
 private let universeFixture = Data("""
 [
@@ -23,11 +23,19 @@ private actor UniverseTestServer {
     var requests: [URLRequest] = []
     func send(_ request: URLRequest) throws -> UniverseHTTPResponse {
         requests.append(request)
-        if offline { throw URLError(.notConnectedToInternet) }
+        if offline {
+            throw URLError(.notConnectedToInternet)
+        }
         return response
     }
-    func setOffline(_ value: Bool) { offline = value }
-    func setResponse(_ response: UniverseHTTPResponse) { self.response = response }
+
+    func setOffline(_ value: Bool) {
+        offline = value
+    }
+
+    func setResponse(_ response: UniverseHTTPResponse) {
+        self.response = response
+    }
 }
 
 private func universeDirectory() throws -> URL {
@@ -41,7 +49,11 @@ private func universeDirectory() throws -> URL {
     defer { try? FileManager.default.removeItem(at: directory) }
     let server = UniverseTestServer()
     let now = Date(timeIntervalSince1970: 1_700_000_000)
-    let store = UniverseCatalogStore(cacheURL: directory.appendingPathComponent("index.json"), transport: { try await server.send($0) }, now: { now })
+    let store = UniverseCatalogStore(
+        cacheURL: directory.appendingPathComponent("index.json"),
+        transport: { try await server.send($0) },
+        now: { now },
+    )
     let snapshot = try await store.load()
     #expect(snapshot.source == .network)
     #expect(snapshot.packages.map(\.name) == ["cetz", "fletcher", "minimal", "modern-text"])
@@ -116,9 +128,12 @@ private func universeDirectory() throws -> URL {
     let noCache = UniverseCatalogStore(cacheURL: directory, transport: { try await server.send($0) })
     #expect(try await noCache.load().packages.count == 4)
     #expect(await noCache.cached() == nil)
-    let unavailable = UniverseCatalogStore(cacheURL: directory.appendingPathComponent("missing.json"), transport: { _ in throw URLError(.timedOut) })
+    let unavailable = UniverseCatalogStore(
+        cacheURL: directory.appendingPathComponent("missing.json"),
+        transport: { _ in throw URLError(.timedOut) },
+    )
     await #expect(throws: UniverseError.self) { try await unavailable.load() }
-    for data in [Data("{}".utf8), Data("[]".utf8), Data(repeating: 0x20, count: 12 * 1_024 * 1_024 + 1)] {
+    for data in [Data("{}".utf8), Data("[]".utf8), Data(repeating: 0x20, count: 12 * 1024 * 1024 + 1)] {
         #expect(throws: UniverseError.self) { try UniverseCatalogStore.decodeIndex(data) }
     }
 }
@@ -129,21 +144,35 @@ private func universeDirectory() throws -> URL {
     #expect(packages.first { $0.name == "modern-text" }?.isCompatible(with: "0.15.1") == false)
     #expect(packages.first { $0.name == "modern-text" }?.isCompatible(with: "0.16.0") == true)
     #expect(packages.first { $0.name == "minimal" }?.isCompatible(with: "0.15.1") == true)
-    for (name, version) in [("../escape", "1.0.0"), ("good\n", "1.0.0"), ("evil\"\n#panic()", "1.0.0"), ("good", "1.0.0\": *"), ("good", "1.0"), ("good", "1.-1.0"), ("good", "1.2.99999999999999999999999999999999999999")] {
+    for (name, version) in [
+        ("../escape", "1.0.0"),
+        ("good\n", "1.0.0"),
+        ("evil\"\n#panic()", "1.0.0"),
+        ("good", "1.0.0\": *"),
+        ("good", "1.0"),
+        ("good", "1.-1.0"),
+        ("good", "1.2.99999999999999999999999999999999999999"),
+    ] {
         let data = try JSONSerialization.data(withJSONObject: ["name": name, "version": version])
         let package = try JSONDecoder().decode(UniversePackage.self, from: data)
         #expect(throws: UniverseError.self) { try package.pinnedImport() }
     }
-    #expect(UniverseError.invalidIndex.localizedDescription == L10n.text("The Universe index is invalid. Please refresh again later."))
-    #expect(UniverseError.invalidPackage.localizedDescription == L10n.text("The package name or version is invalid, so an import cannot be generated."))
-    #expect(UniverseError.unavailable.localizedDescription == L10n.text("Cannot reach Typst Universe. Refresh when connected; the cached index is still available."))
+    #expect(UniverseError.invalidIndex.localizedDescription == L10n
+        .text("The Universe index is invalid. Please refresh again later."))
+    #expect(UniverseError.invalidPackage.localizedDescription == L10n
+        .text("The package name or version is invalid, so an import cannot be generated."))
+    #expect(UniverseError.unavailable.localizedDescription == L10n
+        .text("Cannot reach Typst Universe. Refresh when connected; the cached index is still available."))
 }
 
 @Test func universeCancelledRefreshDoesNotReportOfflineSuccess() async throws {
     let directory = try universeDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }
     let cacheURL = directory.appendingPathComponent("index.json")
-    let populated = UniverseCatalogStore(cacheURL: cacheURL, transport: { _ in UniverseHTTPResponse(data: universeFixture, statusCode: 200) })
+    let populated = UniverseCatalogStore(
+        cacheURL: cacheURL,
+        transport: { _ in UniverseHTTPResponse(data: universeFixture, statusCode: 200) },
+    )
     _ = try await populated.load()
     let cancelled = UniverseCatalogStore(cacheURL: cacheURL, transport: { _ in throw CancellationError() })
     await #expect(throws: CancellationError.self) { try await cancelled.load(forceRefresh: true) }

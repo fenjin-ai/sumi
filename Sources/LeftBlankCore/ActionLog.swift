@@ -15,9 +15,9 @@ public final class ActionLog: @unchecked Sendable {
 
     public init(directory: URL, maxBytes: Int = 1_048_576, archivedFiles: Int = 3) throws {
         self.directory = directory
-        self.limit = max(512, maxBytes)
-        self.archives = max(1, archivedFiles)
-        self.fileURL = directory.appendingPathComponent("events.jsonl")
+        limit = max(512, maxBytes)
+        archives = max(1, archivedFiles)
+        fileURL = directory.appendingPathComponent("events.jsonl")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try openFile()
     }
@@ -33,12 +33,16 @@ public final class ActionLog: @unchecked Sendable {
             let entry: [String: Any] = [
                 "time": Date().ISO8601Format(.init(includingFractionalSeconds: true)), "session": session,
                 "sequence": sequence, "event": String(event.prefix(80)),
-                "fields": fields.mapValues { String($0.prefix(256)) }
+                "fields": fields.mapValues { String($0.prefix(256)) },
             ]
             var data = try JSONSerialization.data(withJSONObject: entry, options: .sortedKeys)
             data.append(0x0A)
-            if handle == nil { try openFile() }
-            if size > 0, size + data.count > limit { try rotate() }
+            if handle == nil {
+                try openFile()
+            }
+            if size > 0, size + data.count > limit {
+                try rotate()
+            }
             try handle?.write(contentsOf: data)
             size += data.count
             return true
@@ -56,7 +60,7 @@ public final class ActionLog: @unchecked Sendable {
         }
         let opened = try FileHandle(forWritingTo: fileURL)
         handle = opened
-        size = Int(try opened.seekToEnd())
+        size = try Int(opened.seekToEnd())
     }
 
     private func rotate() throws {
@@ -66,8 +70,12 @@ public final class ActionLog: @unchecked Sendable {
         for index in stride(from: archives, through: 1, by: -1) {
             let destination = directory.appendingPathComponent("events.\(index).jsonl")
             let source = index == 1 ? fileURL : directory.appendingPathComponent("events.\(index - 1).jsonl")
-            if files.fileExists(atPath: destination.path) { try files.removeItem(at: destination) }
-            if files.fileExists(atPath: source.path) { try files.moveItem(at: source, to: destination) }
+            if files.fileExists(atPath: destination.path) {
+                try files.removeItem(at: destination)
+            }
+            if files.fileExists(atPath: source.path) {
+                try files.moveItem(at: source, to: destination)
+            }
         }
         try openFile()
     }

@@ -1,11 +1,15 @@
 import Foundation
-import Testing
 @testable import LeftBlankCore
+import Testing
 
 @Test func semanticTokensDecodeUnicodeAndRejectInvalidRanges() {
     let text = "中文😀\r\n#let x = 12\n"
-    let tokens = SemanticHighlighting.decode([0, 0, 4, 0, 0, 1, 1, 3, 1, 1, 0, 8, 2, 2, 0], source: text,
-        types: ["text", "keyword", "number"], modifiers: ["strong"])
+    let tokens = SemanticHighlighting.decode(
+        [0, 0, 4, 0, 0, 1, 1, 3, 1, 1, 0, 8, 2, 2, 0],
+        source: text,
+        types: ["text", "keyword", "number"],
+        modifiers: ["strong"],
+    )
     #expect(tokens.map { (text as NSString).substring(with: $0.range) } == ["中文😀", "let", "12"])
     #expect(tokens[1].modifiers == ["strong"])
     for invalid in [[0], [-1, 0, 1, 0, 0], [0, 0, Int.max, 0, 0], [5, 0, 1, 0, 0], [0, 0, 1, 99, 0], [0, 3, 1, 0, 0]] {
@@ -13,7 +17,7 @@ import Testing
     }
 }
 
-@Test func bundledCodeGrammarsHighlightWithoutExecutingSource() async throws {
+@Test func bundledCodeGrammarsHighlightWithoutExecutingSource() async {
     let highlighter = CodeBlockHighlighting()
     let source = """
     = 中文😀
@@ -41,18 +45,21 @@ import Testing
     let unknown = (source as NSString).range(of: "let plain")
     #expect(!tokens.contains { NSIntersectionRange($0.range, unknown).length > 0 })
     #expect(await highlighter.tokens(in: source) == tokens, "Cached tokens must preserve offsets")
-    #expect(await highlighter.tokens(in: "```python\nprint(42)").isEmpty == false, "An unfinished fence should still highlight")
+    #expect(
+        await highlighter.tokens(in: "```python\nprint(42)").isEmpty == false,
+        "An unfinished fence should still highlight",
+    )
     #expect(await highlighter.tokens(in: "// ```python\nplain prose").isEmpty)
-    #expect(await highlighter.tokens(in: "```python\n" + String(repeating: "x", count: 32_001)).isEmpty)
+    #expect(await highlighter.tokens(in: "```python\n" + String(repeating: "x", count: 32001)).isEmpty)
 }
 
 @Test func schemeBookHighlightsPastTheFirstEightyBlocks() async {
-    let source = String(repeating: "```scheme\n(define (square x) (* x x)) ; 中文😀\n```\n\n", count: 1_100)
+    let source = String(repeating: "```scheme\n(define (square x) (* x x)) ; 中文😀\n```\n\n", count: 1100)
     let highlighter = CodeBlockHighlighting()
     let tokens = await highlighter.tokens(in: source)
     let ns = source as NSString
     let definitions = tokens.filter { $0.kind.contains("built_in") && ns.substring(with: $0.range) == "define" }
-    #expect(definitions.count == 1_100)
+    #expect(definitions.count == 1100)
     #expect(definitions.last?.range.location ?? 0 > ns.length - 100)
     #expect(await highlighter.tokens(in: source) == tokens)
 }

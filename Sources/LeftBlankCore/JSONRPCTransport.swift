@@ -1,6 +1,6 @@
-import Foundation
-import Darwin
 import CoreFoundation
+import Darwin
+import Foundation
 
 extension JSONValue {
     /// Freeze Foundation parameters before crossing the worker-queue boundary.
@@ -10,18 +10,21 @@ extension JSONValue {
         case let value as String: self = .string(value)
         case let value as NSNumber:
             self = CFGetTypeID(value) == CFBooleanGetTypeID() ? .bool(value.boolValue) : .number(value.doubleValue)
-        case let value as [String: Any]: self = .object(try value.mapValues { try JSONValue(foundation: $0) })
-        case let value as [Any]: self = .array(try value.map { try JSONValue(foundation: $0) })
+        case let value as [String: Any]: self = try .object(value.mapValues { try JSONValue(foundation: $0) })
+        case let value as [Any]: self = try .array(value.map { try JSONValue(foundation: $0) })
         case is NSNull: self = .null
-        default: throw EncodingError.invalidValue(value, .init(codingPath: [], debugDescription: "Unsupported JSON-RPC parameter"))
+        default: throw EncodingError.invalidValue(
+                value,
+                .init(codingPath: [], debugDescription: "Unsupported JSON-RPC parameter"),
+            )
         }
     }
 
-    fileprivate var queuedBytes: Int {
+    var queuedBytes: Int {
         switch self {
-        case .string(let text): text.utf8.count + 32
-        case .array(let values): values.reduce(32) { $0 + $1.queuedBytes }
-        case .object(let values): values.reduce(32) { $0 + $1.key.utf8.count + $1.value.queuedBytes }
+        case let .string(text): text.utf8.count + 32
+        case let .array(values): values.reduce(32) { $0 + $1.queuedBytes }
+        case let .object(values): values.reduce(32) { $0 + $1.key.utf8.count + $1.value.queuedBytes }
         default: 32
         }
     }
@@ -54,7 +57,9 @@ final class JSONRPCWriter: @unchecked Sendable {
     func send(_ message: JSONValue) throws {
         let cost = message.queuedBytes
         let accepted = lock.withLock {
-            guard !closed, pendingCount < 64, cost <= 64 * 1024 * 1024 - pendingBytes else { return false }
+            guard !closed, pendingCount < 64, cost <= 64 * 1024 * 1024 - pendingBytes else {
+                return false
+            }
             pendingBytes += cost
             pendingCount += 1
             return true
@@ -64,16 +69,25 @@ final class JSONRPCWriter: @unchecked Sendable {
             throw ServiceError.disconnected
         }
         queue.async { [self] in
-            defer { lock.withLock { pendingBytes -= cost; pendingCount -= 1 } }
-            guard !lock.withLock({ closed }) else { return }
+            defer { lock.withLock { pendingBytes -= cost
+                pendingCount -= 1
+            } }
+            guard !lock.withLock({ closed }) else {
+                return
+            }
             do {
                 let payload = try JSONEncoder().encode(message)
                 var frame = Data("Content-Length: \(payload.count)\r\n\r\n".utf8)
                 frame.append(payload)
                 try handle.write(contentsOf: frame)
             } catch {
-                let report = lock.withLock { let report = !closed; closed = true; return report }
-                if report { onFailure(error) }
+                let report = lock.withLock { let report = !closed
+                    closed = true
+                    return report
+                }
+                if report {
+                    onFailure(error)
+                }
             }
         }
     }
@@ -91,13 +105,15 @@ final class JSONRPCReader: @unchecked Sendable {
     private var framer = JSONRPCFramer() // confined to queue
     private let receive: @Sendable (Result<JSONValue, Error>) -> Void
 
-    init(receive: @escaping @Sendable (Result<JSONValue, Error>) -> Void) { self.receive = receive }
+    init(receive: @escaping @Sendable (Result<JSONValue, Error>) -> Void) {
+        self.receive = receive
+    }
 
     func append(_ data: Data) {
         queue.async { [self] in
             do {
                 for frame in try framer.append(data) {
-                    receive(.success(try JSONDecoder().decode(JSONValue.self, from: frame)))
+                    try receive(.success(JSONDecoder().decode(JSONValue.self, from: frame)))
                 }
             } catch { receive(.failure(error)) }
         }

@@ -1,16 +1,23 @@
 import Foundation
 
 public enum ServiceError: LocalizedError {
-    case unavailable, disconnected, timeout, remote(String)
+    case unavailable
+    case disconnected
+    case timeout
+    case remote(String)
     public var errorDescription: String? {
         switch self {
-        case .unavailable: L10n.text("The typesetting service could not be found. Rebuild the app or check the Tinymist path.")
+        case .unavailable: L10n
+            .text("The typesetting service could not be found. Rebuild the app or check the Tinymist path.")
         case .disconnected: L10n.text("The typesetting service disconnected. You can still edit and save your writing.")
         case .timeout: L10n.text("The typesetting service timed out. Try again or reconnect.")
-        case .remote(let message):
+        case let .remote(message):
             if let start = message.range(of: "error: ") {
-                String(message[start.upperBound...].components(separatedBy: "\\n")[0]).trimmingCharacters(in: .whitespacesAndNewlines)
-            } else { String(message.prefix(400)) }
+                String(message[start.upperBound...].components(separatedBy: "\\n")[0])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                String(message.prefix(400))
+            }
         }
     }
 }
@@ -35,18 +42,24 @@ public final class TinymistClient {
     public private(set) var semanticTokenModifiers: [String] = []
 
     public static var binaryURL: URL? {
-        if let override = ProcessInfo.processInfo.environment["LEFTBLANK_TINYMIST"], FileManager.default.isExecutableFile(atPath: override) { return URL(fileURLWithPath: override) }
+        if let override = ProcessInfo.processInfo.environment["LEFTBLANK_TINYMIST"],
+           FileManager.default.isExecutableFile(atPath: override)
+        {
+            return URL(fileURLWithPath: override)
+        }
         let candidates = [
             Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/tinymist"),
             URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".tools/tinymist"),
-            URL(fileURLWithPath: "/opt/homebrew/bin/tinymist"), URL(fileURLWithPath: "/usr/local/bin/tinymist")
+            URL(fileURLWithPath: "/opt/homebrew/bin/tinymist"), URL(fileURLWithPath: "/usr/local/bin/tinymist"),
         ]
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
     public func start(root: URL, outputDirectory: URL) async throws {
         stop()
-        guard let binary = Self.binaryURL else { throw ServiceError.unavailable }
+        guard let binary = Self.binaryURL else {
+            throw ServiceError.unavailable
+        }
         let process = Process()
         let stdin = Pipe(), stdout = Pipe(), stderr = Pipe()
         process.executableURL = binary
@@ -58,36 +71,47 @@ public final class TinymistClient {
         let session = generation
         let reader = JSONRPCReader { [weak self] result in
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.generation == session else { return }
+                guard let self, generation == session else {
+                    return
+                }
                 switch result {
-                case .success(let message): self.consume(message)
-                case .failure(let error): self.connectionFailed(error)
+                case let .success(message): self.consume(message)
+                case let .failure(error): connectionFailed(error)
                 }
             }
         }
         stdout.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
-            if !data.isEmpty { reader.append(data) }
+            if !data.isEmpty {
+                reader.append(data)
+            }
         }
         // Drain stderr without logging manuscript content.
         stderr.fileHandleForReading.readabilityHandler = { handle in _ = handle.availableData }
         process.terminationHandler = { [weak self] process in
             let status = process.terminationStatus
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.generation == session else { return }
-                self.stop()
-                self.onDisconnect?(L10n.format("The typesetting service exited (%@). Your writing is still safe.", String(status)))
+                guard let self, generation == session else {
+                    return
+                }
+                stop()
+                onDisconnect?(L10n.format(
+                    "The typesetting service exited (%@). Your writing is still safe.",
+                    String(status),
+                ))
             }
         }
         self.process = process
-        self.writer = JSONRPCWriter(handle: stdin.fileHandleForWriting) { [weak self] error in
+        writer = JSONRPCWriter(handle: stdin.fileHandleForWriting) { [weak self] error in
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.generation == session else { return }
-                self.connectionFailed(error)
+                guard let self, generation == session else {
+                    return
+                }
+                connectionFailed(error)
             }
         }
-        self.output = stdout.fileHandleForReading
-        self.errorOutput = stderr.fileHandleForReading
+        output = stdout.fileHandleForReading
+        errorOutput = stderr.fileHandleForReading
         try process.run()
         let packageCache = outputDirectory.deletingLastPathComponent().appendingPathComponent("PackageCache")
         try BundledPackages.prepare(in: packageCache)
@@ -97,17 +121,35 @@ public final class TinymistClient {
             "capabilities": [
                 "general": ["positionEncodings": ["utf-16"]],
                 "window": ["showDocument": ["support": true]],
-                "textDocument": ["publishDiagnostics": ["versionSupport": true], "completion": ["completionItem": ["snippetSupport": false]],
+                "textDocument": [
+                    "publishDiagnostics": ["versionSupport": true],
+                    "completion": ["completionItem": ["snippetSupport": false]],
                     "hover": ["contentFormat": ["plaintext"]],
-                    "signatureHelp": ["signatureInformation": ["documentationFormat": ["plaintext"], "parameterInformation": ["labelOffsetSupport": true]]],
-                    "codeAction": ["codeActionLiteralSupport": ["codeActionKind": ["valueSet": ["quickfix", "refactor", "refactor.rewrite"]]]],
+                    "signatureHelp": ["signatureInformation": [
+                        "documentationFormat": ["plaintext"],
+                        "parameterInformation": ["labelOffsetSupport": true],
+                    ]],
+                    "codeAction": ["codeActionLiteralSupport": ["codeActionKind": ["valueSet": [
+                        "quickfix",
+                        "refactor",
+                        "refactor.rewrite",
+                    ]]]],
                     "semanticTokens": ["requests": ["full": true], "tokenTypes": SemanticHighlighting.tokenTypes,
-                        "tokenModifiers": SemanticHighlighting.tokenModifiers, "formats": ["relative"],
-                        "multilineTokenSupport": false, "overlappingTokenSupport": false]]
+                                       "tokenModifiers": SemanticHighlighting.tokenModifiers,
+                                       "formats": ["relative"],
+                                       "multilineTokenSupport": false, "overlappingTokenSupport": false],
+                ],
             ],
-            "initializationOptions": ["exportPdf": "never", "outputPath": outputDirectory.appendingPathComponent("$name").path, "compileStatus": "enable", "typstExtraArgs": ["--package-cache-path", packageCache.path]]
+            "initializationOptions": [
+                "exportPdf": "never",
+                "outputPath": outputDirectory.appendingPathComponent("$name").path,
+                "compileStatus": "enable",
+                "typstExtraArgs": ["--package-cache-path", packageCache.path],
+            ],
         ])
-        guard generation == session else { throw ServiceError.disconnected }
+        guard generation == session else {
+            throw ServiceError.disconnected
+        }
         capabilities = response["capabilities"]
         let legend = response["capabilities"]["semanticTokensProvider"]["legend"]
         semanticTokenTypes = legend["tokenTypes"].array.compactMap(\.string)
@@ -118,7 +160,7 @@ public final class TinymistClient {
 
     public func supports(_ capability: String) -> Bool {
         switch capabilities[capability] {
-        case .bool(let enabled): enabled
+        case let .bool(enabled): enabled
         case .object: true
         default: false
         }
@@ -128,18 +170,26 @@ public final class TinymistClient {
         generation = UUID()
         initialized = false
         capabilities = .null
-        semanticTokenTypes = []; semanticTokenModifiers = []
+        semanticTokenTypes = []
+        semanticTokenModifiers = []
         output?.readabilityHandler = nil
         errorOutput?.readabilityHandler = nil
         process?.terminationHandler = nil
-        if process?.isRunning == true { process?.terminate() }
+        if process?.isRunning == true {
+            process?.terminate()
+        }
         writer?.close()
-        writer = nil; output = nil; errorOutput = nil; process = nil
+        writer = nil
+        output = nil
+        errorOutput = nil
+        process = nil
         let waiting = pending
         pending.removeAll()
         timeouts.values.forEach { $0.cancel() }
         timeouts.removeAll()
-        for continuation in waiting.values { continuation.resume(throwing: ServiceError.disconnected) }
+        for continuation in waiting.values {
+            continuation.resume(throwing: ServiceError.disconnected)
+        }
     }
 
     public func notify(_ method: String, _ params: [String: Any]) throws {
@@ -169,23 +219,37 @@ public final class TinymistClient {
     }
 
     public func open(_ url: URL, text: String, version: Int) throws {
-        try notify("textDocument/didOpen", ["textDocument": ["uri": url.absoluteString, "languageId": "typst", "version": version, "text": text]])
+        try notify(
+            "textDocument/didOpen",
+            ["textDocument": ["uri": url.absoluteString, "languageId": "typst", "version": version, "text": text]],
+        )
     }
 
     public func change(_ url: URL, text: String, version: Int) throws {
-        try notify("textDocument/didChange", ["textDocument": ["uri": url.absoluteString, "version": version], "contentChanges": [["text": text]]])
+        try notify(
+            "textDocument/didChange",
+            ["textDocument": ["uri": url.absoluteString, "version": version], "contentChanges": [["text": text]]],
+        )
     }
 
     public func startPreview(_ url: URL) async throws -> URL {
         let response = try await command("tinymist.doStartPreview", arguments: [[
-            "--task-id=leftblank", "--data-plane-host=127.0.0.1:0", "--control-plane-host=127.0.0.1:0", "--no-open", "--partial-rendering=true", "--invert-colors=never", url.path
+            "--task-id=leftblank", "--data-plane-host=127.0.0.1:0", "--control-plane-host=127.0.0.1:0", "--no-open",
+            "--partial-rendering=true",
+            "--invert-colors=never", url.path,
         ]])
-        guard let port = response["staticServerPort"].int, let preview = URL(string: "http://127.0.0.1:\(port)/") else { throw ServiceError.remote(L10n.text("The preview service did not return a valid address.")) }
+        guard let port = response["staticServerPort"].int,
+              let preview = URL(string: "http://127.0.0.1:\(port)/")
+        else {
+            throw ServiceError.remote(L10n.text("The preview service did not return a valid address."))
+        }
         return preview
     }
 
     private func write(_ object: [String: Any]) throws {
-        guard let writer, process?.isRunning == true else { throw ServiceError.disconnected }
+        guard let writer, process?.isRunning == true else {
+            throw ServiceError.disconnected
+        }
         try writer.send(JSONValue(foundation: object))
     }
 
@@ -199,13 +263,25 @@ public final class TinymistClient {
                         result = ["success": true]
                     } else if method == "workspace/configuration" {
                         result = message["params"]["items"].array.map { _ in NSNull() }
-                    } else { result = NSNull() }
+                    } else {
+                        result = NSNull()
+                    }
                     try write(["jsonrpc": "2.0", "id": message["id"].foundationValue, "result": result])
-                } else { onNotification?(method, message["params"]) }
+                } else {
+                    onNotification?(method, message["params"])
+                }
             } else if let id = message["id"].int, let continuation = pending.removeValue(forKey: id) {
                 timeouts.removeValue(forKey: id)?.cancel()
-                if !message["error"].isNull { continuation.resume(throwing: ServiceError.remote(message["error"]["message"].string ?? L10n.text("The typesetting service encountered an error."))) }
-                else { continuation.resume(returning: message["result"]) }
+                if !message["error"]
+                    .isNull
+                {
+                    continuation
+                        .resume(throwing: ServiceError
+                            .remote(message["error"]["message"].string ?? L10n
+                                .text("The typesetting service encountered an error.")))
+                } else {
+                    continuation.resume(returning: message["result"])
+                }
             }
         } catch { connectionFailed(error) }
     }

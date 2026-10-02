@@ -17,14 +17,14 @@ public enum LeftBlankApplication {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation {
     private let workspace: Workspace
-    private var window: NSWindow!
+    private var window: NSWindow?
     private var windowToolbar: WindowToolbar?
     private var settingsWindow: NSWindow?
     private var settingsController: WorkspaceSettings?
     private var languageObserver: AnyCancellable?
     private var dockIcon: DockIconController?
     #if LEFTBLANK_PREVIEW
-    private let previewUpdater = PreviewUpdater()
+        private let previewUpdater = PreviewUpdater()
     #endif
 
     init(workspace: Workspace = Workspace()) {
@@ -35,12 +35,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     func applicationDidFinishLaunching(_ notification: Notification) {
         settingsController = WorkspaceSettings(workspace: workspace)
         dockIcon = DockIconController()
-        if dockIcon?.isAvailable == true { workspace.recordOperation("application.iconLoaded") }
+        if dockIcon?.isAvailable == true {
+            workspace.recordOperation("application.iconLoaded")
+        }
         installMenu()
-        let writingWindow = WritingWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        let writingWindow = WritingWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false,
+        )
         writingWindow.workspace = workspace
         workspace.window = writingWindow
         window = writingWindow
+        let window = writingWindow
         window.title = workspace.title + " — " + AppDistribution.current.applicationName
         window.titleVisibility = .hidden
         window.toolbarStyle = .unifiedCompact
@@ -54,34 +62,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         window.setFrameAutosaveName("LeftBlankMainWindow")
         window.center()
         window.makeKeyAndOrderFront(nil)
-        workspace.onTitleChange = { [weak self] title in self?.window.title = title + " — " + AppDistribution.current.applicationName }
+        workspace
+            .onTitleChange = { [weak self] title in
+                self?.window?.title = title + " — " + AppDistribution.current.applicationName
+            }
         workspace.onShortcutChange = { [weak self] in self?.installMenu() }
         languageObserver = NotificationCenter.default.publisher(for: .leftblankLanguageChanged).sink { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.installMenu()
                 self?.settingsWindow?.title = L10n.text("Settings")
-                if let self { self.window.title = self.workspace.title + " — " + AppDistribution.current.applicationName }
+                if let self {
+                    self.window?.title = workspace.title + " — " + AppDistribution.current.applicationName
+                }
             }
         }
         workspace.startService()
         Task { await workspace.library.start() }
         NSApp.activate(ignoringOtherApps: true)
         #if LEFTBLANK_PREVIEW
-        previewUpdater.start()
+            previewUpdater.start()
         #endif
         DispatchQueue.main.async { [weak self] in
-            guard let self, !self.workspace.paletteOpen, let editor = self.workspace.editor else { return }
-            self.window.makeFirstResponder(editor)
+            guard let self, !self.workspace.paletteOpen, let editor = workspace.editor else {
+                return
+            }
+            self.window?.makeFirstResponder(editor)
         }
     }
 
     var replyToTermination: (Bool) -> Void = { NSApp.reply(toApplicationShouldTerminate: $0) }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         window?.makeFirstResponder(nil)
-        guard workspace.prepareToClose() else { return .terminateCancel }
-        guard workspace.history.hasPendingWrites else { return .terminateNow }
+        guard workspace.prepareToClose() else {
+            return .terminateCancel
+        }
+        guard workspace.history.hasPendingWrites else {
+            return .terminateNow
+        }
         // Sparkle requests a normal NSApp termination. Failure to preserve writing cancels updates,
         // and pending history finishes before Sparkle can replace the app.
         // Autosave queues history off the main actor. Allow the final checkpoint
@@ -92,13 +114,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         }
         return .terminateLater
     }
-    func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        NSApp.terminate(nil)
+        return false
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         settingsController?.stop()
         workspace.shutdown()
     }
+
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
-        if let path = filenames.first { workspace.open(URL(fileURLWithPath: path)) }
+        if let path = filenames.first {
+            workspace.open(URL(fileURLWithPath: path))
+        }
     }
 
     func installMenu() {
@@ -106,32 +136,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         func section(_ title: String) -> NSMenu {
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             let submenu = NSMenu(title: title)
-            menu.addItem(item); item.submenu = submenu
+            menu.addItem(item)
+            item.submenu = submenu
             return submenu
         }
-        func item(_ title: String, _ action: Selector, _ key: String, _ owner: NSMenu, modifiers: NSEvent.ModifierFlags = .command, target: AnyObject? = nil) {
+        func item(
+            _ title: String,
+            _ action: Selector,
+            _ key: String,
+            _ owner: NSMenu,
+            modifiers: NSEvent.ModifierFlags = .command,
+            target: AnyObject? = nil,
+        ) {
             let entry = NSMenuItem(title: title, action: action, keyEquivalent: key)
             entry.keyEquivalentModifierMask = modifiers
             entry.target = target
             owner.addItem(entry)
         }
         func commandItem(_ id: String, in menu: NSMenu) {
-            guard let command = WritingCommand.all.first(where: { $0.id == id }), let shortcut = command.shortcuts.first else { return }
-            let entry = NSMenuItem(title: command.title, action: #selector(runWritingCommand(_:)), keyEquivalent: shortcut.key)
+            guard let command = WritingCommand.all.first(where: { $0.id == id }),
+                  let shortcut = command.shortcuts.first
+            else {
+                return
+            }
+            let entry = NSMenuItem(
+                title: command.title,
+                action: #selector(runWritingCommand(_:)),
+                keyEquivalent: shortcut.key,
+            )
             var flags: NSEvent.ModifierFlags = []
-            if shortcut.modifiers.contains(.command) { flags.insert(.command) }
-            if shortcut.modifiers.contains(.shift) { flags.insert(.shift) }
-            if shortcut.modifiers.contains(.option) { flags.insert(.option) }
-            if shortcut.modifiers.contains(.control) { flags.insert(.control) }
+            if shortcut.modifiers.contains(.command) {
+                flags.insert(.command)
+            }
+            if shortcut.modifiers.contains(.shift) {
+                flags.insert(.shift)
+            }
+            if shortcut.modifiers.contains(.option) {
+                flags.insert(.option)
+            }
+            if shortcut.modifiers.contains(.control) {
+                flags.insert(.control)
+            }
             entry.keyEquivalentModifierMask = flags
-            entry.representedObject = id; entry.target = self
+            entry.representedObject = id
+            entry.target = self
             menu.addItem(entry)
         }
         let app = section(AppDistribution.current.applicationName)
         item(L10n.format("About %@", AppDistribution.current.applicationName), #selector(about), "", app, target: self)
         #if LEFTBLANK_PREVIEW
-        app.addItem(previewUpdater.makeCheckMenuItem())
-        app.addItem(previewUpdater.makeAutomaticChecksMenuItem())
+            app.addItem(previewUpdater.makeCheckMenuItem())
+            app.addItem(previewUpdater.makeAutomaticChecksMenuItem())
         #endif
         item(L10n.text("Settings…"), #selector(settings), ",", app, target: self)
         app.addItem(.separator())
@@ -141,15 +196,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         app.addItem(servicesItem)
         NSApp.servicesMenu = services
         app.addItem(.separator())
-        item(L10n.format("Hide %@", AppDistribution.current.applicationName), #selector(NSApplication.hide(_:)), "h", app)
-        item(L10n.text("Hide Others"), #selector(NSApplication.hideOtherApplications(_:)), "h", app, modifiers: [.command, .option])
+        item(
+            L10n.format("Hide %@", AppDistribution.current.applicationName),
+            #selector(NSApplication.hide(_:)),
+            "h",
+            app,
+        )
+        item(
+            L10n.text("Hide Others"),
+            #selector(NSApplication.hideOtherApplications(_:)),
+            "h",
+            app,
+            modifiers: [.command, .option],
+        )
         item(L10n.text("Show All"), #selector(NSApplication.unhideAllApplications(_:)), "", app)
         app.addItem(.separator())
-        item(L10n.format("Quit %@", AppDistribution.current.applicationName), #selector(NSApplication.terminate(_:)), "q", app)
+        item(
+            L10n.format("Quit %@", AppDistribution.current.applicationName),
+            #selector(NSApplication.terminate(_:)),
+            "q",
+            app,
+        )
         let file = section(L10n.text("Documents"))
         item(L10n.text("New Document"), #selector(newDocument), "n", file, target: self)
         item(L10n.text("Your writing…"), #selector(openLibrary), "o", file, target: self)
-        item(L10n.text("Import a document…"), #selector(importDocument), "o", file, modifiers: [.command, .shift], target: self)
+        item(
+            L10n.text("Import a document…"),
+            #selector(importDocument),
+            "o",
+            file,
+            modifiers: [.command, .shift],
+            target: self,
+        )
         item(L10n.text("Open external file…"), #selector(openDocument), "", file, target: self)
         file.addItem(.separator())
         item(L10n.text("Save"), #selector(saveDocument), "s", file, target: self)
@@ -172,19 +250,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         edit.addItem(.separator())
         item(L10n.text("Find…"), #selector(find), "f", edit, target: self)
         item(L10n.text("Complete Syntax"), #selector(completion), ".", edit, modifiers: .control, target: self)
-        for id in ["quickHelp", "contextActions", "definition", "navigateBack", "indent", "outdent", "comment", "format"] { commandItem(id, in: edit) }
+        for id in [
+            "quickHelp",
+            "contextActions",
+            "definition",
+            "navigateBack",
+            "indent",
+            "outdent",
+            "comment",
+            "format",
+        ] {
+            commandItem(id, in: edit)
+        }
         let view = section(L10n.text("View"))
         item(L10n.text("Discover Commands"), #selector(palette), workspace.commandKey, view, target: self)
         item(L10n.text("Open Diagnostic Logs"), #selector(revealLogs), "", view, target: self)
         item(L10n.text("Focus on Writing"), #selector(writing), "1", view, target: self)
         item(L10n.text("Side-by-side Preview"), #selector(split), "2", view, target: self)
         item(L10n.text("Read the Preview"), #selector(preview), "3", view, target: self)
-        for id in ["outline", "diagnostics", "universe"] { commandItem(id, in: view) }
+        for id in ["outline", "diagnostics", "universe"] {
+            commandItem(id, in: view)
+        }
         view.addItem(.separator())
         item(L10n.text("Increase Text Size"), #selector(increaseFont), "+", view, target: self)
         item(L10n.text("Decrease Text Size"), #selector(decreaseFont), "-", view, target: self)
         view.addItem(.separator())
-        item(L10n.text("Toggle Full Screen"), #selector(NSWindow.toggleFullScreen(_:)), "f", view, modifiers: [.command, .control])
+        item(
+            L10n.text("Toggle Full Screen"),
+            #selector(NSWindow.toggleFullScreen(_:)),
+            "f",
+            view,
+            modifiers: [.command, .control],
+        )
         let windowMenu = section(L10n.text("Window"))
         item(L10n.text("Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m", windowMenu)
         item(L10n.text("Zoom"), #selector(NSWindow.performZoom(_:)), "", windowMenu)
@@ -200,47 +297,127 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     @objc private func runWritingCommand(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String, let command = WritingCommand.all.first(where: { $0.id == id }) else { return }
+        guard let id = sender.representedObject as? String,
+              let command = WritingCommand.all.first(where: { $0.id == id })
+        else {
+            return
+        }
         workspace.execute(command)
     }
+
     @objc private func about() {
         let release = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
         let commit = Bundle.main.object(forInfoDictionaryKey: "LeftBlankCommit") as? String
-        let version = AppDistribution.current == .preview ? "\(release) (\(build))" + (commit.map { " · " + String($0.prefix(7)) } ?? "") : release
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: AppDistribution.current.applicationName, .applicationVersion: version, .credits: NSAttributedString(string: L10n.text("Ink for your thoughts"))])
+        let version = AppDistribution
+            .current == .preview ? "\(release) (\(build))" + (commit.map { " · " + String($0.prefix(7)) } ?? "") :
+            release
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: AppDistribution.current.applicationName,
+            .applicationVersion: version,
+            .credits: NSAttributedString(string: L10n.text("Ink for your thoughts")),
+        ])
     }
+
     @objc private func settings() {
-        if settingsController == nil { settingsController = WorkspaceSettings(workspace: workspace) }
-        guard let settingsController else { return }
+        if settingsController == nil {
+            settingsController = WorkspaceSettings(workspace: workspace)
+        }
+        guard let settingsController else {
+            return
+        }
         if settingsWindow == nil {
-            let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 530, height: 690), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let panel = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 530, height: 690),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false,
+            )
             panel.isReleasedWhenClosed = false
-            panel.contentView = NSHostingView(rootView: WritingSettingsView(workspace: workspace, settings: settingsController, library: workspace.library))
+            panel.contentView = NSHostingView(rootView: WritingSettingsView(
+                workspace: workspace,
+                settings: settingsController,
+                library: workspace.library,
+            ))
             panel.center()
             settingsWindow = panel
         }
         settingsWindow?.title = L10n.text("Settings")
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
-    @objc private func openLibrary() { workspace.openLibrary() }
-    @objc private func importDocument() { workspace.library.importPanel() }
-    @objc private func newDocument() { workspace.newDocument() }
-    @objc private func openDocument() { workspace.openPanel() }
-    @objc private func recoverDraft() { workspace.openPanel(recovery: true) }
-    @objc private func saveDocument() { workspace.save() }
-    @objc private func documentHistory() { workspace.openHistory() }
-    @objc private func saveAs() { workspace.saveAs() }
-    @objc private func exportPDF() { workspace.exportPDF() }
-    @objc private func printDocument() { workspace.printDocument() }
-    @objc private func palette() { workspace.togglePalette() }
-    @objc private func revealLogs() { workspace.revealLogs() }
-    @objc private func writing() { workspace.layout = .writing }
-    @objc private func split() { workspace.layout = .split }
-    @objc private func preview() { workspace.layout = .preview }
-    @objc private func increaseFont() { workspace.fontSize = min(28, workspace.fontSize + 1) }
-    @objc private func decreaseFont() { workspace.fontSize = max(12, workspace.fontSize - 1) }
-    @objc private func completion() { workspace.requestCompletion() }
+
+    @objc private func openLibrary() {
+        workspace.openLibrary()
+    }
+
+    @objc private func importDocument() {
+        workspace.library.importPanel()
+    }
+
+    @objc private func newDocument() {
+        workspace.newDocument()
+    }
+
+    @objc private func openDocument() {
+        workspace.openPanel()
+    }
+
+    @objc private func recoverDraft() {
+        workspace.openPanel(recovery: true)
+    }
+
+    @objc private func saveDocument() {
+        workspace.save()
+    }
+
+    @objc private func documentHistory() {
+        workspace.openHistory()
+    }
+
+    @objc private func saveAs() {
+        workspace.saveAs()
+    }
+
+    @objc private func exportPDF() {
+        workspace.exportPDF()
+    }
+
+    @objc private func printDocument() {
+        workspace.printDocument()
+    }
+
+    @objc private func palette() {
+        workspace.togglePalette()
+    }
+
+    @objc private func revealLogs() {
+        workspace.revealLogs()
+    }
+
+    @objc private func writing() {
+        workspace.layout = .writing
+    }
+
+    @objc private func split() {
+        workspace.layout = .split
+    }
+
+    @objc private func preview() {
+        workspace.layout = .preview
+    }
+
+    @objc private func increaseFont() {
+        workspace.fontSize = min(28, workspace.fontSize + 1)
+    }
+
+    @objc private func decreaseFont() {
+        workspace.fontSize = max(12, workspace.fontSize - 1)
+    }
+
+    @objc private func completion() {
+        workspace.requestCompletion()
+    }
+
     @objc private func find() {
         let sender = NSMenuItem()
         sender.tag = NSTextFinder.Action.showFindInterface.rawValue
@@ -249,49 +426,65 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 }
 
 #if LEFTBLANK_PREVIEW
-import Sparkle
+    import Sparkle
 
-/// Sparkle owns consent, scheduling, download verification and installation UI.
-/// Creating this object performs no network work; startup follows window setup.
-@MainActor
-final class PreviewUpdater: NSObject, NSMenuItemValidation {
-    let controller: SPUStandardUpdaterController
+    /// Sparkle owns consent, scheduling, download verification and installation UI.
+    /// Creating this object performs no network work; startup follows window setup.
+    @MainActor
+    final class PreviewUpdater: NSObject, NSMenuItemValidation {
+        let controller: SPUStandardUpdaterController
 
-    override init() {
-        controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
-        super.init()
+        override init() {
+            controller = SPUStandardUpdaterController(
+                startingUpdater: false,
+                updaterDelegate: nil,
+                userDriverDelegate: nil,
+            )
+            super.init()
+        }
+
+        func start() {
+            // A SwiftPM test executable has no app update identity or signing keys.
+            guard Bundle.main.bundleIdentifier == AppDistribution.preview.bundleIdentifier else {
+                return
+            }
+            controller.startUpdater()
+        }
+
+        func makeCheckMenuItem() -> NSMenuItem {
+            let item = NSMenuItem(
+                title: L10n.text("Check for Updates…"),
+                action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                keyEquivalent: "",
+            )
+            item.target = controller
+            item.identifier = NSUserInterfaceItemIdentifier("preview.checkForUpdates")
+            return item
+        }
+
+        func makeAutomaticChecksMenuItem() -> NSMenuItem {
+            let item = NSMenuItem(
+                title: L10n.text("Automatically Check for Updates"),
+                action: #selector(toggleAutomaticChecks(_:)),
+                keyEquivalent: "",
+            )
+            item.target = self
+            item.identifier = NSUserInterfaceItemIdentifier("preview.automaticChecks")
+            return item
+        }
+
+        @objc private func toggleAutomaticChecks(_ sender: NSMenuItem) {
+            // Keep a single source of truth in Sparkle; only explicit user actions
+            // write this preference. Info.plist requires confirmation to install.
+            controller.updater.automaticallyChecksForUpdates.toggle()
+        }
+
+        func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+            guard menuItem.action == #selector(toggleAutomaticChecks(_:)) else {
+                return false
+            }
+            menuItem.state = controller.updater.automaticallyChecksForUpdates ? .on : .off
+            return true
+        }
     }
-
-    func start() {
-        // A SwiftPM test executable has no app update identity or signing keys.
-        guard Bundle.main.bundleIdentifier == AppDistribution.preview.bundleIdentifier else { return }
-        controller.startUpdater()
-    }
-
-    func makeCheckMenuItem() -> NSMenuItem {
-        let item = NSMenuItem(title: L10n.text("Check for Updates…"), action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
-        item.target = controller
-        item.identifier = NSUserInterfaceItemIdentifier("preview.checkForUpdates")
-        return item
-    }
-
-    func makeAutomaticChecksMenuItem() -> NSMenuItem {
-        let item = NSMenuItem(title: L10n.text("Automatically Check for Updates"), action: #selector(toggleAutomaticChecks(_:)), keyEquivalent: "")
-        item.target = self
-        item.identifier = NSUserInterfaceItemIdentifier("preview.automaticChecks")
-        return item
-    }
-
-    @objc private func toggleAutomaticChecks(_ sender: NSMenuItem) {
-        // Keep a single source of truth in Sparkle; only explicit user actions
-        // write this preference. Info.plist requires confirmation to install.
-        controller.updater.automaticallyChecksForUpdates.toggle()
-    }
-
-    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        guard menuItem.action == #selector(toggleAutomaticChecks(_:)) else { return false }
-        menuItem.state = controller.updater.automaticallyChecksForUpdates ? .on : .off
-        return true
-    }
-}
 #endif

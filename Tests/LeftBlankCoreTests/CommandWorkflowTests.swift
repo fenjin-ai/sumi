@@ -1,21 +1,37 @@
-import LeftBlankTestSupport
 import AppKit
 import Foundation
+@testable import LeftBlankCore
+import LeftBlankTestSupport
 import PDFKit
 import Testing
-@testable import LeftBlankCore
 
 @MainActor
 @Test(.enabled(if: ProcessInfo.processInfo.environment["LEFTBLANK_INTEGRATION"] == "1"))
 func everyDiscoveredInsertionProducesARealDocument() async throws {
     let root = TestPaths.temporaryDirectory.appendingPathComponent("LeftBlank-command-workflow-\(UUID().uuidString)")
-    try FileManager.default.createDirectory(at: root.appendingPathComponent("images"), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: root.appendingPathComponent("images"),
+        withIntermediateDirectories: true,
+    )
     defer { try? FileManager.default.removeItem(at: root) }
-    let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 8, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
-    try #require(bitmap.representation(using: .png, properties: [:])).write(to: root.appendingPathComponent("images/figure.png"))
+    let bitmap = try #require(NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: 8,
+        pixelsHigh: 8,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0,
+    ))
+    try #require(bitmap.representation(using: .png, properties: [:]))
+        .write(to: root.appendingPathComponent("images/figure.png"))
     try Data("Included fixture".utf8).write(to: root.appendingPathComponent("section.typ"))
     try Data("#let catalog-helper = \"Reusable fixture\"".utf8).write(to: root.appendingPathComponent("helpers.typ"))
-    try Data("@book{example, title={Catalog Reference}, author={Doe, Jane}, date={2024}}".utf8).write(to: root.appendingPathComponent("references.bib"))
+    try Data("@book{example, title={Catalog Reference}, author={Doe, Jane}, date={2024}}".utf8)
+        .write(to: root.appendingPathComponent("references.bib"))
     let file = root.appendingPathComponent("workflow.typ")
     try Data("Saved baseline".utf8).write(to: file)
     let client = TinymistClient()
@@ -31,12 +47,25 @@ func everyDiscoveredInsertionProducesARealDocument() async throws {
         let snippet = try TypstInsertion.make(command.id, values: values)
         let baseline = "#set text(font: (\"Libertinus Serif\", \"PingFang SC\"))\n#set heading(numbering: \"1.\")\n= Target <section-intro>\n\nBefore sentinel\n\nAfter sentinel\n"
         let offset = (baseline as NSString).range(of: "After sentinel").location
-        let plan = InsertionPlan(command: command, snippet: snippet, text: baseline, selection: NSRange(location: offset, length: 0))
+        let plan = InsertionPlan(
+            command: command,
+            snippet: snippet,
+            text: baseline,
+            selection: NSRange(location: offset, length: 0),
+        )
         var document = (baseline as NSString).replacingCharacters(in: plan.range, with: plan.snippet.text + "\n\n")
-        if command.id == "citation" { document += "\n#bibliography(\"references.bib\")\n" }
-        if command.id == "bibliography" { document += "\n#cite(<example>)\n" }
-        if command.id == "import" { document += "\n#catalog-helper\n" }
-        if command.id == "variable" { document += "\n#project\n" }
+        if command.id == "citation" {
+            document += "\n#bibliography(\"references.bib\")\n"
+        }
+        if command.id == "bibliography" {
+            document += "\n#cite(<example>)\n"
+        }
+        if command.id == "import" {
+            document += "\n#catalog-helper\n"
+        }
+        if command.id == "variable" {
+            document += "\n#project\n"
+        }
         try client.change(file, text: document, version: version)
         do {
             let result = try await client.command("tinymist.exportPdf", arguments: [file.path])
@@ -44,9 +73,17 @@ func everyDiscoveredInsertionProducesARealDocument() async throws {
             let rendered = try #require(PDFDocument(url: URL(fileURLWithPath: pdfPath))?.string)
             #expect(rendered.contains("Before sentinel"), "\(command.id) preserves preceding content")
             #expect(rendered.contains("After sentinel"), "\(command.id) preserves following content")
-            if command.id == "include" { #expect(rendered.contains("Included fixture")) }
-            if command.id == "import" { #expect(rendered.contains("Reusable fixture")) }
-            if command.id == "citation" || command.id == "bibliography" { #expect(rendered.contains("Catalog Reference")) }
+            if command.id == "include" {
+                #expect(rendered.contains("Included fixture"))
+            }
+            if command.id == "import" {
+                #expect(rendered.contains("Reusable fixture"))
+            }
+            if command.id == "citation" || command
+                .id == "bibliography"
+            {
+                #expect(rendered.contains("Catalog Reference"))
+            }
             #expect(try String(contentsOf: file, encoding: .utf8) == "Saved baseline", "Preview uses the unsaved edit")
         } catch {
             Issue.record("\(command.id) failed to compile: \(error.localizedDescription)\n\(document)")
@@ -106,12 +143,19 @@ func everyDiscoveredInsertionProducesARealDocument() async throws {
         ("align", ["alignment": "center + panic()"]),
         ("columns", ["columns": "10"]),
         ("variable", ["name": "for"]),
-        ("citation", ["name": "x> #panic()"])
-    ] { #expect(throws: CommandError.self) { try TypstInsertion.make(id, values: fields) } }
+        ("citation", ["name": "x> #panic()"]),
+    ] {
+        #expect(throws: CommandError.self) { try TypstInsertion.make(id, values: fields) }
+    }
 
     let literal = "\"«中文😀»\\\n"
     for id in ["font", "header", "footer", "documentInfo", "include", "import", "variable", "rawInline"] {
-        let snippet = try TypstInsertion.make(id, values: ["font": literal, "text": literal, "title": literal, "author": literal, "path": literal, "value": literal], selection: literal)
+        let snippet = try TypstInsertion.make(
+            id,
+            values: ["font": literal, "text": literal, "title": literal, "author": literal, "path": literal,
+                     "value": literal],
+            selection: literal,
+        )
         #expect(snippet.selections.isEmpty, "Literal guillemets must not create placeholders: \(id)")
         #expect(snippet.text.contains("«中文😀»"))
     }

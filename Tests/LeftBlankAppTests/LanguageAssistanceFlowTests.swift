@@ -1,8 +1,8 @@
 import AppKit
+@testable import LeftBlankApp
+import LeftBlankCore
 import SwiftUI
 import Testing
-import LeftBlankCore
-@testable import LeftBlankApp
 
 extension WritingFlowTests {
     @Test func contextualHelpActionsUndoAndStaleResponsesUseLiveSource() async throws {
@@ -12,7 +12,7 @@ extension WritingFlowTests {
         try await app.ready()
         let editor = try #require(app.workspace.editor)
         editor.setSelectedRange(NSRange(location: 3, length: 0))
-        app.workspace.execute(try #require(WritingCommand.all.first { $0.id == "quickHelp" }))
+        try app.workspace.execute(#require(WritingCommand.all.first { $0.id == "quickHelp" }))
         try await app.wait { app.workspace.assistance != nil }
         #expect(app.workspace.assistance?.hover?.text.lowercased().contains("rectangle") == true)
         #expect(editor.assistancePopover?.contentSize.width ?? 999 <= 420)
@@ -95,7 +95,10 @@ extension WritingFlowTests {
         let diagnostic = try #require(WritingCommand.all.first { $0.id == "diagnostics" })
         app.workspace.execute(diagnostic)
         #expect(!app.workspace.checksOpen)
-        editor.insertSnippet(Snippet(text: "#unknown-function()"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "#unknown-function()"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         #expect(!app.workspace.checksPassed)
         try await app.wait { app.workspace.checkErrors > 0 }
         app.workspace.checksOpen = true

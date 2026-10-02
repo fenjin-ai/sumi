@@ -14,16 +14,25 @@ public enum DocumentMerge {
     }
 
     public static func merge(base: String, local: String, remote: String, selection: NSRange) -> Result? {
-        if local == remote || remote == base { return Result(text: local, selection: selection) }
+        if local == remote || remote == base {
+            return Result(text: local, selection: selection)
+        }
         let localChanges = changes(from: base, to: local)
         let remoteChanges = changes(from: base, to: remote)
         var additions: [Change] = []
         for remote in remoteChanges {
-            if localChanges.contains(where: { $0.range == remote.range && $0.text == remote.text }) { continue }
-            guard !localChanges.contains(where: { overlap($0.range, remote.range) }) else { return nil }
+            if localChanges.contains(where: { $0.range == remote.range && $0.text == remote.text }) {
+                continue
+            }
+            guard !localChanges.contains(where: { overlap($0.range, remote.range) }) else {
+                return nil
+            }
             let shift = localChanges.filter { NSMaxRange($0.range) <= remote.range.location }
                 .reduce(0) { $0 + $1.text.utf16.count - $1.range.length }
-            additions.append(Change(range: NSRange(location: remote.range.location + shift, length: remote.range.length), text: remote.text))
+            additions.append(Change(
+                range: NSRange(location: remote.range.location + shift, length: remote.range.length),
+                text: remote.text,
+            ))
         }
         var text = local
         var start = selection.location, end = NSMaxRange(selection)
@@ -32,12 +41,22 @@ public enum DocumentMerge {
             start = moved(start, through: change)
             end = moved(end, through: change)
         }
-        return Result(text: text, selection: NSRange(location: min(start, text.utf16.count), length: max(0, min(end, text.utf16.count) - start)))
+        return Result(
+            text: text,
+            selection: NSRange(
+                location: min(start, text.utf16.count),
+                length: max(0, min(end, text.utf16.count) - start),
+            ),
+        )
     }
 
     private static func moved(_ offset: Int, through change: Change) -> Int {
-        if offset < change.range.location { return offset }
-        if offset >= NSMaxRange(change.range) { return offset + change.text.utf16.count - change.range.length }
+        if offset < change.range.location {
+            return offset
+        }
+        if offset >= NSMaxRange(change.range) {
+            return offset + change.text.utf16.count - change.range.length
+        }
         return change.range.location + min(offset - change.range.location, change.text.utf16.count)
     }
 
@@ -53,7 +72,8 @@ public enum DocumentMerge {
         var result: [String] = [], offset = 0
         while offset < source.length {
             let range = source.lineRange(for: NSRange(location: offset, length: 0))
-            result.append(source.substring(with: range)); offset = NSMaxRange(range)
+            result.append(source.substring(with: range))
+            offset = NSMaxRange(range)
         }
         return result
     }
@@ -73,8 +93,17 @@ public enum DocumentMerge {
             if removed.contains(old) || inserted[new] != nil {
                 let start = utf16
                 var deleted: [String] = [], added: [String] = []
-                while removed.contains(old) { deleted.append(original[old]); utf16 += original[old].utf16.count; old += 1 }
-                while let line = inserted[new] { added.append(line); new += 1 }
+                while removed
+                    .contains(old)
+                {
+                    deleted.append(original[old])
+                    utf16 += original[old].utf16.count
+                    old += 1
+                }
+                while let line = inserted[new] {
+                    added.append(line)
+                    new += 1
+                }
                 // Adjacent line replacements can include an identical edit made
                 // on both devices. Keep their boundaries so it is deduplicated.
                 if deleted.count == added.count {
@@ -87,8 +116,12 @@ public enum DocumentMerge {
                     result.append(Change(range: NSRange(location: start, length: utf16 - start), text: added.joined()))
                 }
             } else {
-                guard old < original.count, new < replacement.count else { break }
-                utf16 += original[old].utf16.count; old += 1; new += 1
+                guard old < original.count, new < replacement.count else {
+                    break
+                }
+                utf16 += original[old].utf16.count
+                old += 1
+                new += 1
             }
         }
         return result

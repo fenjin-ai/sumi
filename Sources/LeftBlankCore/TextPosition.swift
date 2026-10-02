@@ -46,9 +46,9 @@ public struct TextLineIndex: Sendable {
         // A complete-line fragment ends at the next retained line's start.
         // Do not duplicate that boundary in the replacement index.
         let count = replacement.starts.count - (hasSuffix ? 1 : 0)
-        starts.replaceSubrange(first..<after, with: replacement.starts.prefix(count).map { range.location + $0 })
-        ends.replaceSubrange(first..<after, with: replacement.ends.prefix(count).map { range.location + $0 })
-        for index in (first + count)..<starts.count {
+        starts.replaceSubrange(first ..< after, with: replacement.starts.prefix(count).map { range.location + $0 })
+        ends.replaceSubrange(first ..< after, with: replacement.ends.prefix(count).map { range.location + $0 })
+        for index in (first + count) ..< starts.count {
             starts[index] += delta
             ends[index] += delta
         }
@@ -60,7 +60,11 @@ public struct TextLineIndex: Sendable {
         var low = 0, high = starts.count
         while low + 1 < high {
             let middle = (low + high) / 2
-            if starts[middle] <= offset { low = middle } else { high = middle }
+            if starts[middle] <= offset {
+                low = middle
+            } else {
+                high = middle
+            }
         }
         // A position inside a line terminator means the preceding line's end.
         return TextPosition(line: low, character: min(offset, ends[low]) - starts[low])
@@ -68,7 +72,9 @@ public struct TextLineIndex: Sendable {
 
     public func offset(at position: TextPosition) -> Int {
         let line = max(0, position.line)
-        guard line < starts.count else { return length }
+        guard line < starts.count else {
+            return length
+        }
         return starts[line] + min(max(0, position.character), ends[line] - starts[line])
     }
 }
@@ -98,14 +104,22 @@ public struct TextPosition: Codable, Equatable, Sendable {
         return (text as NSString).substring(with: NSRange(location: start, length: end - start)).utf8.count
     }
 
-    public var json: [String: Any] { ["line": line, "character": character] }
+    public var json: [String: Any] {
+        ["line": line, "character": character]
+    }
 }
 
 public struct OutlineItem: Identifiable, Equatable, Sendable {
     public let title: String
     public let level: Int
     public let offset: Int
-    public var id: Int { offset }
-    public init(title: String, level: Int, offset: Int) { self.title = title; self.level = level; self.offset = offset }
+    public var id: Int {
+        offset
+    }
 
+    public init(title: String, level: Int, offset: Int) {
+        self.title = title
+        self.level = level
+        self.offset = offset
+    }
 }

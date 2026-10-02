@@ -1,9 +1,9 @@
 import AppKit
 import Darwin
+@testable import LeftBlankApp
+import LeftBlankCore
 import PDFKit
 import Testing
-import LeftBlankCore
-@testable import LeftBlankApp
 
 extension WritingFlowTests {
     /// Opt-in: fetch the real fixture with scripts/prepare-large-document.py.
@@ -36,7 +36,7 @@ extension WritingFlowTests {
         let serviceStarted = ContinuousClock.now
         app.workspace.startService()
         let deadline = ContinuousClock.now + .seconds(120)
-        while app.workspace.syntaxSnapshot?.source != source, .now < deadline {
+        while app.workspace.syntaxSnapshot?.source != source, deadline > .now {
             try await Task.sleep(for: .milliseconds(100))
         }
         #expect(app.workspace.syntaxSnapshot?.source == source, "Real semantic highlighting must finish")
@@ -46,7 +46,9 @@ extension WritingFlowTests {
         let codeWord = ProcessInfo.processInfo.environment["LEFTBLANK_CODE_WORD"] ?? "sum(range"
         let sum = (source as NSString).range(of: codeWord)
         #expect(sum.location != NSNotFound)
-        if sum.location != NSNotFound { #expect(editorColor(editor, at: sum.location) == Theme.sourceFunction) }
+        if sum.location != NSNotFound {
+            #expect(editorColor(editor, at: sum.location) == Theme.sourceFunction)
+        }
         // Publishing semantic tokens precedes SwiftUI's next native layout.
         // Finish and report that initial presentation before timing navigation,
         // just as we settle the window between every subsequent jump below.
@@ -77,21 +79,32 @@ extension WritingFlowTests {
             editor.cacheDisplay(in: editor.visibleRect, to: bitmap)
             layoutTimes.append(seconds(layoutStart.duration(to: .now)))
             navigation.append(seconds(start.duration(to: .now)))
-            navigationSamples.append(["offset": Double(offset), "total_ms": navigation.last! * 1000,
-                                      "jump_ms": jumpTimes.last! * 1000, "highlight_ms": highlightTimes.last! * 1000,
-                                      "draw_ms": layoutTimes.last! * 1000])
+            try navigationSamples.append(["offset": Double(offset), "total_ms": #require(navigation.last) * 1000,
+                                          "jump_ms": #require(jumpTimes.last) * 1000,
+                                          "highlight_ms": #require(highlightTimes.last) * 1000,
+                                          "draw_ms": #require(layoutTimes.last) * 1000])
             #expect(editor.selectedRange().location == offset)
             await app.layout()
             let hitStart = ContinuousClock.now
             // Independently map a rendered glyph back to an insertion point.
-            let glyphs = manager.glyphRange(forCharacterRange: NSRange(location: offset, length: 1), actualCharacterRange: nil)
+            let glyphs = manager.glyphRange(
+                forCharacterRange: NSRange(location: offset, length: 1),
+                actualCharacterRange: nil,
+            )
             let glyph = manager.boundingRect(forGlyphRange: glyphs, in: container)
-            let point = NSPoint(x: glyph.minX + editor.textContainerOrigin.x + 1, y: glyph.midY + editor.textContainerOrigin.y)
+            let point = NSPoint(
+                x: glyph.minX + editor.textContainerOrigin.x + 1,
+                y: glyph.midY + editor.textContainerOrigin.y,
+            )
             let hit = editor.characterIndexForInsertion(at: point)
             #expect(abs(hit - offset) <= 1, "Hit \(hit), wanted \(offset), point \(point)")
             hitTesting.append(seconds(hitStart.duration(to: .now)))
             let searchStart = ContinuousClock.now
-            let found = ns.range(of: ProcessInfo.processInfo.environment["LEFTBLANK_SEARCH_WORD"] ?? "Prince Andrew", options: [], range: NSRange(location: offset, length: ns.length - offset))
+            let found = ns.range(
+                of: ProcessInfo.processInfo.environment["LEFTBLANK_SEARCH_WORD"] ?? "Prince Andrew",
+                options: [],
+                range: NSRange(location: offset, length: ns.length - offset),
+            )
             _ = found.location
             search.append(seconds(searchStart.duration(to: .now)))
         }
@@ -103,13 +116,17 @@ extension WritingFlowTests {
         report["hit_testing_ms"] = milliseconds(hitTesting)
         report["search_ms"] = milliseconds(search)
         var scrolling: [Double] = [], drawing: [Double] = []
-        for index in 0..<60 {
+        for index in 0 ..< 60 {
             let start = ContinuousClock.now
             let y = max(0, scroll.contentView.bounds.origin.y + (index < 30 ? 80 : -80))
             scroll.contentView.scroll(to: NSPoint(x: 0, y: y))
             scroll.reflectScrolledClipView(scroll.contentView)
             editor.prepareForPointerInteraction()
-            let glyphs = manager.glyphRange(forBoundingRect: editor.visibleRect.offsetBy(dx: -editor.textContainerOrigin.x, dy: -editor.textContainerOrigin.y), in: container)
+            let glyphs = manager.glyphRange(
+                forBoundingRect: editor.visibleRect
+                    .offsetBy(dx: -editor.textContainerOrigin.x, dy: -editor.textContainerOrigin.y),
+                in: container,
+            )
             #expect(glyphs.length > 0)
             scrolling.append(seconds(start.duration(to: .now)))
             editor.cacheDisplay(in: editor.visibleRect, to: bitmap)
@@ -136,9 +153,14 @@ extension WritingFlowTests {
             metricTimes.append(seconds(metricsStart.duration(to: .now)))
             typing.append(seconds(start.duration(to: .now)))
             typingCPU.append(Double(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) - cpuStart) / 1e9)
-            typingSamples.append(["index": typing.count - 1, "character": String(character), "wall_ms": typing.last! * 1000,
-                                  "thread_cpu_ms": typingCPU.last! * 1000,
-                                  "insert_ms": insertTimes.last! * 1000, "metrics_ms": metricTimes.last! * 1000])
+            try typingSamples.append([
+                "index": typing.count - 1,
+                "character": String(character),
+                "wall_ms": #require(typing.last) * 1000,
+                "thread_cpu_ms": #require(typingCPU.last) * 1000,
+                "insert_ms": #require(insertTimes.last) * 1000,
+                "metrics_ms": #require(metricTimes.last) * 1000,
+            ])
             try await Task.sleep(for: .milliseconds(25))
         }
         editor.undoManager?.endUndoGrouping()
@@ -148,7 +170,7 @@ extension WritingFlowTests {
         let budgetFailures = typingBudgetFailures(wall: typing, cpu: typingCPU)
         report["typing_budget_failures"] = budgetFailures
         #expect(budgetFailures.isEmpty, "\(budgetFailures.joined(separator: "; "))")
-        #expect(navigation.max()! < 0.2, "Distant navigation including drawing must stay below 200 ms")
+        #expect(try #require(navigation.max()) < 0.2, "Distant navigation including drawing must stay below 200 ms")
         report["insert_ms"] = milliseconds(insertTimes)
         report["metrics_ms"] = milliseconds(metricTimes)
         editor.undoManager?.undo()
@@ -179,7 +201,10 @@ private func seconds(_ duration: Duration) -> Double {
 
 private func milliseconds(_ values: [Double]) -> [String: Double] {
     let sorted = values.sorted()
-    return ["median": sorted[sorted.count / 2] * 1000, "p95": p95(sorted) * 1000, "max": sorted.last! * 1000]
+    guard let maximum = sorted.last else {
+        return [:]
+    }
+    return ["median": sorted[sorted.count / 2] * 1000, "p95": p95(sorted) * 1000, "max": maximum * 1000]
 }
 
 private func p95(_ sorted: [Double]) -> Double {
@@ -187,11 +212,19 @@ private func p95(_ sorted: [Double]) -> Double {
 }
 
 private func typingBudgetFailures(wall: [Double], cpu: [Double]) -> [String] {
-    guard wall.count >= 80, cpu.count == wall.count else { return ["Expected at least 80 paired typing samples"] }
+    guard wall.count >= 80, cpu.count == wall.count else {
+        return ["Expected at least 80 paired typing samples"]
+    }
     var failures: [String] = []
-    if p95(wall.sorted()) >= 0.1 { failures.append("Typing wall-time p95 must stay below 100 ms") }
-    if wall.max()! >= 0.25 { failures.append("Every input must finish within 250 ms wall time") }
-    if cpu.max()! >= 0.1 { failures.append("Every input must stay below 100 ms of main-thread CPU work") }
+    if p95(wall.sorted()) >= 0.1 {
+        failures.append("Typing wall-time p95 must stay below 100 ms")
+    }
+    if wall.contains(where: { $0 >= 0.25 }) {
+        failures.append("Every input must finish within 250 ms wall time")
+    }
+    if cpu.contains(where: { $0 >= 0.1 }) {
+        failures.append("Every input must stay below 100 ms of main-thread CPU work")
+    }
     return failures
 }
 

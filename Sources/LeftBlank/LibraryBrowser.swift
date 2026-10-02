@@ -1,5 +1,5 @@
-import SwiftUI
 import LeftBlankCore
+import SwiftUI
 
 struct LibraryBrowser: View {
     @ObservedObject var workspace: Workspace
@@ -12,17 +12,30 @@ struct LibraryBrowser: View {
     @State private var newTitle = ""
     @State private var searchError: String?
 
-    private var browserSize: CGSize { DiscoveryLayout.size(for: workspace.window, gallery: false) }
+    private var browserSize: CGSize {
+        DiscoveryLayout.size(for: workspace.window, gallery: false)
+    }
 
     var body: some View {
-        Group {
-            if let mode = workspace.discoveryMode {
-                UniverseBrowser(cacheURL: workspace.stateDirectory.appendingPathComponent("universe-index.json"),
-                                mode: mode, size: DiscoveryLayout.size(for: workspace.window), canImport: !workspace.isLibraryHome, onBack: { workspace.discoveryMode = nil },
-                                onClose: { workspace.discoveryMode = nil; workspace.libraryOpen = false },
-                                onModeChange: { workspace.discoveryMode = $0 }, onCreate: library.create(from:), onCreateBuiltIn: library.create(builtIn:), onAddSample: { try await library.create(sample: $0) }, onImport: workspace.importPackage)
-                    .id(mode)
-            } else { documents }
+        if let mode = workspace.discoveryMode {
+            UniverseBrowser(
+                cacheURL: workspace.stateDirectory.appendingPathComponent("universe-index.json"),
+                mode: mode,
+                size: DiscoveryLayout.size(for: workspace.window),
+                canImport: !workspace.isLibraryHome,
+                onBack: { workspace.discoveryMode = nil },
+                onClose: { workspace.discoveryMode = nil
+                    workspace.libraryOpen = false
+                },
+                onModeChange: { workspace.discoveryMode = $0 },
+                onCreate: library.create(from:),
+                onCreateBuiltIn: library.create(builtIn:),
+                onAddSample: { try await library.create(sample: $0) },
+                onImport: workspace.importPackage,
+            )
+            .id(mode)
+        } else {
+            documents
         }
     }
 
@@ -46,17 +59,24 @@ struct LibraryBrowser: View {
                     HStack(spacing: 6) {
                         PhosphorIcon(name: "grid-four", size: 15)
                         Text(L10n.text("Browse templates")).font(.system(size: 12))
-                    }.foregroundStyle(Theme.secondary).padding(.horizontal, 5).frame(height: 32).contentShape(Rectangle())
+                    }.foregroundStyle(Theme.secondary).padding(.horizontal, 5).frame(height: 32)
+                        .contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityIdentifier("library-browse-templates")
                     .learningHelp(L10n.text("Start a document from a template"), shortcut: "⌘N")
                 if !workspace.isLibraryHome {
-                    QuietButton(icon: "x", help: L10n.text("Close library"), shortcut: "Esc") { workspace.libraryOpen = false }
+                    QuietButton(icon: "x", help: L10n.text("Close library"), shortcut: "Esc") {
+                        workspace.libraryOpen = false
+                    }
                 }
             }.padding(.horizontal, 30).padding(.top, 28).padding(.bottom, 24)
 
             HStack(spacing: 11) {
                 PhosphorIcon(name: "magnifying-glass", size: 17).foregroundStyle(Theme.muted)
-                PaletteTextField(text: $query, label: L10n.text("Search your writing"), placeholder: L10n.text("Search titles and content"))
+                PaletteTextField(
+                    text: $query,
+                    label: L10n.text("Search your writing"),
+                    placeholder: L10n.text("Search titles and content"),
+                )
                 if showingTrash {
                     Button(L10n.text("Trash ×")) { showingTrash = false }
                         .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Theme.accent)
@@ -65,14 +85,21 @@ struct LibraryBrowser: View {
                 .padding(.horizontal, 30).padding(.bottom, 16)
 
             if let error = searchError ?? library.error {
-                Text(error).font(.system(size: 11)).foregroundStyle(Theme.red).padding(.horizontal, 30).padding(.bottom, 10)
+                Text(error).font(.system(size: 11)).foregroundStyle(Theme.red).padding(.horizontal, 30).padding(
+                    .bottom,
+                    10,
+                )
             }
             ScrollView {
                 LazyVStack(spacing: 0) {
                     if results.isEmpty {
                         VStack(spacing: 10) {
-                            PhosphorIcon(name: showingTrash ? "clock-counter-clockwise" : "book-open-text", size: 28).foregroundStyle(Theme.muted)
-                            Text(L10n.text(query.isEmpty ? (showingTrash ? "Trash is empty" : "A place for your next idea") : "No matching documents"))
+                            PhosphorIcon(name: showingTrash ? "clock-counter-clockwise" : "book-open-text", size: 28)
+                                .foregroundStyle(Theme.muted)
+                            Text(L10n
+                                .text(query
+                                    .isEmpty ? (showingTrash ? "Trash is empty" : "A place for your next idea") :
+                                    "No matching documents"))
                                 .font(.system(size: 14)).foregroundStyle(Theme.secondary)
                         }.frame(maxWidth: .infinity, minHeight: 260)
                     }
@@ -80,9 +107,12 @@ struct LibraryBrowser: View {
                 }.padding(.horizontal, 20)
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
             HStack {
-                Text(results.count == 1 ? L10n.text("1 document") : L10n.format("%d documents", results.count)).font(.system(size: 10)).foregroundStyle(Theme.muted)
+                Text(results.count == 1 ? L10n.text("1 document") : L10n.format("%d documents", results.count))
+                    .font(.system(size: 10)).foregroundStyle(Theme.muted)
                 Spacer()
-                if library.busy { ProgressView().controlSize(.small) }
+                if library.busy {
+                    ProgressView().controlSize(.small)
+                }
                 if showingTrash {
                     Button(action: library.confirmEmptyTrash) {
                         HStack(spacing: 6) {
@@ -94,25 +124,37 @@ struct LibraryBrowser: View {
                         .accessibilityIdentifier("library-empty-trash")
                         .learningHelp(L10n.text("Permanently delete all documents in Trash"))
                 } else {
-                    Text(L10n.text("Your writing saves automatically.")).font(.system(size: 10)).foregroundStyle(Theme.muted)
+                    Text(L10n.text("Your writing saves automatically.")).font(.system(size: 10))
+                        .foregroundStyle(Theme.muted)
                 }
             }.padding(.horizontal, 30).padding(.vertical, 15)
         }
         .frame(width: browserSize.width, height: browserSize.height)
         .background(Theme.editor).foregroundStyle(Theme.text)
         .disabled(library.busy)
-        .task { await library.start(); await search() }
+        .task { await library.start()
+            await search()
+        }
         .task(id: query + String(showingTrash)) {
             do { try await Task.sleep(for: .milliseconds(120)) } catch { return }
             await search()
         }
         .onReceive(library.$documents) { _ in Task { await search() } }
         .onExitCommand { workspace.libraryOpen = false }
-        .alert(L10n.text("Rename document"), isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+        .alert(
+            L10n.text("Rename document"),
+            isPresented: Binding(get: { renaming != nil }, set: {
+                if !$0 {
+                    renaming = nil
+                }
+            }),
+        ) {
             TextField(L10n.text("Title"), text: $newTitle)
             Button(L10n.text("Cancel"), role: .cancel) { renaming = nil }
             Button(L10n.text("Rename")) {
-                if let document = renaming { library.perform { try await library.rename(document.id, title: newTitle) } }
+                if let document = renaming {
+                    library.perform { try await library.rename(document.id, title: newTitle) }
+                }
                 renaming = nil
             }
         }
@@ -126,13 +168,20 @@ struct LibraryBrowser: View {
                 if showingTrash {
                     Text(document.title).font(.system(size: 14, weight: .medium)).lineLimit(1)
                 } else {
-                    EditableDocumentName(title: document.title, documentID: document.id, fontSize: 14,
+                    EditableDocumentName(
+                        title: document.title,
+                        documentID: document.id,
+                        fontSize: 14,
                         identifier: "library-title-\(document.id)",
                         help: "Click to rename. Double-click to open.",
                         onOpen: { library.perform { try await library.open(document.id) } },
-                        onRename: { title in library.perform { try await library.rename(document.id, title: title) } })
-                        .frame(height: 20)
-                        .learningHelp(L10n.text("Click to rename. Double-click to open."))
+                        onRename: { title in library.perform { try await library.rename(
+                            document.id,
+                            title: title,
+                        ) } },
+                    )
+                    .frame(height: 20)
+                    .learningHelp(L10n.text("Click to rename. Double-click to open."))
                 }
                 VStack(alignment: .leading, spacing: 7) {
                     Text(document.snippet.isEmpty ? L10n.text("Empty document") : document.snippet)
@@ -140,36 +189,50 @@ struct LibraryBrowser: View {
                     Text(document.modifiedAt, style: .relative).font(.system(size: 10)).foregroundStyle(Theme.muted)
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                     .onTapGesture(count: 2) {
-                        if !showingTrash { library.perform { try await library.open(document.id) } }
+                        if !showingTrash {
+                            library.perform { try await library.open(document.id) }
+                        }
                     }
             }.frame(maxWidth: .infinity, alignment: .leading)
-            QuietButton(icon: showingTrash ? "arrow-counter-clockwise" : "trash",
-                        help: L10n.text(showingTrash ? "Restore" : "Move to Trash")) {
+            QuietButton(
+                icon: showingTrash ? "arrow-counter-clockwise" : "trash",
+                help: L10n.text(showingTrash ? "Restore" : "Move to Trash"),
+            ) {
                 library.perform {
-                    if showingTrash { try await library.restore(document.id) }
-                    else { try await library.moveToTrash(document.id) }
+                    if showingTrash {
+                        try await library.restore(document.id)
+                    } else {
+                        try await library.moveToTrash(document.id)
+                    }
                 }
             }.accessibilityIdentifier("library-\(showingTrash ? "restore" : "trash")-\(document.id)")
         }.padding(.vertical, 16).padding(.horizontal, 12).frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-        .contextMenu {
-            if showingTrash {
-                Button(L10n.text("Restore")) { library.perform { try await library.restore(document.id) } }
-            } else {
-                Button(L10n.text("Rename…")) { renaming = document; newTitle = document.title }
-                Button(L10n.text("Export source project…")) { library.exportPanel(document) }
-                Button(L10n.text("Show source in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([document.sourceURL]) }
-                Divider()
-                Button(L10n.text("Move to Trash")) { library.perform { try await library.moveToTrash(document.id) } }
+            .contextMenu {
+                if showingTrash {
+                    Button(L10n.text("Restore")) { library.perform { try await library.restore(document.id) } }
+                } else {
+                    Button(L10n.text("Rename…")) { renaming = document
+                        newTitle = document.title
+                    }
+                    Button(L10n.text("Export source project…")) { library.exportPanel(document) }
+                    Button(L10n.text("Show source in Finder")) {
+                        NSWorkspace.shared.activateFileViewerSelecting([document.sourceURL])
+                    }
+                    Divider()
+                    Button(L10n.text("Move to Trash")) { library.perform { try await library.moveToTrash(document.id) }
+                    }
+                }
             }
-        }
     }
 
     private func search() async {
         let request = query, trash = showingTrash
         do {
             let matches = try await library.store.list(query: request, includeTrashed: true)
-            guard request == query, trash == showingTrash else { return }
+            guard request == query, trash == showingTrash else {
+                return
+            }
             results = matches.filter { ($0.trashedAt != nil) == trash }
             searchError = nil
         } catch { searchError = error.localizedDescription }

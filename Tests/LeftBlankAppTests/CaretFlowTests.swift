@@ -1,11 +1,16 @@
 import AppKit
-import Testing
-import LeftBlankCore
 @testable import LeftBlankApp
+import LeftBlankCore
+import Testing
 
 extension WritingFlowTests {
     @Test func mouseHitTestingMatchesVisibleGlyphsAcrossLayoutsAndStyles() async throws {
-        let source = "= A quiet title\n\nWrite the idea, show the code, explain the result.\n\n*Strong words* beside plain words. 中文与 emoji 😀 stay aligned.\n\n" + String(repeating: "A long paragraph wraps naturally across the writing area. ", count: 15) + "\n"
+        let source =
+            "= A quiet title\n\nWrite the idea, show the code, explain the result.\n\n*Strong words* beside plain words. 中文与 emoji 😀 stay aligned.\n\n" +
+            String(
+                repeating: "A long paragraph wraps naturally across the writing area. ",
+                count: 15,
+            ) + "\n"
         let app = try WritingFixture(text: source, startService: false)
         defer { app.close() }
         let editor = try #require(app.workspace.editor)
@@ -19,16 +24,33 @@ extension WritingFlowTests {
                     editor.highlight()
                     let range = (source as NSString).range(of: needle)
                     editor.scrollRangeToVisible(range)
-                    let screenRect = editor.firstRect(forCharacterRange: NSRange(location: range.location, length: 0), actualRange: nil)
-                    let windowPoint = app.window.convertFromScreen(NSRect(x: screenRect.minX + 1, y: screenRect.midY, width: 0, height: 0)).origin
+                    let screenRect = editor.firstRect(
+                        forCharacterRange: NSRange(location: range.location, length: 0),
+                        actualRange: nil,
+                    )
+                    let windowPoint = app.window.convertFromScreen(NSRect(
+                        x: screenRect.minX + 1,
+                        y: screenRect.midY,
+                        width: 0,
+                        height: 0,
+                    )).origin
                     let point = editor.convert(windowPoint, from: nil)
                     let hit = editor.characterIndexForInsertion(at: point)
-                    #expect(abs(hit - range.location) <= 1, "\(layout) width \(width), \(needle), expected \(range.location) hit \(hit); inset \(editor.textContainerInset), rect \(screenRect), point \(point)")
-                    let hitView = app.window.contentView?.hitTest(app.window.contentView!.convert(windowPoint, from: nil))
+                    #expect(
+                        abs(hit - range.location) <= 1,
+                        "\(layout) width \(width), \(needle), expected \(range.location) hit \(hit); inset \(editor.textContainerInset), rect \(screenRect), point \(point)",
+                    )
+                    let hitView = try app.window.contentView?.hitTest(#require(app.window.contentView?.convert(
+                        windowPoint,
+                        from: nil,
+                    )))
                     #expect(hitView === editor, "Mouse hit routed to \(String(describing: hitView))")
                     editor.setSelectedRange(NSRange(location: hit, length: 0))
                     try await Task.sleep(for: .milliseconds(150))
-                    #expect(abs(editor.selectedRange().location - range.location) <= 1, "\(layout) width \(width), \(needle), selected \(editor.selectedRange()) expected \(range.location)")
+                    #expect(
+                        abs(editor.selectedRange().location - range.location) <= 1,
+                        "\(layout) width \(width), \(needle), selected \(editor.selectedRange()) expected \(range.location)",
+                    )
                 }
             }
         }
@@ -36,7 +58,7 @@ extension WritingFlowTests {
 }
 
 extension WritingFlowTests {
-    @Test func editableTextUsesIBeamAndPreservesCompositionDuringRestyling() async throws {
+    @Test func editableTextUsesIBeamAndPreservesCompositionDuringRestyling() throws {
         let app = try WritingFixture(text: "= Title\n\n中文 input\n", startService: false)
         defer { app.close() }
         let editor = try #require(app.workspace.editor)
@@ -45,7 +67,11 @@ extension WritingFlowTests {
         editor.cursorUpdate(with: event)
         #expect(NSCursor.current == NSCursor.iBeam)
         editor.setSelectedRange(NSRange(location: 10, length: 0))
-        editor.setMarkedText("输入", selectedRange: NSRange(location: 2, length: 0), replacementRange: editor.selectedRange())
+        editor.setMarkedText(
+            "输入",
+            selectedRange: NSRange(location: 2, length: 0),
+            replacementRange: editor.selectedRange(),
+        )
         editor.prepareForPointerInteraction()
         editor.highlight()
         #expect(editor.hasMarkedText())

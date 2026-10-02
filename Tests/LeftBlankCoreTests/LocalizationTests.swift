@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import LeftBlankCore
+import Testing
 
 @Test func bundledLanguagesResolveWithoutChangingSystemSettings() throws {
     #expect(AppLanguage.resolve(.system, preferredLanguages: ["en-GB"]) == .english)

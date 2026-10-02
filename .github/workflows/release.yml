@@ -13,8 +13,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  lint:
+    name: Swift lint (zero warnings)
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Strict SwiftFormat and SwiftLint
+        run: scripts/lint.sh
   package:
     name: Sign and notarize (Apple Silicon)
+    needs: lint
     runs-on: macos-15
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer

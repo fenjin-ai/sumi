@@ -1,5 +1,5 @@
-import SwiftUI
 import LeftBlankCore
+import SwiftUI
 
 /// Overlay chrome never participates in editor or preview sizing. The small
 /// label remains discoverable; pointer hover or keyboard activation reveals it.
@@ -11,11 +11,15 @@ struct FloatingPaneControls<Controls: View>: View {
     @State private var hovering = false
     @State private var heldOpen = false
     @State private var dismissTask: Task<Void, Never>?
-    private var expanded: Bool { hovering || heldOpen }
+    private var expanded: Bool {
+        hovering || heldOpen
+    }
 
     var body: some View {
         HStack(spacing: 2) {
-            if expanded { controls().transition(.opacity) }
+            if expanded {
+                controls().transition(.opacity)
+            }
             Button { heldOpen.toggle() } label: {
                 HStack(spacing: 5) {
                     PhosphorIcon(name: icon, size: 12)
@@ -29,8 +33,9 @@ struct FloatingPaneControls<Controls: View>: View {
             .fixedSize()
             .onHover { inside in
                 dismissTask?.cancel()
-                if inside { hovering = true }
-                else {
+                if inside {
+                    hovering = true
+                } else {
                     dismissTask = Task {
                         do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
                         hovering = false

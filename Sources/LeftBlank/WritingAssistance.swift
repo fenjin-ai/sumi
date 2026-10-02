@@ -1,6 +1,6 @@
 import AppKit
-import SwiftUI
 import LeftBlankCore
+import SwiftUI
 
 struct WritingAssistance {
     enum Kind: String { case help, actions }
@@ -19,46 +19,68 @@ struct WritingAssistanceCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                PhosphorIcon(name: context.kind == .help ? "question" : "lightbulb", size: 15).foregroundStyle(Theme.accent)
-                Text(L10n.text(context.kind == .help ? "Explain at Cursor" : "Actions at Cursor")).font(.system(size: 12, weight: .medium))
+                PhosphorIcon(name: context.kind == .help ? "question" : "lightbulb", size: 15)
+                    .foregroundStyle(Theme.accent)
+                Text(L10n.text(context.kind == .help ? "Explain at Cursor" : "Actions at Cursor")).font(.system(
+                    size: 12,
+                    weight: .medium,
+                ))
                 Spacer()
-                Text(context.kind == .help ? "⌃⌥H" : "⌘.").font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
+                Text(context.kind == .help ? "⌃⌥H" : "⌘.").font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Theme.muted)
             }
             if context.kind == .help {
-                if context.hover == nil && context.signature == nil {
+                if context.hover == nil, context.signature == nil {
                     Text(L10n.text("No explanation here yet. Try a function, variable or parameter."))
-                        .font(.system(size: 12)).foregroundStyle(Theme.secondary).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 12)).foregroundStyle(Theme.secondary).fixedSize(
+                            horizontal: false,
+                            vertical: true,
+                        )
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
                             if let signature = context.signature {
-                                Text(signature.label).font(.system(size: 12, design: .monospaced)).foregroundStyle(Theme.accent)
+                                Text(signature.label).font(.system(size: 12, design: .monospaced))
+                                    .foregroundStyle(Theme.accent)
                                 if let parameter = signature.activeParameter {
-                                    Text(L10n.format("Parameter: %@", parameter)).font(.system(size: 11, weight: .medium))
+                                    Text(L10n.format("Parameter: %@", parameter)).font(.system(
+                                        size: 11,
+                                        weight: .medium,
+                                    ))
                                 }
-                                if !signature.parameterDocumentation.isEmpty { prose(signature.parameterDocumentation) }
-                                if !signature.documentation.isEmpty { prose(signature.documentation) }
+                                if !signature.parameterDocumentation.isEmpty {
+                                    prose(signature.parameterDocumentation)
+                                }
+                                if !signature.documentation.isEmpty {
+                                    prose(signature.documentation)
+                                }
                             }
-                            if let hover = context.hover { prose(hover.text) }
+                            if let hover = context.hover {
+                                prose(hover.text)
+                            }
                         }.frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
                     }.frame(height: helpHeight)
                 }
             } else if context.actions.isEmpty {
                 Text(L10n.text("No changes available here. Try a heading or an equation."))
-                    .font(.system(size: 12)).foregroundStyle(Theme.secondary).fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 12)).foregroundStyle(Theme.secondary).fixedSize(
+                        horizontal: false,
+                        vertical: true,
+                    )
             } else {
                 ScrollView {
-                  VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(context.actions.enumerated()), id: \.offset) { _, action in
-                        Button { apply(action) } label: {
-                            HStack(spacing: 10) {
-                                PhosphorIcon(name: "arrow-right", size: 13).foregroundStyle(Theme.muted)
-                                Text(L10n.text(action.title)).font(.system(size: 12)).multilineTextAlignment(.leading)
-                                Spacer(minLength: 0)
-                            }.padding(.vertical, 8).padding(.horizontal, 6).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(context.actions.enumerated()), id: \.offset) { _, action in
+                            Button { apply(action) } label: {
+                                HStack(spacing: 10) {
+                                    PhosphorIcon(name: "arrow-right", size: 13).foregroundStyle(Theme.muted)
+                                    Text(L10n.text(action.title)).font(.system(size: 12))
+                                        .multilineTextAlignment(.leading)
+                                    Spacer(minLength: 0)
+                                }.padding(.vertical, 8).padding(.horizontal, 6).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                        }
                     }
-                  }
                 }.frame(height: min(280, CGFloat(context.actions.count) * 40))
             }
         }.padding(16).frame(width: 396).fixedSize(horizontal: true, vertical: true)
@@ -67,7 +89,8 @@ struct WritingAssistanceCard: View {
 
     private var helpHeight: CGFloat {
         let texts = [context.hover?.text, context.signature?.label, context.signature?.documentation,
-                     context.signature?.activeParameter, context.signature?.parameterDocumentation].compactMap { $0 }.filter { !$0.isEmpty }
+                     context.signature?.activeParameter, context.signature?.parameterDocumentation].compactMap(\.self)
+            .filter { !$0.isEmpty }
         let lines = texts.reduce(0) { total, text in
             total + text.components(separatedBy: "\n").reduce(0) { $0 + max(1, Int(ceil(Double($1.count) / 48))) }
         }
@@ -83,7 +106,9 @@ struct WritingAssistanceCard: View {
 extension ManuscriptTextView {
     func presentAssistance(_ context: WritingAssistance) {
         dismissAssistance()
-        guard window != nil else { return }
+        guard let window else {
+            return
+        }
         let popover = NSPopover()
         popover.animates = false
         popover.behavior = .transient
@@ -93,27 +118,49 @@ extension ManuscriptTextView {
         popover.contentViewController = controller
         popover.contentSize = controller.view.fittingSize
         let rect = firstRect(forCharacterRange: selectedRange(), actualRange: nil)
-        let local = convert(window!.convertFromScreen(rect), from: nil)
+        let local = convert(window.convertFromScreen(rect), from: nil)
         assistancePopover = popover
         popover.show(relativeTo: local.intersection(visibleRect), of: self, preferredEdge: .maxY)
     }
 
-    func dismissAssistance() { assistancePopover?.close(); assistancePopover = nil }
+    func dismissAssistance() {
+        assistancePopover?.close()
+        assistancePopover = nil
+    }
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = super.menu(for: event) ?? NSMenu()
         menu.addItem(.separator())
-        for (id, selector) in [("quickHelp", #selector(explainAtCursor)), ("contextActions", #selector(actionsAtCursor)),
-                               ("definition", #selector(definitionAtCursor)), ("navigateBack", #selector(backFromDefinition))] {
-            guard let command = WritingCommand.all.first(where: { $0.id == id }) else { continue }
+        for (id, selector) in [
+            ("quickHelp", #selector(explainAtCursor)),
+            ("contextActions", #selector(actionsAtCursor)),
+            ("definition", #selector(definitionAtCursor)),
+            ("navigateBack", #selector(backFromDefinition)),
+        ] {
+            guard let command = WritingCommand.all.first(where: { $0.id == id }) else {
+                continue
+            }
             let item = NSMenuItem(title: command.title, action: selector, keyEquivalent: "")
-            item.target = self; item.image = IconStore.image(command.icon)
+            item.target = self
+            item.image = IconStore.image(command.icon)
             menu.addItem(item)
         }
         return menu
     }
-    @objc private func explainAtCursor() { workspace?.requestAssistance(.help) }
-    @objc private func actionsAtCursor() { workspace?.requestAssistance(.actions) }
-    @objc private func definitionAtCursor() { workspace?.goToDefinition() }
-    @objc private func backFromDefinition() { workspace?.navigateBack() }
+
+    @objc private func explainAtCursor() {
+        workspace?.requestAssistance(.help)
+    }
+
+    @objc private func actionsAtCursor() {
+        workspace?.requestAssistance(.actions)
+    }
+
+    @objc private func definitionAtCursor() {
+        workspace?.goToDefinition()
+    }
+
+    @objc private func backFromDefinition() {
+        workspace?.navigateBack()
+    }
 }

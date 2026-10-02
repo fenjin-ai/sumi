@@ -6,7 +6,10 @@ public enum WelcomeDocument {
     public static func source(language: AppLanguage? = nil) -> String {
         let suffix = AppLanguage.resolve(language ?? L10n.language) == .simplifiedChinese ? ".zh-Hans" : ""
         guard let url = L10n.resourceBundle.url(forResource: "Welcome" + suffix, withExtension: "typ"),
-              let source = try? String(contentsOf: url, encoding: .utf8) else { return DocumentTemplate.blank.source }
+              let source = try? String(contentsOf: url, encoding: .utf8)
+        else {
+            return DocumentTemplate.blank.source
+        }
         return source
     }
 
@@ -25,7 +28,7 @@ public enum WelcomeDocument {
         guard let url = L10n.resourceBundle.url(forResource: "leftblank-mark", withExtension: "svg") else {
             throw CocoaError(.fileNoSuchFile)
         }
-        return [markFilename: try Data(contentsOf: url)]
+        return try [markFilename: Data(contentsOf: url)]
     }
 
     /// First-launch drafts and exported project copies use an ordinary relative asset.

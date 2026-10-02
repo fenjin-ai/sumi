@@ -12,17 +12,26 @@ public struct JSONRPCFramer: Sendable {
         let separator = Data("\r\n\r\n".utf8)
         while let headerEnd = buffer.range(of: separator) {
             guard let header = String(data: buffer[..<headerEnd.lowerBound], encoding: .utf8),
-                  let lengthLine = header.components(separatedBy: "\r\n").first(where: { $0.lowercased().hasPrefix("content-length:") }),
-                  let length = Int(lengthLine.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)[1].trimmingCharacters(in: .whitespaces)), length >= 0 else {
+                  let lengthLine = header.components(separatedBy: "\r\n")
+                  .first(where: { $0.lowercased().hasPrefix("content-length:") }),
+                  let length = Int(lengthLine.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)[1]
+                      .trimmingCharacters(in: .whitespaces)), length >= 0
+            else {
                 throw FramingError.invalidHeader
             }
-            guard length <= 64 * 1024 * 1024 else { throw FramingError.oversizedMessage }
+            guard length <= 64 * 1024 * 1024 else {
+                throw FramingError.oversizedMessage
+            }
             let bodyStart = headerEnd.upperBound
-            guard buffer.count - bodyStart >= length else { return messages }
-            messages.append(Data(buffer[bodyStart..<(bodyStart + length)]))
+            guard buffer.count - bodyStart >= length else {
+                return messages
+            }
+            messages.append(Data(buffer[bodyStart ..< (bodyStart + length)]))
             buffer = Data(buffer.dropFirst(bodyStart + length))
         }
-        if buffer.count > 8_192 { throw FramingError.invalidHeader }
+        if buffer.count > 8192 {
+            throw FramingError.invalidHeader
+        }
         return messages
     }
 
