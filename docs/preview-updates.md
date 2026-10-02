@@ -115,13 +115,13 @@ terminate another app's Sparkle helpers. Check that new PID before reconnecting
 the UI tool:
 
 ```sh
-python3 scripts/running_app.py --app '/path/to/Sumi Preview.app' \
+python3 scripts/running_app.py --app '/path/to/LeftBlank Preview.app' \
   --pid NEW_PID --expected-build EXPECTED_BUILD
 ```
 
 This check reads the kernel's executable path and rejects a removed or relocated
 live executable. Reading `CFBundleVersion` from disk alone is insufficient.
-Then verify **About Sumi Preview**, **Check for Updates** (up to date), and saved
+Then verify **About LeftBlank Preview**, **Check for Updates** (up to date), and saved
 writing. Cold-launch CI also verifies the process path, while a regression test
 replaces a bundle underneath a disposable process and confirms rejection.
 These checks complement, but do not replace, an interactive upgrade test.
