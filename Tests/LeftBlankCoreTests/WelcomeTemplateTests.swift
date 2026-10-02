@@ -33,6 +33,8 @@ func bundledWelcomeCompilesWithFreshPackagesAndBlockedRegistry() throws {
         process.executableURL = repo.appendingPathComponent(".tools/tinymist")
         process.arguments = [
             "compile",
+            "--font-path",
+            repo.appendingPathComponent("Sources/LeftBlankCore/Resources/Fonts").path,
             "--root",
             root.path,
             "--package-path",

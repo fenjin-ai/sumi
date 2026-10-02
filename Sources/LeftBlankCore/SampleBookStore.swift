@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import ZIPFoundation
 
 public enum SampleBook: String, Sendable {
     case sicp
@@ -88,14 +89,9 @@ public actor SampleBookStore {
         }
         // The archive digest identifies reviewed bytes produced by package-sicp.py.
         // Never extract arbitrary downloaded archives before this verification.
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-        process.arguments = ["-x", "-k", archive.path, directory.path]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
+        do {
+            try manager.unzipItem(at: archive, to: directory)
+        } catch {
             throw SampleBookError.extractionFailed
         }
         try Task.checkCancellation()

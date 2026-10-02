@@ -734,6 +734,45 @@
 "Hide Others" = "Hide Others";
 "Show All" = "Show All";
 "Toggle Full Screen" = "Toggle Full Screen";
+
+"Back" = "Back";
+
+"Choose a document to begin writing." = "Choose a document to begin writing.";
+
+"Format Document" = "Format Document";
+
+"Import Project…" = "Import Project…";
+
+"No history yet" = "No history yet";
+
+"OK" = "OK";
+
+"Recovered Draft" = "Recovered Draft";
+
+"Restore this version?" = "Restore this version?";
+
+"Search" = "Search";
+
+"Search Packages" = "Search Packages";
+
+"Templates & Packages" = "Templates & Packages";
+
+"Text size: %@" = "Text size: %@";
+
+"Toggle Comment" = "Toggle Comment";
+
+"Trash" = "Trash";
+
+"Use Template" = "Use Template";
+
+"Your current writing will be preserved before restoring this version." = "Your current writing will be preserved before restoring this version.";
+
+"iCloud Sync" = "iCloud Sync";
+
+"Authors" = "Authors";
+"License" = "License";
+"This location is in an included file. Included-file editing is not available on iPad yet." = "This location is in an included file. Included-file editing is not available on iPad yet.";
+
 "Choose or import an image. Its copy stays with your document." = "Choose or import an image. Its copy stays with your document.";
 "Paste text or import an image at the caret." = "Paste text or import an image at the caret.";
 "Choose an image, a bibliography file, or a Typst document. Audio and video cannot be embedded in a typeset page." = "Choose an image, a bibliography file, or a Typst document. Audio and video cannot be embedded in a typeset page.";

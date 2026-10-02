@@ -8,7 +8,7 @@
 #let sage = rgb("dbe6df")
 #set document(title: "留白", author: "留白")
 #set page(paper: "a4", margin: (x: 25mm, y: 22mm), numbering: "01", number-align: center)
-#set text(font: ("Libertinus Serif", "PingFang SC"), size: 11pt, fill: ink)
+#set text(font: ("Libertinus Serif", "PingFang SC", "Noto Sans SC"), size: 11pt, fill: ink)
 #set par(leading: 0.85em)
 #set text(lang: "zh")
 #set heading(numbering: none)

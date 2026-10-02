@@ -1536,17 +1536,14 @@ final class Workspace: ObservableObject {
     }
 
     private func showDocument(_ params: JSONValue) {
-        guard let uri = params["uri"].string, let url = URL(string: uri), url.isFileURL else {
+        guard let target = SourceLocation(params) else {
             return
         }
+        let url = target.url
         if url.standardizedFileURL != documentURL.standardizedFileURL, !open(url, preservingMain: true) {
             return
         }
-        let start = params["selection"]["start"]
-        jump(
-            to: TextPosition(line: start["line"].int ?? 0, character: start["character"].int ?? 0).offset(in: text),
-            synchronizePreview: false,
-        )
+        jump(to: target.position.offset(in: text), synchronizePreview: false)
     }
 
     func showDiagnostic(_ item: DiagnosticItem) {
