@@ -166,6 +166,10 @@ struct CommandPalette: View {
                     Spacer()
                 }
                 Text(command.detail).font(.system(size: 11)).foregroundStyle(Theme.secondary).lineLimit(3)
+                if command.id == "image" {
+                    Text(L10n.text("You can also drop images here or paste a screenshot with ⌘V."))
+                        .font(.system(size: 11)).foregroundStyle(Theme.secondary)
+                }
                 if !command.shortcuts.isEmpty {
                     HStack(spacing: 6) {
                         Text(L10n.text("Shortcut")).font(.system(size: 10)).foregroundStyle(Theme.muted)
@@ -179,7 +183,7 @@ struct CommandPalette: View {
                         Keycap(value: String(key))
                     }
                 }
-                if command.isInsertion {
+                if command.isInsertion, command.fields.first?.resourceKind == nil {
                     let example = (workspace.activeCommand != nil ? try? TypstInsertion.make(
                         command.id,
                         values: workspace.fieldValues,
@@ -222,20 +226,24 @@ struct CommandPalette: View {
                     ForEach(command.fields) { field in
                         VStack(alignment: .leading, spacing: 7) {
                             Text(field.title).font(.system(size: 10)).foregroundStyle(Theme.secondary)
-                            PaletteTextField(
-                                text: Binding(
-                                    get: { workspace.fieldValues[field.id] ?? field.initial },
-                                    set: { workspace.fieldValues[field.id] = $0 },
-                                ),
-                                label: field.title,
-                                autoFocus: field.id == command.fields.first?.id,
-                                onSubmit: { workspace.execute(command) },
-                            )
-                            .frame(height: 18).padding(10).background(
-                                Theme.background,
-                                in: RoundedRectangle(cornerRadius: 4),
-                            )
-                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.border))
+                            if field.resourceKind != nil {
+                                resourcePicker(command)
+                            } else {
+                                PaletteTextField(
+                                    text: Binding(
+                                        get: { workspace.fieldValues[field.id] ?? field.initial },
+                                        set: { workspace.fieldValues[field.id] = $0 },
+                                    ),
+                                    label: field.title,
+                                    autoFocus: field.id == command.fields.first(where: { $0.resourceKind == nil })?.id,
+                                    onSubmit: { workspace.execute(command) },
+                                )
+                                .frame(height: 18).padding(10).background(
+                                    Theme.background,
+                                    in: RoundedRectangle(cornerRadius: 4),
+                                )
+                                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.border))
+                            }
                         }
                     }
                 }
@@ -250,9 +258,33 @@ struct CommandPalette: View {
                         16,
                     ).padding(.vertical, 10)
                     .background(Theme.accent, in: RoundedRectangle(cornerRadius: 5))
-                }.buttonStyle(.plain).disabled(workspace.applyingCommand)
+                }.buttonStyle(.plain).keyboardShortcut(.defaultAction).disabled(workspace.applyingCommand)
             }.padding(.top, 10).padding(.trailing, 24)
         }
+    }
+
+    private func resourcePicker(_ command: WritingCommand) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                if !workspace.availableResources.isEmpty {
+                    Menu {
+                        ForEach(workspace.availableResources) { resource in
+                            Button(resource.name) {
+                                workspace.resourceSelection = .existing(resource)
+                            }
+                        }
+                    } label: {
+                        Text(L10n.text("Document Resources"))
+                    }.menuStyle(.borderlessButton)
+                }
+                Button(L10n.text("Import File…")) { workspace.chooseResource(for: command) }
+                    .buttonStyle(.bordered)
+            }
+            Text(workspace.resourceSelection?.name ?? L10n.text("Choose a file to insert."))
+                .font(.system(size: 11)).foregroundStyle(Theme.secondary).lineLimit(2)
+            Text(L10n.text("Imported files are saved with this document."))
+                .font(.system(size: 10)).foregroundStyle(Theme.muted)
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var footer: some View {
