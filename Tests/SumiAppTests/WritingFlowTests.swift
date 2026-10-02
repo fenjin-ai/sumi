@@ -267,7 +267,7 @@ struct WritingFlowTests {
         defer { NSApp.mainMenu = previousMenu; NSApp.windowsMenu = previousWindowsMenu }
         delegate.installMenu()
         let menu = try #require(NSApp.mainMenu)
-        #expect(menu.items.map(\.title) == ["Sumi", "Documents", "Edit", "View", "Window"].map { L10n.text($0) })
+        #expect(menu.items.map(\.title) == [AppDistribution.current.applicationName] + ["Documents", "Edit", "View", "Window"].map { L10n.text($0) })
         let entries = menu.items.flatMap { $0.submenu?.items ?? [] }
         func choose(_ title: String) throws {
             let item = try #require(entries.first { $0.title == L10n.text(title) })

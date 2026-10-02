@@ -74,8 +74,12 @@ extension WritingFlowTests {
         let historyCommand = try #require(WritingCommand.all.first { $0.id == "history" })
         workspace.execute(historyCommand)
         #expect(workspace.historyOpen)
-        await history.load()
+        // Opening the real sheet starts its .task. Wait for that presentation
+        // instead of launching a second load that races the sheet's first one.
+        try await app.wait { !history.busy && history.comparison != nil && history.revisions.count == 2 }
         await history.select(original)
+        await app.layout()
+        #expect(history.selectedID == original.id)
         #expect(history.comparison?.identical == false)
         #expect(history.comparison?.after.contains("A later thought") == true)
         let comparison = try #require(history.comparison)

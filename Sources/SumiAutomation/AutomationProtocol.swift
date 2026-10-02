@@ -87,8 +87,7 @@ public enum AutomationContract {
     }
 
     public static var defaultStateDirectory: URL {
-        if let override = ProcessInfo.processInfo.environment["SUMI_STATE_DIR"] { return URL(fileURLWithPath: override) }
-        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Sumi")
+        AppDistribution.defaultStateDirectory
     }
     public static func socketURL(in stateDirectory: URL) -> URL {
         stateDirectory.appendingPathComponent("Agents", isDirectory: true).appendingPathComponent("bridge.sock")

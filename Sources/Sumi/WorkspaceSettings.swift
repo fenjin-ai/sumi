@@ -97,7 +97,7 @@ final class WorkspaceSettings: ObservableObject {
 
     var connectionCommand: String {
         let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/SumiMCP").path
-        return "codex mcp add sumi -- '" + helper.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        return "codex mcp add " + AppDistribution.current.agentName + " -- '" + helper.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     func stop() { automation.stop(); subscriptions.removeAll() }
@@ -135,11 +135,16 @@ struct WritingSettingsView: View {
                     .font(.footnote).foregroundStyle(Theme.secondary)
             } header: { Text(L10n.text("Writing")) }
             Section {
-                Toggle(L10n.text("Sync with iCloud"), isOn: Binding(get: { library.cloudEnabled }, set: { enabled in
-                    library.perform { try await library.setCloudEnabled(enabled) }
-                })).disabled(library.busy)
-                Text(L10n.text("Keep your library and writing preferences together across your Macs. Local originals are preserved when you turn sync on."))
-                    .font(.footnote).foregroundStyle(Theme.secondary)
+                if AppDistribution.current.supportsICloud {
+                    Toggle(L10n.text("Sync with iCloud"), isOn: Binding(get: { library.cloudEnabled }, set: { enabled in
+                        library.perform { try await library.setCloudEnabled(enabled) }
+                    })).disabled(library.busy)
+                    Text(L10n.text("Keep your library and writing preferences together across your Macs. Local originals are preserved when you turn sync on."))
+                        .font(.footnote).foregroundStyle(Theme.secondary)
+                } else {
+                    Text(L10n.text("Preview keeps its own library on this Mac. Import a copy to try your writing; iCloud sync is available in Sumi."))
+                        .font(.footnote).foregroundStyle(Theme.secondary)
+                }
                 if library.busy { ProgressView().controlSize(.small) }
                 if !library.syncMessage.isEmpty { Text(library.syncMessage).font(.footnote).foregroundStyle(Theme.secondary) }
                 if let error = library.error { Text(error).font(.footnote).foregroundStyle(Theme.red) }

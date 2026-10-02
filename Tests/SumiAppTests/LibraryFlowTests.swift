@@ -257,7 +257,7 @@ extension WritingFlowTests {
         let saved = LibraryPreferences(defaults: defaults)
         #expect(saved.values == settings.preferences.values)
         #expect(!settings.agentEnabled)
-        #expect(settings.connectionCommand.hasPrefix("codex mcp add sumi --"))
+        #expect(settings.connectionCommand.hasPrefix("codex mcp add " + AppDistribution.current.agentName + " --"))
         let view = NSHostingView(rootView: WritingSettingsView(workspace: app.workspace, settings: settings, library: app.workspace.library))
         view.layoutSubtreeIfNeeded()
         #expect(view.fittingSize.width == 530)

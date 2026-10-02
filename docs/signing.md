@@ -20,20 +20,20 @@ Create the certificate through Xcode → Settings → Apple Accounts → team �
 
 Supply secrets to `gh secret set --repo fenjin-ai/sumi NAME` through stdin rather than expanding values in command arguments or logs. Certificates and private keys do not belong in source or build artifacts.
 
-The Sumi App ID and dedicated `iCloud.app.sumi.writer` container were registered and associated on 2026-10-01. The **Sumi Developer ID iCloud** profile was downloaded, validated and stored in the repository secret. `prepare-icloud-profile.py` checks team, App ID, certificate membership, expiration, distribution scope and required capabilities, then emits only the required entitlements. The release embeds the profile and verifies the signed entitlements. Helper processes do not receive iCloud entitlements. Development builds remain ad hoc and cannot use iCloud.
+The Sumi App ID and dedicated `iCloud.app.sumi.writer` container were registered and associated on 2026-10-01. The **Sumi Developer ID iCloud** profile was downloaded, validated and stored in the repository secret. `prepare-icloud-profile.py` checks team, App ID, certificate membership, expiration, distribution scope and required capabilities, then emits only the required entitlements. The release embeds the profile and verifies the signed entitlements. Helper processes do not receive iCloud entitlements. Local development builds remain ad hoc and cannot use iCloud. Sumi Preview is Developer ID signed, but intentionally has no production iCloud entitlement or profile.
 
 This setup is complete at the portal and CI-secret level; the new provisioned 0.4 app still needs a release run and native account/two-Mac verification. The prior notarization result below predates this capability.
 
 ## Verification and publication
 
-1. Ordinary CI produces development-signed packages and does not access release credentials.
+1. PR CI runs functional tests, coverage, large-book benchmarks and distribution-isolation checks without release credentials. After successful main CI, a separate job creates a Developer ID signed and notarized Sumi Preview package, uploads it for seven days, and publishes its signed update feed. See [Preview updates](preview-updates.md).
 2. A manual Release workflow on main verifies signing and notarization and saves an artifact without creating a public Release.
 3. Update the version and build number in `Resources/Info.plist`, then merge the verified commit into main.
 4. Push a matching version tag, such as `v0.3.0`. The workflow checks that main contains the tagged commit, runs functional tests and the 80% coverage gate, then signs, notarizes, staples and publishes.
 
 Missing credentials, invalid certificates, team mismatch, rejected notarization or timeout stop public publication. There is no fallback to development signing. The temporary signing keychain joins the search list so codesign can locate the identity and chain. Cleanup restores the old list and removes the temporary keychain, certificate and API key. Notarization submission results remain available for investigation; private keys are never uploaded as artifacts.
 
-Development builds use `scripts/build.sh release`. `scripts/release.sh` requires the settings above. Local temporary release material stays on the external SSD.
+Development builds use `scripts/build.sh release`. Set `SUMI_DISTRIBUTION=preview` to package `build/Sumi Preview.app`; `SUMI_BUILD_NUMBER` must be an increasing `run_number.run_attempt` for published builds. `scripts/release.sh` requires the settings above. Local temporary release material stays on the external SSD.
 
 ## Completed verification
 

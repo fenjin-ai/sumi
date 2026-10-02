@@ -182,8 +182,7 @@ final class Workspace: ObservableObject {
 
     init(stateDirectory directory: URL? = nil) {
         if let directory { stateDirectory = directory }
-        else if let override = ProcessInfo.processInfo.environment["SUMI_STATE_DIR"] { stateDirectory = URL(fileURLWithPath: override) }
-        else { stateDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Sumi") }
+        else { stateDirectory = AppDistribution.defaultStateDirectory }
         try? FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: stateDirectory.appendingPathComponent("Exports"), withIntermediateDirectories: true)
         actionLog = try? ActionLog(directory: stateDirectory.appendingPathComponent("Logs"))
