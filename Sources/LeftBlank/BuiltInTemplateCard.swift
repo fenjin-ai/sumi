@@ -1,5 +1,5 @@
-import SwiftUI
 import LeftBlankCore
+import SwiftUI
 
 struct BuiltInTemplateCard: View {
     let template: BuiltInTemplate
@@ -8,16 +8,18 @@ struct BuiltInTemplateCard: View {
     let create: () -> Void
 
     @ObservedObject private var localization = AppLocalization.shared
-    @MainActor private static let thumbnails = Dictionary(uniqueKeysWithValues: [AppLanguage.english, .simplifiedChinese].compactMap { language in
-        WelcomeDocument.thumbnailURL(language: language).flatMap(NSImage.init(contentsOf:)).map { (language, $0) }
-    })
+    @MainActor private static let thumbnails =
+        Dictionary(uniqueKeysWithValues: [AppLanguage.english, .simplifiedChinese].compactMap { language in
+            WelcomeDocument.thumbnailURL(language: language).flatMap(NSImage.init(contentsOf:)).map { (language, $0) }
+        })
 
     var body: some View {
         Button(action: create) {
             HStack(spacing: 18) {
                 if template == .welcome, let image = Self.thumbnails[AppLanguage.resolve(L10n.language)] {
                     Image(nsImage: image).resizable().aspectRatio(contentMode: .fit)
-                        .frame(width: compact ? 72 : 92, height: compact ? 112 : 130).clipShape(RoundedRectangle(cornerRadius: 3))
+                        .frame(width: compact ? 72 : 92, height: compact ? 112 : 130)
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
                         .accessibilityHidden(true)
                 } else {
                     PhosphorIcon(name: "file-plus", size: 24).foregroundStyle(Theme.secondary)
@@ -27,15 +29,22 @@ struct BuiltInTemplateCard: View {
                     if template == .welcome {
                         Text(L10n.text("Start here")).font(.system(size: 10)).foregroundStyle(Theme.muted)
                     }
-                    Text(template.title).font(.system(size: template == .welcome ? (compact ? 19 : 20) : 14, weight: .medium, design: .serif))
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text(template.title).font(.system(
+                        size: template == .welcome ? (compact ? 19 : 20) : 14,
+                        weight: .medium,
+                        design: .serif,
+                    ))
+                    .fixedSize(horizontal: false, vertical: true)
                     Text(L10n.text(template == .welcome
-                        ? "A small guide to LeftBlank, with equations, a diagram and code. Make it your own."
-                        : "Just a page and your next thought."))
-                        .font(.system(size: 11)).foregroundStyle(Theme.secondary).fixedSize(horizontal: false, vertical: true)
+                            ? "A small guide to LeftBlank, with equations, a diagram and code. Make it your own."
+                            : "Just a page and your next thought."))
+                        .font(.system(size: 11)).foregroundStyle(Theme.secondary).fixedSize(
+                            horizontal: false,
+                            vertical: true,
+                        )
                     if template == .welcome {
                         Text(L10n.text("Included · works offline"))
-                                .font(.system(size: 10)).foregroundStyle(Theme.muted).padding(.top, 5)
+                            .font(.system(size: 10)).foregroundStyle(Theme.muted).padding(.top, 5)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 PhosphorIcon(name: "arrow-right", size: 16).foregroundStyle(Theme.secondary)
@@ -46,6 +55,7 @@ struct BuiltInTemplateCard: View {
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).disabled(isCreating)
             .accessibilityIdentifier("universe.builtin.\(template.rawValue)")
-            .learningHelp(L10n.text(template == .welcome ? "Create your own copy of the LeftBlank guide" : "Start with a blank page"))
+            .learningHelp(L10n
+                .text(template == .welcome ? "Create your own copy of the LeftBlank guide" : "Start with a blank page"))
     }
 }

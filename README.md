@@ -37,7 +37,8 @@ For macOS 14 or later on a Mac with an Apple M-series chip. English and Simplifi
 Chinese are included. Everything needed to write and preview comes with the app.
 
 LeftBlank is still taking shape. Preview builds have a separate local library and
-receive signed updates; iCloud sync is not enabled in Preview.
+receive signed updates. Both editions default to iCloud sync when the signed app
+and your iCloud account support it; otherwise writing stays local.
 [About Preview](docs/preview-updates.md)
 
 ---
@@ -58,3 +59,18 @@ receive signed updates; iCloud sync is not enabled in Preview.
   <a href="https://github.com/leftblank-app/leftblank/actions/workflows/ci.yml"><img src="https://github.com/leftblank-app/leftblank/actions/workflows/ci.yml/badge.svg" alt="build and test"></a>
   <a href="https://app.codecov.io/github/leftblank-app/leftblank"><img src="https://codecov.io/gh/leftblank-app/leftblank/branch/main/graph/badge.svg" alt="Coverage"></a>
 </p>
+
+### Swift code quality
+
+Run `scripts/lint.sh` before committing Swift changes. It installs checksum-pinned
+SwiftFormat 0.63.1 and SwiftLint 0.64.1 into `.tools/`. Use
+`scripts/lint.sh --fix` for automatic corrections, then fix remaining diagnostics.
+Both tools run on the package manifest, Sources, Tests, Benchmarks, scripts and
+design probes. Dependencies and generated build files are outside this scope.
+
+CI and release workflows enforce canonical formatting and 139 SwiftLint rules
+covering correctness, safety, performance and Swift idioms. Every lint warning fails
+the check, and test builds also treat compiler warnings as errors. There is no
+baseline or file-specific suppression. SwiftFormat owns layout; SwiftLint rules intentionally preserve AppKit bridging, Swift inference
+model optionals and test names used by CI filters instead of requiring boilerplate. Signed packages wait for
+the lint check to pass. Update tool versions and archive checksums together.

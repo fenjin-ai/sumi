@@ -5,7 +5,9 @@ import LeftBlankCore
 /// skipped, rather than launching unbounded detached scans while typing.
 actor ReadingAnalysis {
     func decorations(in source: String) -> [SourceDecoration]? {
-        guard !Task.isCancelled else { return nil }
+        guard !Task.isCancelled else {
+            return nil
+        }
         let result = SourcePresentation.decorations(in: source)
         return Task.isCancelled ? nil : result
     }
@@ -32,7 +34,9 @@ final class ManuscriptStyler {
     private var fallbackRevision = -1
 
     func prepare(_ source: String, revision: Int, decorations: [SourceDecoration]) {
-        guard sourceRevision != revision else { return }
+        guard sourceRevision != revision else {
+            return
+        }
         self.source = source
         sourceRevision = revision
         self.decorations = decorations
@@ -49,16 +53,27 @@ final class ManuscriptStyler {
 
     /// Returns whether glyph metrics changed. Color-only changes never require
     /// a synchronous layout pass. TextKit rebases temporary ranges on edits.
-    func apply(to editor: ManuscriptTextView, size: CGFloat, styled: Bool,
-               snapshot: (source: String, tokens: [HighlightToken])?, revision: Int, documentRevision: Int, syntaxDocumentRevision: Int) -> Bool {
-        guard let storage = editor.textStorage, let manager = editor.layoutManager else { return false }
+    func apply(
+        to editor: ManuscriptTextView,
+        size: CGFloat,
+        styled: Bool,
+        snapshot: (source: String, tokens: [HighlightToken])?,
+        revision: Int,
+        documentRevision: Int,
+        syntaxDocumentRevision: Int,
+    ) -> Bool {
+        guard let storage = editor.textStorage, let manager = editor.layoutManager else {
+            return false
+        }
         let content = source ?? ""
         let whole = NSRange(location: 0, length: storage.length)
         var dirty: [NSRange] = []
         var geometryChanged = false
         if syntaxRevision != revision, syntaxDocumentRevision == documentRevision, let snapshot {
             let desired = NSMutableAttributedString(string: snapshot.source)
-            for token in snapshot.tokens where token.range.location >= 0 && token.range.length > 0 && NSMaxRange(token.range) <= storage.length {
+            for token in snapshot.tokens
+                where token.range.location >= 0 && token.range.length > 0 && NSMaxRange(token.range) <= storage.length
+            {
                 desired.addAttribute(Self.syntaxColor, value: Self.color(for: token), range: token.range)
             }
             dirty += Self.updateTemporary(Self.syntaxColor, from: desired, in: whole, manager: manager)
@@ -82,22 +97,47 @@ final class ManuscriptStyler {
             let resized = self.size != size
             let rebuild = reading == nil || self.size != size || self.styled != styled
             let base = Self.baseAttributes(size: size)
+            let font = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
             if rebuild {
-                let plan = NSMutableAttributedString(string: content, attributes: [.font: base[.font]!, .paragraphStyle: base[.paragraphStyle]!])
+                let plan = NSMutableAttributedString(
+                    string: content,
+                    attributes: base,
+                )
                 if styled {
                     for decoration in decorations {
                         switch decoration.kind {
-                        case .heading(let level):
-                            plan.addAttributes([.font: NSFont.systemFont(ofSize: size + CGFloat(max(2, 8 - level * 2)), weight: .semibold), Self.readingColor: Theme.sourceStrong], range: decoration.range)
+                        case let .heading(level):
+                            plan.addAttributes(
+                                [.font: NSFont.systemFont(
+                                    ofSize: size + CGFloat(max(2, 8 - level * 2)),
+                                    weight: .semibold,
+                                ), Self.readingColor: Theme.sourceStrong],
+                                range: decoration.range,
+                            )
                         case .strong:
-                            plan.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold), Self.readingColor: Theme.sourceStrong], range: decoration.range)
+                            plan.addAttributes(
+                                [.font: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold),
+                                 Self.readingColor: Theme.sourceStrong],
+                                range: decoration.range,
+                            )
                         case .emphasis:
-                            plan.addAttribute(.font, value: NSFontManager.shared.convert(base[.font] as! NSFont, toHaveTrait: .italicFontMask), range: decoration.range)
+                            plan.addAttribute(
+                                .font,
+                                value: NSFontManager.shared
+                                    .convert(font, toHaveTrait: .italicFontMask),
+                                range: decoration.range,
+                            )
                         case .code:
-                            plan.addAttributes([Self.readingColor: Theme.sourceString, .backgroundColor: Theme.codeBackground], range: decoration.range)
+                            plan.addAttributes(
+                                [Self.readingColor: Theme.sourceString, .backgroundColor: Theme.codeBackground],
+                                range: decoration.range,
+                            )
                         }
                         for marker in decoration.markers {
-                            plan.addAttributes([.font: NSFont.systemFont(ofSize: 0.1), Self.readingColor: NSColor.clear], range: marker)
+                            plan.addAttributes(
+                                [.font: NSFont.systemFont(ofSize: 0.1), Self.readingColor: NSColor.clear],
+                                range: marker,
+                            )
                         }
                     }
                 }
@@ -116,12 +156,15 @@ final class ManuscriptStyler {
                     let overlap = NSIntersectionRange(range, nextActive)
                     if overlap.length > 0 {
                         let local = NSRange(location: overlap.location - range.location, length: overlap.length)
-                        desired.addAttribute(.font, value: base[.font]!, range: local)
+                        desired.addAttribute(.font, value: font, range: local)
                         desired.removeAttribute(Self.readingColor, range: local)
                         desired.removeAttribute(.backgroundColor, range: local)
                     }
                     for key in [NSAttributedString.Key.font, .paragraphStyle] {
-                        desired.enumerateAttribute(key, in: NSRange(location: 0, length: desired.length)) { value, local, _ in
+                        desired.enumerateAttribute(key, in: NSRange(
+                            location: 0,
+                            length: desired.length,
+                        )) { value, local, _ in
                             let target = NSRange(location: range.location + local.location, length: local.length)
                             var changes: [NSRange] = []
                             storage.enumerateAttributes(in: target) { current, span, _ in
@@ -130,15 +173,31 @@ final class ManuscriptStyler {
                                     // Compare our intended style, not its fallback
                                     // font, or every pass undoes native font fixing.
                                     let readingFont = Self.equal(value, base[.font]) ? nil : value
-                                    if resized || !Self.equal(current[Self.readingFont], readingFont) { changes.append(span) }
-                                } else if !Self.equal(current[key], value) { changes.append(span) }
+                                    if resized || !Self
+                                        .equal(current[Self.readingFont], readingFont)
+                                    {
+                                        changes.append(span)
+                                    }
+                                } else if !Self.equal(current[key], value) {
+                                    changes.append(span)
+                                }
                             }
                             for span in changes {
-                                if let value { storage.addAttribute(key, value: value, range: span) }
-                                else { storage.removeAttribute(key, range: span) }
+                                if let value {
+                                    storage.addAttribute(key, value: value, range: span)
+                                } else {
+                                    storage.removeAttribute(key, range: span)
+                                }
                                 if key == .font {
-                                    if let value, !Self.equal(value, base[.font]) { storage.addAttribute(Self.readingFont, value: value, range: span) }
-                                    else { storage.removeAttribute(Self.readingFont, range: span) }
+                                    if let value, !Self.equal(value, base[.font]) {
+                                        storage.addAttribute(
+                                            Self.readingFont,
+                                            value: value,
+                                            range: span,
+                                        )
+                                    } else {
+                                        storage.removeAttribute(Self.readingFont, range: span)
+                                    }
                                 }
                                 geometryChanged = true
                             }
@@ -150,43 +209,70 @@ final class ManuscriptStyler {
                 // Temporary attributes can ask TextKit to generate glyphs.
                 // They must never be changed inside a text-storage edit batch.
                 for (range, desired) in drawings {
-                    dirty += Self.updateTemporary(Self.readingColor, from: desired, in: range, manager: manager, local: true)
+                    dirty += Self.updateTemporary(
+                        Self.readingColor,
+                        from: desired,
+                        in: range,
+                        manager: manager,
+                        local: true,
+                    )
                     _ = Self.updateTemporary(.backgroundColor, from: desired, in: range, manager: manager, local: true)
                 }
                 active = nextActive
             }
         }
-        for range in Self.merged(dirty) { Self.composeColors(in: range, manager: manager) }
+        for range in Self.merged(dirty) {
+            Self.composeColors(in: range, manager: manager)
+        }
         return geometryChanged
     }
 
     private static func equal(_ lhs: Any?, _ rhs: Any?) -> Bool {
-        if lhs == nil && rhs == nil { return true }
-        guard let lhs = lhs as? NSObject, let rhs = rhs as? NSObject else { return false }
+        if lhs == nil, rhs == nil {
+            return true
+        }
+        guard let lhs = lhs as? NSObject, let rhs = rhs as? NSObject else {
+            return false
+        }
         return lhs.isEqual(rhs)
     }
 
     /// Compare native runs first: identical responses and unaffected regions
     /// perform no writes and generate no display invalidations.
-    private static func updateTemporary(_ key: NSAttributedString.Key, from desired: NSAttributedString,
-                                        in range: NSRange, manager: NSLayoutManager, local: Bool = false) -> [NSRange] {
+    private static func updateTemporary(
+        _ key: NSAttributedString.Key,
+        from desired: NSAttributedString,
+        in range: NSRange,
+        manager: NSLayoutManager,
+        local: Bool = false,
+    ) -> [NSRange] {
         var changes: [(NSRange, Any?)] = []
         let offset = local ? range.location : 0
-        desired.enumerateAttribute(key, in: NSRange(location: range.location - offset, length: range.length)) { value, span, _ in
+        desired.enumerateAttribute(key, in: NSRange(
+            location: range.location - offset,
+            length: range.length,
+        )) { value, span, _ in
             var cursor = span.location + offset
             let end = NSMaxRange(span) + offset
             while cursor < end {
                 var currentRange = NSRange()
                 let current = manager.temporaryAttribute(key, atCharacterIndex: cursor, effectiveRange: &currentRange)
                 let next = min(end, NSMaxRange(currentRange))
-                guard next > cursor else { break }
-                if !equal(current, value) { changes.append((NSRange(location: cursor, length: next - cursor), value)) }
+                guard next > cursor else {
+                    break
+                }
+                if !equal(current, value) {
+                    changes.append((NSRange(location: cursor, length: next - cursor), value))
+                }
                 cursor = next
             }
         }
         for (span, value) in changes {
-            if let value { manager.addTemporaryAttribute(key, value: value, forCharacterRange: span) }
-            else { manager.removeTemporaryAttribute(key, forCharacterRange: span) }
+            if let value {
+                manager.addTemporaryAttribute(key, value: value, forCharacterRange: span)
+            } else {
+                manager.removeTemporaryAttribute(key, forCharacterRange: span)
+            }
         }
         return changes.map(\.0)
     }
@@ -196,15 +282,28 @@ final class ManuscriptStyler {
         while cursor < NSMaxRange(range) {
             var syntaxRange = NSRange(), readingRange = NSRange(), drawnRange = NSRange()
             let syntax = manager.temporaryAttribute(syntaxColor, atCharacterIndex: cursor, effectiveRange: &syntaxRange)
-            let reading = manager.temporaryAttribute(readingColor, atCharacterIndex: cursor, effectiveRange: &readingRange)
-            let drawn = manager.temporaryAttribute(.foregroundColor, atCharacterIndex: cursor, effectiveRange: &drawnRange)
+            let reading = manager.temporaryAttribute(
+                readingColor,
+                atCharacterIndex: cursor,
+                effectiveRange: &readingRange,
+            )
+            let drawn = manager.temporaryAttribute(
+                .foregroundColor,
+                atCharacterIndex: cursor,
+                effectiveRange: &drawnRange,
+            )
             let end = min(NSMaxRange(range), NSMaxRange(syntaxRange), NSMaxRange(readingRange), NSMaxRange(drawnRange))
-            guard end > cursor else { break }
+            guard end > cursor else {
+                break
+            }
             let color = reading ?? syntax
             if !equal(drawn, color) {
                 let span = NSRange(location: cursor, length: end - cursor)
-                if let color { manager.addTemporaryAttribute(.foregroundColor, value: color, forCharacterRange: span) }
-                else { manager.removeTemporaryAttribute(.foregroundColor, forCharacterRange: span) }
+                if let color {
+                    manager.addTemporaryAttribute(.foregroundColor, value: color, forCharacterRange: span)
+                } else {
+                    manager.removeTemporaryAttribute(.foregroundColor, forCharacterRange: span)
+                }
             }
             cursor = end
         }
@@ -215,7 +314,9 @@ final class ManuscriptStyler {
         for range in ranges.filter({ $0.length > 0 }).sorted(by: { $0.location < $1.location }) {
             if let last = result.last, NSMaxRange(last) >= range.location {
                 result[result.count - 1] = NSUnionRange(last, range)
-            } else { result.append(range) }
+            } else {
+                result.append(range)
+            }
         }
         return result
     }
@@ -223,22 +324,24 @@ final class ManuscriptStyler {
     private static let fallback: [(NSRegularExpression, NSColor)] = [
         ("(?m)^={1,6}[ \t]+.*$", Theme.sourceStrong), ("#[A-Za-z][A-Za-z0-9_.-]*", Theme.sourceIdentifier),
         (#""(?:[^"\\]|\\.)*""#, Theme.sourceString), (#"\$[^$]*\$"#, Theme.sourceNumber),
-        (#"\*[^*\n]+\*"#, Theme.sourceStrong), ("(?m)^//.*$", Theme.sourceComment)
-    ].map { (try! NSRegularExpression(pattern: $0.0), $0.1) }
+        (#"\*[^*\n]+\*"#, Theme.sourceStrong), ("(?m)^//.*$", Theme.sourceComment),
+    ].map { pattern, color in
+        do { return try (NSRegularExpression(pattern: pattern), color) }
+        catch { preconditionFailure("Invalid built-in highlighting pattern: \(error)") }
+    }
 
     private static func color(for token: HighlightToken) -> NSColor {
-        let kind = token.kind.replacingOccurrences(of: "hljs-", with: "").components(separatedBy: " ").first ?? token.kind
-        let color: NSColor
-        switch kind {
-        case "comment", "punct", "delim", "meta": color = Theme.sourceComment
-        case "string", "regexp", "escape": color = Theme.sourceString
-        case "keyword", "operator", "selector-tag": color = Theme.sourceKeyword
-        case "number", "bool", "literal", "symbol", "bullet": color = Theme.sourceNumber
-        case "function", "title", "built_in", "type", "namespace", "link", "ref", "label": color = Theme.sourceFunction
-        case "heading", "strong": color = Theme.sourceStrong
-        case "raw", "code": color = Theme.sourceCode
-        default: color = token.modifiers.contains("math") ? Theme.sourceNumber : Theme.sourceText
+        let kind = token.kind.replacingOccurrences(of: "hljs-", with: "").components(separatedBy: " ").first ?? token
+            .kind
+        return switch kind {
+        case "comment", "punct", "delim", "meta": Theme.sourceComment
+        case "string", "regexp", "escape": Theme.sourceString
+        case "keyword", "operator", "selector-tag": Theme.sourceKeyword
+        case "number", "bool", "literal", "symbol", "bullet": Theme.sourceNumber
+        case "function", "title", "built_in", "type", "namespace", "link", "ref", "label": Theme.sourceFunction
+        case "heading", "strong": Theme.sourceStrong
+        case "raw", "code": Theme.sourceCode
+        default: token.modifiers.contains("math") ? Theme.sourceNumber : Theme.sourceText
         }
-        return color
     }
 }

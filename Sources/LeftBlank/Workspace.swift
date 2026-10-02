@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import LeftBlankCore
+import PDFKit
 import UniformTypeIdentifiers
 
 struct DiagnosticItem: Identifiable {
@@ -16,7 +17,10 @@ enum SidePanel { case outline }
 
 @MainActor
 final class Workspace: ObservableObject {
-    @Published var text = "" { didSet { textMetrics = nil } }
+    @Published var text = "" {
+        didSet { textMetrics = nil }
+    }
+
     @Published var fileURL: URL?
     @Published var mainFileURL: URL?
     @Published var savedText: String?
@@ -27,8 +31,13 @@ final class Workspace: ObservableObject {
     @Published var serviceStatus = "Connecting"
     @Published var serviceReady = false
     @Published var previewURL: URL? {
-        didSet { if previewURL != oldValue { previewReadyForNavigation = false } }
+        didSet {
+            if previewURL != oldValue {
+                previewReadyForNavigation = false
+            }
+        }
     }
+
     private var previewReadyForNavigation = false
     private var pendingPreviewNavigation: (url: URL, position: TextPosition, version: Int, reportFailure: Bool)?
     @Published var diagnostics: [DiagnosticItem] = []
@@ -42,19 +51,29 @@ final class Workspace: ObservableObject {
             }
         }
     }
+
     @Published var sidePanel: SidePanel? {
         didSet { recordOperation("sidebar.changed", ["panel": sidePanel == .outline ? "outline" : "closed"]) }
     }
+
     @Published var checksOpen = false {
         didSet { recordOperation("checks.visibility", ["open": String(checksOpen)]) }
     }
+
     @Published var appearance: AppAppearance = .system {
         didSet { Theme.apply(appearance) }
     }
+
     @Published var fontSize: CGFloat = 16
     @Published var selection = NSRange(location: 0, length: 0) {
-        didSet { if selection != oldValue { dismissAssistance(); trackOutline(at: selection.location) } }
+        didSet {
+            if selection != oldValue {
+                dismissAssistance()
+                trackOutline(at: selection.location)
+            }
+        }
     }
+
     @Published var message: String?
     @Published var paletteOpen = false
     @Published var paletteGroup: String?
@@ -70,6 +89,7 @@ final class Workspace: ObservableObject {
     @Published var styledSource = true {
         didSet { editor?.highlight() }
     }
+
     @Published var discoveryMode: UniverseDiscoveryMode?
     @Published var libraryOpen = false
     @Published private(set) var isLibraryHome = false
@@ -82,26 +102,40 @@ final class Workspace: ObservableObject {
     @Published var outline: [OutlineItem] = [] {
         didSet { rebuildOutline() }
     }
+
     @Published private(set) var outlineNavigation = OutlineNavigation()
     @Published private(set) var activeOutlineIndex: Int?
     private var readingOffset = 0
     private lazy var outlineExpansions: [String: OutlineNavigation.Expansion] = {
-        guard let data = try? Data(contentsOf: outlineStateURL) else { return [:] }
+        guard let data = try? Data(contentsOf: outlineStateURL) else {
+            return [:]
+        }
         return (try? JSONDecoder().decode([String: OutlineNavigation.Expansion].self, from: data)) ?? [:]
     }()
-    private var outlineStateURL: URL { stateDirectory.appendingPathComponent("outline-folds.json") }
+
+    private var outlineStateURL: URL {
+        stateDirectory.appendingPathComponent("outline-folds.json")
+    }
 
     private func rebuildOutline() {
         let key = documentURL.absoluteString
-        outlineNavigation = OutlineNavigation(items: outline, expansion: outlineExpansions[key], anchor: selection.location)
-        if !outline.isEmpty { outlineExpansions[key] = outlineNavigation.expansion }
+        outlineNavigation = OutlineNavigation(
+            items: outline,
+            expansion: outlineExpansions[key],
+            anchor: selection.location,
+        )
+        if !outline.isEmpty {
+            outlineExpansions[key] = outlineNavigation.expansion
+        }
         trackOutline(at: readingOffset)
     }
 
     func trackOutline(at offset: Int) {
         readingOffset = offset
         let index = outlineNavigation.index(at: offset)
-        if activeOutlineIndex != index { activeOutlineIndex = index }
+        if activeOutlineIndex != index {
+            activeOutlineIndex = index
+        }
     }
 
     func toggleOutlineSection(_ index: Int) {
@@ -116,12 +150,21 @@ final class Workspace: ObservableObject {
 
     private func rememberOutlineExpansion() {
         outlineExpansions[documentURL.absoluteString] = outlineNavigation.expansion
-        if let data = try? JSONEncoder().encode(outlineExpansions) { try? data.write(to: outlineStateURL, options: .atomic) }
+        if let data = try? JSONEncoder().encode(outlineExpansions) {
+            try? data.write(
+                to: outlineStateURL,
+                options: .atomic,
+            )
+        }
     }
+
     @Published var applyingCommand = false
     @Published var commandKey: String = UserDefaults.standard.string(forKey: "commandKey") ?? "j" {
-        didSet { UserDefaults.standard.set(commandKey, forKey: "commandKey"); onShortcutChange?() }
+        didSet { UserDefaults.standard.set(commandKey, forKey: "commandKey")
+            onShortcutChange?()
+        }
     }
+
     @Published private(set) var assistance: WritingAssistance?
     private var assistanceTask: Task<Void, Never>?
     private var assistanceRequest = UUID()
@@ -147,47 +190,107 @@ final class Workspace: ObservableObject {
     let stateDirectory: URL
     lazy var library = LibraryController(workspace: self)
     private let actionLog: ActionLog?
-    private var recoveryURL: URL { stateDirectory.appendingPathComponent("recovery.json") }
-    var draftURL: URL { stateDirectory.appendingPathComponent("Draft.typ") }
-    var documentURL: URL { fileURL ?? draftURL }
-    var compilationURL: URL { mainFileURL ?? documentURL }
-    var title: String { isLibraryHome ? L10n.text("Your writing") : (managedTitle ?? fileURL?.deletingPathExtension().lastPathComponent ?? L10n.text("Untitled")) }
-    var revision: Int { documentVersion }
+    private var recoveryURL: URL {
+        stateDirectory.appendingPathComponent("recovery.json")
+    }
+
+    var draftURL: URL {
+        stateDirectory.appendingPathComponent("Draft.typ")
+    }
+
+    var documentURL: URL {
+        fileURL ?? draftURL
+    }
+
+    var compilationURL: URL {
+        mainFileURL ?? documentURL
+    }
+
+    var title: String {
+        isLibraryHome ? L10n
+            .text("Your writing") :
+            (managedTitle ?? fileURL?.deletingPathExtension().lastPathComponent ?? L10n.text("Untitled"))
+    }
+
+    var revision: Int {
+        documentVersion
+    }
+
     private var textMetrics: DocumentMetrics?
     private var metrics: DocumentMetrics {
-        if let textMetrics { return textMetrics }
+        if let textMetrics {
+            return textMetrics
+        }
         let value = DocumentMetrics(text)
         textMetrics = value
         return value
     }
-    var position: TextPosition { metrics.position(at: selection.location) }
-    var wordCount: Int { metrics.wordCount }
+
+    var position: TextPosition {
+        metrics.position(at: selection.location)
+    }
+
+    var wordCount: Int {
+        metrics.wordCount
+    }
+
     private var commandResults: (query: String, group: String?, searching: Bool, commands: [WritingCommand])?
 
     var filteredCommands: [WritingCommand] {
-        if let cached = commandResults, cached.query == query, cached.group == paletteGroup, cached.searching == searchMode { return cached.commands }
-        let commands = searchMode ? WritingCommand.search(query) : WritingCommand.all.filter { $0.group == paletteGroup }
+        if let cached = commandResults, cached.query == query, cached.group == paletteGroup,
+           cached.searching == searchMode
+        {
+            return cached.commands
+        }
+        let commands = searchMode ? WritingCommand.search(query) : WritingCommand.all
+            .filter { $0.group == paletteGroup }
         commandResults = (query, paletteGroup, searchMode, commands)
         return commands
     }
-    var paletteGroups: [CommandGroup] { searchMode ? [] : CommandGroup.children(of: paletteGroup) }
-    var paletteEntryCount: Int { paletteGroups.count + filteredCommands.count }
+
+    var paletteGroups: [CommandGroup] {
+        searchMode ? [] : CommandGroup.children(of: paletteGroup)
+    }
+
+    var paletteEntryCount: Int {
+        paletteGroups.count + filteredCommands.count
+    }
+
     var highlightedCommand: WritingCommand? {
         let index = selectedCommandIndex - paletteGroups.count
         return filteredCommands.indices.contains(index) ? filteredCommands[index] : nil
     }
+
     func keyPath(for command: WritingCommand) -> String {
         command.keyPath
     }
 
     init(stateDirectory directory: URL? = nil) {
-        if let directory { stateDirectory = directory }
-        else { stateDirectory = AppDistribution.defaultStateDirectory }
+        if let directory {
+            stateDirectory = directory
+        } else {
+            stateDirectory = AppDistribution.defaultStateDirectory
+        }
         try? FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: stateDirectory.appendingPathComponent("Exports"), withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            at: stateDirectory.appendingPathComponent("Exports"),
+            withIntermediateDirectories: true,
+        )
         actionLog = try? ActionLog(directory: stateDirectory.appendingPathComponent("Logs"))
-        actionLog?.record("session.start", fields: ["version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development", "pid": String(ProcessInfo.processInfo.processIdentifier)])
-        if let data = try? Data(contentsOf: stateDirectory.appendingPathComponent("recovery.json")), let snapshot = try? JSONDecoder().decode(RecoverySnapshot.self, from: data) {
+        actionLog?.record(
+            "session.start",
+            fields: [
+                "version": Bundle.main
+                    .object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development",
+                "pid": String(ProcessInfo.processInfo.processIdentifier),
+            ],
+        )
+        if let data = try? Data(contentsOf: stateDirectory.appendingPathComponent("recovery.json")),
+           let snapshot = try? JSONDecoder().decode(
+               RecoverySnapshot.self,
+               from: data,
+           )
+        {
             fileURL = snapshot.fileURL
             mainFileURL = snapshot.mainFileURL
             text = snapshot.text
@@ -197,7 +300,9 @@ final class Workspace: ObservableObject {
             if let fileURL {
                 baseline = DiskBaseline(data: snapshot.savedText.map { Data($0.utf8) })
                 if let disk = try? DocumentStorage.read(fileURL), snapshot.text == snapshot.savedText {
-                    text = disk.0; savedText = disk.0; baseline = disk.1
+                    text = disk.0
+                    savedText = disk.0
+                    baseline = disk.1
                 }
             }
         } else {
@@ -209,19 +314,26 @@ final class Workspace: ObservableObject {
         client.onNotification = { [weak self] method, params in self?.receive(method, params) }
         client.onDisconnect = { [weak self] message in
             self?.recordOperation("service.disconnected", ["reason": message])
-            self?.serviceReady = false; self?.serviceStatus = "Disconnected"; self?.message = message
+            self?.serviceReady = false
+            self?.serviceStatus = "Disconnected"
+            self?.message = message
         }
         client.onShowDocument = { [weak self] params in self?.showDocument(params) }
     }
 
     func startService() {
-        guard !isLibraryHome else { return }
+        guard !isLibraryHome else {
+            return
+        }
         recordOperation("service.start")
         checksOpen = false
         dismissAssistance()
         let generation = UUID()
         serviceGeneration = generation
-        syntaxTask?.cancel(); syntaxTask = nil; syntaxSnapshot = nil; syntaxRevision += 1
+        syntaxTask?.cancel()
+        syntaxTask = nil
+        syntaxSnapshot = nil
+        syntaxRevision += 1
         serviceReady = false
         serviceStatus = "Connecting"
         diagnostics = []
@@ -233,9 +345,16 @@ final class Workspace: ObservableObject {
         sentVersion = 0
         Task {
             do {
-                if fileURL == nil { _ = try DocumentStorage.write(text, to: draftURL, baseline: nil) }
-                try await client.start(root: compilationURL.deletingLastPathComponent(), outputDirectory: stateDirectory.appendingPathComponent("Exports"))
-                guard serviceGeneration == generation else { return }
+                if fileURL == nil {
+                    _ = try DocumentStorage.write(text, to: draftURL, baseline: nil)
+                }
+                try await client.start(
+                    root: compilationURL.deletingLastPathComponent(),
+                    outputDirectory: stateDirectory.appendingPathComponent("Exports"),
+                )
+                guard serviceGeneration == generation else {
+                    return
+                }
                 try client.open(documentURL, text: text, version: documentVersion)
                 if compilationURL != documentURL {
                     try client.open(compilationURL, text: DocumentStorage.read(compilationURL).0, version: 1)
@@ -244,14 +363,18 @@ final class Workspace: ObservableObject {
                 serviceReady = true
                 serviceStatus = "Ready"
                 let url = try await client.startPreview(compilationURL)
-                guard serviceGeneration == generation else { return }
+                guard serviceGeneration == generation else {
+                    return
+                }
                 previewURL = url
                 recordOperation("service.ready")
                 try flushChanges()
                 refreshSyntax()
                 await refreshOutline()
             } catch {
-                guard serviceGeneration == generation else { return }
+                guard serviceGeneration == generation else {
+                    return
+                }
                 serviceStatus = "Unavailable"
                 recordOperation("service.failed", ["error": error.localizedDescription])
                 showMessage(error.localizedDescription, persistent: true)
@@ -260,22 +383,32 @@ final class Workspace: ObservableObject {
     }
 
     func edited(_ newText: String, change: TextReplacement? = nil) {
-        guard !isLibraryHome else { return }
+        guard !isLibraryHome else {
+            return
+        }
         history.willEdit(previous: text)
         dismissAssistance()
         var updatedMetrics: DocumentMetrics?
-        if let change, var current = textMetrics, current.apply(change, to: text) { updatedMetrics = current }
+        if let change, var current = textMetrics, current.apply(change, to: text) {
+            updatedMetrics = current
+        }
         text = newText
         textMetrics = updatedMetrics
         documentVersion += 1
         previewStale = true
         saveStatus = fileURL == nil ? "Saving Draft" : "Unsaved"
-        if serviceReady { serviceStatus = "Typesetting" }
+        if serviceReady {
+            serviceStatus = "Typesetting"
+        }
         saveTask?.cancel()
         saveTask = Task {
             do { try await Task.sleep(for: .milliseconds(650)) } catch { return }
             let recovered = saveRecovery()
-            if fileURL != nil { save() } else { saveStatus = recovered ? "Draft Saved" : "Draft Save Failed" }
+            if fileURL != nil {
+                save()
+            } else {
+                saveStatus = recovered ? "Draft Saved" : "Draft Save Failed"
+            }
         }
         syncTask?.cancel()
         syncTask = Task {
@@ -289,25 +422,40 @@ final class Workspace: ObservableObject {
     /// At most one request is in flight. If typing overtakes it, discard its
     /// ranges and immediately request the latest buffer without blocking input.
     private func refreshSyntax() {
-        guard serviceReady, syntaxTask == nil else { return }
+        guard serviceReady, syntaxTask == nil else {
+            return
+        }
         let generation = serviceGeneration
         syntaxTask = Task {
-            defer { if generation == serviceGeneration { syntaxTask = nil } }
+            defer {
+                if generation == serviceGeneration {
+                    syntaxTask = nil
+                }
+            }
             while !Task.isCancelled, serviceReady, generation == serviceGeneration {
                 let version = documentVersion, source = text
                 do {
                     try flushChanges()
                     async let embedded = codeHighlighter.tokens(in: source)
-                    let response = try await client.request("textDocument/semanticTokens/full", ["textDocument": ["uri": documentURL.absoluteString]])
+                    let response = try await client.request(
+                        "textDocument/semanticTokens/full",
+                        ["textDocument": ["uri": documentURL.absoluteString]],
+                    )
                     let encoded = response["data"].array.compactMap(\.int)
                     let types = client.semanticTokenTypes, modifiers = client.semanticTokenModifiers
                     let tokens = await Task.detached(priority: .userInitiated) {
                         SemanticHighlighting.decode(encoded, source: source, types: types, modifiers: modifiers)
                     }.value
                     let combined = await tokens + embedded
-                    guard !Task.isCancelled, generation == serviceGeneration else { return }
-                    if version != documentVersion { continue }
-                    syntaxSnapshot = (source, combined); syntaxDocumentRevision = version; syntaxRevision += 1
+                    guard !Task.isCancelled, generation == serviceGeneration else {
+                        return
+                    }
+                    if version != documentVersion {
+                        continue
+                    }
+                    syntaxSnapshot = (source, combined)
+                    syntaxDocumentRevision = version
+                    syntaxRevision += 1
                     editor?.highlight()
                 } catch { /* Keep editing with the lightweight local styles. */ }
                 return
@@ -316,18 +464,29 @@ final class Workspace: ObservableObject {
     }
 
     private func refreshOutline() async {
-        guard serviceReady else { return }
+        guard serviceReady else {
+            return
+        }
         let version = documentVersion, generation = serviceGeneration
         do {
-            let symbols = try await client.request("textDocument/documentSymbol", ["textDocument": ["uri": documentURL.absoluteString]])
-            guard version == documentVersion, generation == serviceGeneration else { return }
+            let symbols = try await client.request(
+                "textDocument/documentSymbol",
+                ["textDocument": ["uri": documentURL.absoluteString]],
+            )
+            guard version == documentVersion, generation == serviceGeneration else {
+                return
+            }
             let index = metrics
             func headings(_ nodes: [JSONValue], level: Int) -> [OutlineItem] {
                 nodes.flatMap { node -> [OutlineItem] in
                     let isHeading = node["kind"].int == 3
                     let start = node["range"]["start"]
                     let position = TextPosition(line: start["line"].int ?? 0, character: start["character"].int ?? 0)
-                    let current = isHeading ? [OutlineItem(title: node["name"].string ?? L10n.text("Heading"), level: level, offset: index.offset(at: position))] : []
+                    let current = isHeading ? [OutlineItem(
+                        title: node["name"].string ?? L10n.text("Heading"),
+                        level: level,
+                        offset: index.offset(at: position),
+                    )] : []
                     return current + headings(node["children"].array, level: isHeading ? level + 1 : level)
                 }
             }
@@ -336,21 +495,42 @@ final class Workspace: ObservableObject {
     }
 
     func flushChanges() throws {
-        guard serviceReady, documentVersion != sentVersion else { return }
+        guard serviceReady, documentVersion != sentVersion else {
+            return
+        }
         try client.change(documentURL, text: text, version: documentVersion)
         sentVersion = documentVersion
     }
 
     @discardableResult func saveRecovery() -> Bool {
         history.flush(current: text)
-        let snapshot = RecoverySnapshot(fileURL: fileURL, text: text, savedText: savedText, selection: selection.location, mainFileURL: mainFileURL, libraryHome: isLibraryHome)
-        do { try JSONEncoder().encode(snapshot).write(to: recoveryURL, options: .atomic); return true }
-        catch { recordOperation("recovery.failed", ["error": error.localizedDescription]); showMessage(L10n.format("Could not save the recovery copy: %@", error.localizedDescription), persistent: true); return false }
+        let snapshot = RecoverySnapshot(
+            fileURL: fileURL,
+            text: text,
+            savedText: savedText,
+            selection: selection.location,
+            mainFileURL: mainFileURL,
+            libraryHome: isLibraryHome,
+        )
+        do { try JSONEncoder().encode(snapshot).write(to: recoveryURL, options: .atomic)
+            return true
+        } catch { recordOperation("recovery.failed", ["error": error.localizedDescription])
+            showMessage(
+                L10n.format("Could not save the recovery copy: %@", error.localizedDescription),
+                persistent: true,
+            )
+            return false
+        }
     }
 
     func save() {
-        guard !isLibraryHome else { return }
-        guard let fileURL else { saveAs(); return }
+        guard !isLibraryHome else {
+            return
+        }
+        guard let fileURL else {
+            saveAs()
+            return
+        }
         history.flush(current: text)
         do {
             baseline = try DocumentStorage.write(text, to: fileURL, baseline: baseline)
@@ -368,14 +548,20 @@ final class Workspace: ObservableObject {
     }
 
     private func present(_ panel: NSSavePanel, completion: @escaping @MainActor (URL) -> Void) {
-        guard let window = window ?? editor?.window, window.attachedSheet == nil else { return }
+        guard let window = window ?? editor?.window, window.attachedSheet == nil else {
+            return
+        }
         panel.beginSheetModal(for: window) { response in
-            if response == .OK, let url = panel.url { completion(url) }
+            if response == .OK, let url = panel.url {
+                completion(url)
+            }
         }
     }
 
     func saveAs() {
-        guard !isLibraryHome else { return }
+        guard !isLibraryHome else {
+            return
+        }
         recordOperation("saveAs.dialog")
         let panel = NSSavePanel()
         panel.title = L10n.text("Save Document")
@@ -384,20 +570,29 @@ final class Workspace: ObservableObject {
         panel.directoryURL = managedDocumentID == nil ? fileURL?.deletingLastPathComponent() : nil
         panel.allowedContentTypes = [UTType(filenameExtension: "typ") ?? .plainText]
         present(panel) { [weak self] url in
-            guard let self else { return }
+            guard let self else {
+                return
+            }
             do {
                 try save(to: url)
-            } catch { recordOperation("saveAs.failed", ["error": error.localizedDescription]); showMessage(error.localizedDescription, persistent: true) }
+            } catch { recordOperation("saveAs.failed", ["error": error.localizedDescription])
+                showMessage(error.localizedDescription, persistent: true)
+            }
         }
     }
 
     func save(to url: URL) throws {
         history.flush(current: text)
         baseline = try DocumentStorage.write(text, to: url, baseline: url == fileURL ? baseline : nil)
-        fileURL = url; mainFileURL = nil; savedText = text; saveStatus = "Saved"
+        fileURL = url
+        mainFileURL = nil
+        savedText = text
+        saveStatus = "Saved"
         library.associate(url)
         recordOperation("saveAs.finished")
-        saveRecovery(); onTitleChange?(title); startService()
+        saveRecovery()
+        onTitleChange?(title)
+        startService()
     }
 
     func openPanel(recovery: Bool = false) {
@@ -411,17 +606,24 @@ final class Workspace: ObservableObject {
     }
 
     private func preserveCurrent() -> Bool {
-        guard !isLibraryHome else { return true }
+        guard !isLibraryHome else {
+            return true
+        }
         saveTask?.cancel()
         saveRecovery()
-        if fileURL != nil, text != savedText { save() }
+        if fileURL != nil, text != savedText {
+            save()
+        }
         if text != savedText {
             let date = Date().formatted(.iso8601).replacingOccurrences(of: ":", with: "-")
             let backup = stateDirectory.appendingPathComponent("Draft-\(date)-\(UUID().uuidString.prefix(6)).typ")
             do {
                 _ = try DocumentStorage.write(text, to: backup, baseline: nil)
-                showMessage(L10n.text("Your previous document is preserved. Reopen it from Documents → Recover Draft Copy."))
-            } catch { showMessage(error.localizedDescription, persistent: true); return false }
+                showMessage(L10n
+                    .text("Your previous document is preserved. Reopen it from Documents → Recover Draft Copy."))
+            } catch { showMessage(error.localizedDescription, persistent: true)
+                return false
+            }
         }
         return true
     }
@@ -429,19 +631,29 @@ final class Workspace: ObservableObject {
     @discardableResult func open(_ url: URL, preservingMain: Bool = false) -> Bool {
         recordOperation("document.open", ["preservingMain": String(preservingMain)])
         do {
-            guard preserveCurrent() else { return false }
+            guard preserveCurrent() else {
+                return false
+            }
             let (content, disk) = try DocumentStorage.read(url)
             let previousMain = compilationURL
             mainFileURL = preservingMain && url != previousMain ? previousMain : nil
-            fileURL = url; text = content; savedText = content; baseline = disk
+            fileURL = url
+            text = content
+            savedText = content
+            baseline = disk
             isLibraryHome = false
             library.associate(url)
-            documentVersion += 1; selection = NSRange(location: 0, length: 0)
+            documentVersion += 1
+            selection = NSRange(location: 0, length: 0)
             editor?.load(content, selection: selection)
             saveStatus = "Saved"
-            saveRecovery(); onTitleChange?(title); startService()
+            saveRecovery()
+            onTitleChange?(title)
+            startService()
             return true
-        } catch { showMessage(error.localizedDescription, persistent: true); return false }
+        } catch { showMessage(error.localizedDescription, persistent: true)
+            return false
+        }
     }
 
     func newDocument() {
@@ -451,46 +663,78 @@ final class Workspace: ObservableObject {
 
     func openLibrary() {
         discoveryMode = nil
-        if !isLibraryHome { libraryOpen = true }
+        if !isLibraryHome {
+            libraryOpen = true
+        }
     }
 
     /// Discovery and the library share one presentation, including on an empty library.
     func openDiscovery(_ mode: UniverseDiscoveryMode) {
         closePalette()
         discoveryMode = mode
-        if !isLibraryHome { libraryOpen = true }
+        if !isLibraryHome {
+            libraryOpen = true
+        }
     }
 
     /// No replacement draft is created when the last document is trashed.
     func showLibraryHome() {
         dismissAssistance()
-        saveTask?.cancel(); syncTask?.cancel(); syntaxTask?.cancel(); syntaxTask = nil; messageTask?.cancel()
-        syntaxSnapshot = nil; syntaxRevision += 1
+        saveTask?.cancel()
+        syncTask?.cancel()
+        syntaxTask?.cancel()
+        syntaxTask = nil
+        messageTask?.cancel()
+        syntaxSnapshot = nil
+        syntaxRevision += 1
         serviceGeneration = UUID()
         client.stop()
         historyOpen = false
         isLibraryHome = true
-        fileURL = nil; mainFileURL = nil; managedDocumentID = nil; managedTitle = nil
-        text = ""; savedText = ""; baseline = nil
-        selection = NSRange(location: 0, length: 0); documentVersion += 1
+        fileURL = nil
+        mainFileURL = nil
+        managedDocumentID = nil
+        managedTitle = nil
+        text = ""
+        savedText = ""
+        baseline = nil
+        selection = NSRange(location: 0, length: 0)
+        documentVersion += 1
         editor?.load("", selection: selection)
         editor?.isEditable = false
-        previewURL = nil; diagnostics = []; diagnosticsByURI = [:]; outline = []
-        serviceReady = false; hasSuccessfulPreview = false; previewStale = true
-        paletteOpen = false; checksOpen = false; sidePanel = nil; message = nil; libraryOpen = false
-        saveRecovery(); onTitleChange?(title)
+        previewURL = nil
+        diagnostics = []
+        diagnosticsByURI = [:]
+        outline = []
+        serviceReady = false
+        hasSuccessfulPreview = false
+        previewStale = true
+        paletteOpen = false
+        checksOpen = false
+        sidePanel = nil
+        message = nil
+        libraryOpen = false
+        saveRecovery()
+        onTitleChange?(title)
         recordOperation("library.home")
     }
 
     func reload() {
-        guard let fileURL else { return }
+        guard let fileURL else {
+            return
+        }
         do {
             let backup = stateDirectory.appendingPathComponent("Before-reload-\(UUID().uuidString).typ")
             _ = try DocumentStorage.write(text, to: backup, baseline: nil)
             let (content, disk) = try DocumentStorage.read(fileURL)
-            text = content; savedText = content; baseline = disk; documentVersion += 1
+            text = content
+            savedText = content
+            baseline = disk
+            documentVersion += 1
             editor?.load(content, selection: NSRange(location: 0, length: 0))
-            saveStatus = "Saved"; saveRecovery(); startService()
+            saveStatus = "Saved"
+            saveRecovery()
+            startService()
             showMessage(L10n.text("Loaded the disk version. Your edits are preserved in a draft copy."))
         } catch { showMessage(error.localizedDescription, persistent: true) }
     }
@@ -499,18 +743,32 @@ final class Workspace: ObservableObject {
     /// viewport. Conflicting paragraphs stay in the live buffer and recovery file.
     func refreshFromLibrary() async {
         guard managedDocumentID != nil, let url = fileURL, let base = savedText,
-              !documentTransitionInProgress, editor?.hasMarkedText() != true else { return }
+              !documentTransitionInProgress, editor?.hasMarkedText() != true
+        else {
+            return
+        }
         let result = await Task.detached { try? DocumentStorage.read(url) }.value
-        guard let (remote, disk) = result, fileURL == url, savedText == base, remote != base else { return }
+        guard let (remote, disk) = result, fileURL == url, savedText == base, remote != base else {
+            return
+        }
         let local = text, caret = selection, version = documentVersion
         let merge = await Task.detached(priority: .utility) {
             DocumentMerge.merge(base: base, local: local, remote: remote, selection: caret)
         }.value
         guard fileURL == url, savedText == base, documentVersion == version,
-              selection == caret, editor?.hasMarkedText() != true, !documentTransitionInProgress else { return }
+              selection == caret, editor?.hasMarkedText() != true, !documentTransitionInProgress
+        else {
+            return
+        }
         guard let merged = merge else {
             saveRecovery()
-            showMessage(L10n.text("This paragraph changed on another device. Your writing is safe; resolve the conflict before saving."), persistent: true)
+            showMessage(
+                L10n
+                    .text(
+                        "This paragraph changed on another device. Your writing is safe; resolve the conflict before saving.",
+                    ),
+                persistent: true,
+            )
             return
         }
         let scrollView = editor?.enclosingScrollView
@@ -518,16 +776,31 @@ final class Workspace: ObservableObject {
         let wasClean = text == base
         baseline = disk
         savedText = remote
-        guard merged.text != text else { saveStatus = "Saved"; saveRecovery(); return }
+        guard merged.text != text else {
+            saveStatus = "Saved"
+            saveRecovery()
+            return
+        }
         if let editor {
-            editor.insertSnippet(Snippet(text: merged.text), replacing: NSRange(location: 0, length: text.utf16.count), focus: false)
+            editor.insertSnippet(
+                Snippet(text: merged.text),
+                replacing: NSRange(location: 0, length: text.utf16.count),
+                focus: false,
+            )
             editor.undoManager?.setActionName(L10n.text("Sync update"))
             editor.setSelectedRange(merged.selection)
-        } else { edited(merged.text); selection = merged.selection }
-        if wasClean { saveStatus = "Saved" }
+        } else {
+            edited(merged.text)
+            selection = merged.selection
+        }
+        if wasClean {
+            saveStatus = "Saved"
+        }
         if let origin {
             scrollView?.contentView.scroll(to: origin)
-            if let clip = scrollView?.contentView { scrollView?.reflectScrolledClipView(clip) }
+            if let clip = scrollView?.contentView {
+                scrollView?.reflectScrolledClipView(clip)
+            }
         }
         saveRecovery()
         recordOperation("document.remoteUpdate", ["merged": String(!wasClean)])
@@ -536,138 +809,288 @@ final class Workspace: ObservableObject {
     func togglePalette() {
         dismissAssistance()
         checksOpen = false
-        guard !isLibraryHome else { return }
+        guard !isLibraryHome else {
+            return
+        }
         recordOperation("palette.toggle")
-        if paletteOpen { closePalette() } else {
-            guard editor?.hasMarkedText() != true else { return }
+        if paletteOpen {
+            closePalette()
+        } else {
+            guard editor?.hasMarkedText() != true else {
+                return
+            }
             editor?.isEditable = false
             editor?.window?.makeFirstResponder(nil)
-            paletteOpen = true; paletteGroup = nil; searchMode = false; activeCommand = nil; query = ""; commandError = nil; selectedCommandIndex = 0
+            paletteOpen = true
+            paletteGroup = nil
+            searchMode = false
+            activeCommand = nil
+            query = ""
+            commandError = nil
+            selectedCommandIndex = 0
         }
     }
+
     func closePalette() {
         recordOperation("palette.close")
-        paletteOpen = false; activeCommand = nil; commandError = nil
+        paletteOpen = false
+        activeCommand = nil
+        commandError = nil
         editor?.isEditable = layout != .preview && !documentTransitionInProgress
-        if layout != .preview, let editor { editor.window?.makeFirstResponder(editor) }
+        if layout != .preview, let editor {
+            editor.window?.makeFirstResponder(editor)
+        }
     }
+
     func backPalette() {
         commandError = nil
-        if activeCommand != nil { activeCommand = nil }
-        else if searchMode { searchMode = false; query = "" }
-        else if let group = paletteGroup { paletteGroup = CommandGroup.all.first { $0.id == group }?.parentID }
-        else { closePalette() }
+        if activeCommand != nil {
+            activeCommand = nil
+        } else if searchMode {
+            searchMode = false
+            query = ""
+        } else if let group = paletteGroup {
+            paletteGroup = CommandGroup.all.first { $0.id == group }?.parentID
+        } else {
+            closePalette()
+        }
         selectedCommandIndex = 0
     }
-    func enterGroup(_ id: String) { paletteGroup = id; searchMode = false; activeCommand = nil; selectedCommandIndex = 0 }
+
+    func enterGroup(_ id: String) {
+        paletteGroup = id
+        searchMode = false
+        activeCommand = nil
+        selectedCommandIndex = 0
+    }
+
     func selectCommand(_ command: WritingCommand) {
         recordOperation("command.selected", ["command": command.id, "source": searchMode ? "search" : "group"])
         commandError = nil
         fieldValues = Dictionary(uniqueKeysWithValues: command.fields.map { ($0.id, $0.initial) })
-        if command.fields.isEmpty { execute(command) }
-        else { activeCommand = command }
+        if command.fields.isEmpty {
+            execute(command)
+        } else {
+            activeCommand = command
+        }
     }
 
     func handlePaletteKey(_ event: NSEvent) -> Bool {
-        guard paletteOpen else { return false }
-        if (event.window?.firstResponder as? NSTextView)?.hasMarkedText() == true { return false }
-        if event.keyCode == 53 { backPalette(); return true }
-        guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return false }
-        if activeCommand != nil { return false }
-        let grid = !searchMode && paletteGroup == nil
-        let step = grid ? 3 : 1
-        if event.keyCode == 125 { selectedCommandIndex = min(selectedCommandIndex + step, max(0, paletteEntryCount - 1)); return true }
-        if event.keyCode == 126 { selectedCommandIndex = max(0, selectedCommandIndex - step); return true }
-        if grid, event.keyCode == 124 { selectedCommandIndex = min(selectedCommandIndex + 1, max(0, paletteEntryCount - 1)); return true }
-        if grid, event.keyCode == 123 { selectedCommandIndex = max(0, selectedCommandIndex - 1); return true }
-        if event.keyCode == 36, paletteEntryCount > 0 {
-            if paletteGroups.indices.contains(selectedCommandIndex) { enterGroup(paletteGroups[selectedCommandIndex].id) }
-            else if let command = highlightedCommand { selectCommand(command) }
+        guard paletteOpen else {
+            return false
+        }
+        if (event.window?.firstResponder as? NSTextView)?.hasMarkedText() == true {
+            return false
+        }
+        if event.keyCode == 53 {
+            backPalette()
             return true
         }
-        if searchMode { return false }
-        guard let key = event.charactersIgnoringModifiers?.lowercased() else { return false }
-        if key == "/" { searchMode = true; paletteGroup = nil; return true }
-        if let group = paletteGroup, let command = WritingCommand.all.first(where: { $0.group == group && $0.key == key }) { selectCommand(command); return true }
-        if let group = paletteGroups.first(where: { $0.key == key }) { enterGroup(group.id); return true }
+        guard event.modifierFlags.isDisjoint(with: [.command, .control, .option]) else {
+            return false
+        }
+        if activeCommand != nil {
+            return false
+        }
+        let grid = !searchMode && paletteGroup == nil
+        let step = grid ? 3 : 1
+        if event.keyCode == 125 {
+            selectedCommandIndex = min(selectedCommandIndex + step, max(0, paletteEntryCount - 1))
+            return true
+        }
+        if event.keyCode == 126 {
+            selectedCommandIndex = max(0, selectedCommandIndex - step)
+            return true
+        }
+        if grid, event.keyCode == 124 {
+            selectedCommandIndex = min(
+                selectedCommandIndex + 1,
+                max(0, paletteEntryCount - 1),
+            )
+            return true
+        }
+        if grid, event.keyCode == 123 {
+            selectedCommandIndex = max(0, selectedCommandIndex - 1)
+            return true
+        }
+        if event.keyCode == 36, paletteEntryCount > 0 {
+            if paletteGroups.indices
+                .contains(selectedCommandIndex)
+            {
+                enterGroup(paletteGroups[selectedCommandIndex].id)
+            } else if let command = highlightedCommand {
+                selectCommand(command)
+            }
+            return true
+        }
+        if searchMode {
+            return false
+        }
+        guard let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return false
+        }
+        if key == "/" {
+            searchMode = true
+            paletteGroup = nil
+            return true
+        }
+        if let group = paletteGroup,
+           let command = WritingCommand.all
+           .first(where: { $0.group == group && $0.key == key })
+        {
+            selectCommand(command)
+            return true
+        }
+        if let group = paletteGroups.first(where: { $0.key == key }) {
+            enterGroup(group.id)
+            return true
+        }
         return true
     }
 
     func execute(_ command: WritingCommand) {
         recordOperation("command.execute", ["command": command.id])
         switch command.id {
-        case "undo": closePalette(); editor?.undoManager?.undo()
-        case "redo": closePalette(); editor?.undoManager?.redo()
-        case "cut": closePalette(); editor?.cut(nil)
-        case "copy": closePalette(); editor?.copy(nil)
-        case "paste": closePalette(); editor?.paste(nil)
-        case "selectAll": closePalette(); editor?.selectAll(nil)
+        case "undo": closePalette()
+            editor?.undoManager?.undo()
+        case "redo": closePalette()
+            editor?.undoManager?.redo()
+        case "cut": closePalette()
+            editor?.cut(nil)
+        case "copy": closePalette()
+            editor?.copy(nil)
+        case "paste": closePalette()
+            editor?.paste(nil)
+        case "selectAll": closePalette()
+            editor?.selectAll(nil)
         case "find":
             closePalette()
-            if layout == .preview { layout = .split }
+            if layout == .preview {
+                layout = .split
+            }
             let sender = NSMenuItem()
             sender.tag = NSTextFinder.Action.showFindInterface.rawValue
             editor?.performFindPanelAction(sender)
-        case "fontLarger": closePalette(); fontSize = min(28, fontSize + 1)
-        case "fontSmaller": closePalette(); fontSize = max(12, fontSize - 1)
-        case "new": closePalette(); newDocument()
-        case "open": closePalette(); openLibrary()
-        case "importDocument": closePalette(); library.importPanel()
-        case "revealSource": closePalette(); NSWorkspace.shared.activateFileViewerSelecting([documentURL])
+        case "fontLarger": closePalette()
+            fontSize = min(28, fontSize + 1)
+        case "fontSmaller": closePalette()
+            fontSize = max(12, fontSize - 1)
+        case "new": closePalette()
+            newDocument()
+        case "open": closePalette()
+            openLibrary()
+        case "importDocument": closePalette()
+            library.importPanel()
+        case "revealSource": closePalette()
+            NSWorkspace.shared.activateFileViewerSelecting([documentURL])
         case "history": openHistory()
-        case "save": closePalette(); save()
-        case "saveAs": closePalette(); saveAs()
-        case "reload": closePalette(); reload()
-        case "drafts": closePalette(); openPanel(recovery: true)
-        case "export": closePalette(); exportPDF()
-        case "writing": layout = .writing; closePalette()
-        case "split": layout = .split; closePalette()
-        case "preview": layout = .preview; closePalette()
-        case "outline": sidePanel = sidePanel == .outline ? nil : .outline; closePalette()
-        case "outlineExpand", "outlineCollapse": expandOutline(command.id == "outlineExpand"); sidePanel = .outline; closePalette()
-        case "diagnostics": closePalette(); checksOpen.toggle()
-        case "restart": closePalette(); startService()
-        case "revealPreview": closePalette(); revealPreview()
-        case "logs": closePalette(); revealLogs()
+        case "save": closePalette()
+            save()
+        case "saveAs": closePalette()
+            saveAs()
+        case "reload": closePalette()
+            reload()
+        case "drafts": closePalette()
+            openPanel(recovery: true)
+        case "export": closePalette()
+            exportPDF()
+        case "writing": layout = .writing
+            closePalette()
+        case "split": layout = .split
+            closePalette()
+        case "preview": layout = .preview
+            closePalette()
+        case "outline": sidePanel = sidePanel == .outline ? nil : .outline
+            closePalette()
+        case "outlineExpand", "outlineCollapse": expandOutline(command.id == "outlineExpand")
+            sidePanel = .outline
+            closePalette()
+        case "diagnostics": closePalette()
+            checksOpen.toggle()
+        case "restart": closePalette()
+            startService()
+        case "revealPreview": closePalette()
+            revealPreview()
+        case "logs": closePalette()
+            revealLogs()
         case "universe": openDiscovery(.packages)
-        case "previewDark": previewDark.toggle(); closePalette()
-        case "format": closePalette(); formatDocument()
-        case "indent": closePalette(); editLines(.indent)
-        case "outdent": closePalette(); editLines(.outdent)
-        case "comment": closePalette(); editLines(.comment)
-        case "completion": closePalette(); requestCompletion()
-        case "quickHelp": closePalette(); requestAssistance(.help)
-        case "contextActions": closePalette(); requestAssistance(.actions)
-        case "definition": closePalette(); goToDefinition()
-        case "navigateBack": closePalette(); navigateBack()
+        case "previewDark": previewDark.toggle()
+            closePalette()
+        case "format": closePalette()
+            formatDocument()
+        case "indent": closePalette()
+            editLines(.indent)
+        case "outdent": closePalette()
+            editLines(.outdent)
+        case "comment": closePalette()
+            editLines(.comment)
+        case "completion": closePalette()
+            requestCompletion()
+        case "quickHelp": closePalette()
+            requestAssistance(.help)
+        case "contextActions": closePalette()
+            requestAssistance(.actions)
+        case "definition": closePalette()
+            goToDefinition()
+        case "navigateBack": closePalette()
+            navigateBack()
         default: insert(command)
         }
     }
 
     func editLines(_ action: LineAction) {
-        guard let editor, !editor.hasMarkedText() else { return }
+        guard let editor, !editor.hasMarkedText() else {
+            return
+        }
         let replacement = TextEditing.lines(action, text: text, selection: editor.selectedRange())
         editor.insertSnippet(Snippet(text: replacement.text), replacing: replacement.range)
         editor.setSelectedRange(NSRange(location: replacement.range.location, length: replacement.text.utf16.count))
     }
 
     func formatDocument() {
-        guard serviceReady, let editor, !editor.hasMarkedText() else { return }
+        guard serviceReady, let editor, !editor.hasMarkedText() else {
+            return
+        }
         let version = documentVersion, generation = serviceGeneration, caret = editor.selectedRange()
         Task {
             do {
                 try flushChanges()
-                let result = try await client.request("textDocument/formatting", ["textDocument": ["uri": documentURL.absoluteString], "options": ["tabSize": 2, "insertSpaces": true]])
-                guard documentVersion == version, serviceGeneration == generation, !editor.hasMarkedText() else { return }
+                let result = try await client.request(
+                    "textDocument/formatting",
+                    [
+                        "textDocument": ["uri": documentURL.absoluteString],
+                        "options": ["tabSize": 2, "insertSpaces": true],
+                    ],
+                )
+                guard documentVersion == version, serviceGeneration == generation,
+                      !editor.hasMarkedText()
+                else {
+                    return
+                }
                 let replacements = result.array.map { edit in
                     let range = edit["range"]
-                    let start = TextPosition(line: range["start"]["line"].int ?? 0, character: range["start"]["character"].int ?? 0).offset(in: text)
-                    let end = TextPosition(line: range["end"]["line"].int ?? 0, character: range["end"]["character"].int ?? 0).offset(in: text)
-                    return TextReplacement(range: NSRange(location: start, length: end - start), text: edit["newText"].string ?? "")
+                    let start = TextPosition(
+                        line: range["start"]["line"].int ?? 0,
+                        character: range["start"]["character"].int ?? 0,
+                    ).offset(in: text)
+                    let end = TextPosition(
+                        line: range["end"]["line"].int ?? 0,
+                        character: range["end"]["character"].int ?? 0,
+                    ).offset(in: text)
+                    return TextReplacement(
+                        range: NSRange(location: start, length: end - start),
+                        text: edit["newText"].string ?? "",
+                    )
                 }
                 let formatted = try TextEditing.applying(replacements, to: text)
-                guard formatted != text else { showMessage(L10n.text("The document is already formatted.")); return }
-                editor.insertSnippet(Snippet(text: formatted), replacing: NSRange(location: 0, length: text.utf16.count))
+                guard formatted != text else {
+                    showMessage(L10n.text("The document is already formatted."))
+                    return
+                }
+                editor.insertSnippet(
+                    Snippet(text: formatted),
+                    replacing: NSRange(location: 0, length: text.utf16.count),
+                )
                 editor.setSelectedRange(NSRange(location: min(caret.location, formatted.utf16.count), length: 0))
                 recordOperation("document.formatted")
             } catch { showMessage(error.localizedDescription) }
@@ -675,18 +1098,41 @@ final class Workspace: ObservableObject {
     }
 
     func importPackage(_ package: UniversePackage) throws {
-        guard let editor, !editor.hasMarkedText() else { throw CommandError.invalid(L10n.text("Finish the current input before inserting a package.")) }
-        guard package.isCompatible(with: "0.15.1") else { throw CommandError.invalid(L10n.text("This version requires a newer Typst. Check Universe for a compatible version.")) }
+        guard let editor,
+              !editor.hasMarkedText()
+        else {
+            throw CommandError.invalid(L10n.text("Finish the current input before inserting a package."))
+        }
+        guard package.isCompatible(with: "0.15.1")
+        else {
+            throw CommandError
+                .invalid(L10n.text("This version requires a newer Typst. Check Universe for a compatible version."))
+        }
         let snippet = try package.pinnedImport()
-        if text.contains(TypstInsertion.quoted(package.reference)) { throw CommandError.invalid(L10n.text("This package version is already imported.")) }
-        if layout == .preview { layout = .split }
+        if text
+            .contains(TypstInsertion.quoted(package.reference))
+        {
+            throw CommandError.invalid(L10n.text("This package version is already imported."))
+        }
+        if layout == .preview {
+            layout = .split
+        }
         editor.insertSnippet(snippet.padded(before: "", after: "\n"), replacing: NSRange(location: 0, length: 0))
         recordOperation("package.imported", ["package": package.reference])
     }
 
     private func insert(_ command: WritingCommand) {
-        guard !applyingCommand, let editor, !editor.hasMarkedText() else { return }
-        guard serviceReady else { commandError = L10n.text("The typesetting service is not ready to check the insertion position. You can still edit directly."); return }
+        guard !applyingCommand, let editor, !editor.hasMarkedText() else {
+            return
+        }
+        guard serviceReady
+        else {
+            commandError = L10n
+                .text(
+                    "The typesetting service is not ready to check the insertion position. You can still edit directly.",
+                )
+            return
+        }
         let range = editor.selectedRange()
         let version = documentVersion, generation = serviceGeneration
         let values = fieldValues
@@ -699,55 +1145,115 @@ final class Workspace: ObservableObject {
                 var insertionContext = InsertionContext.markup
                 if command.placement != .preamble {
                     var offsets = [range.location]
-                    if range.length > 0 { offsets.append((text as NSString).rangeOfComposedCharacterSequence(at: NSMaxRange(range) - 1).location) }
-                    if range.location == text.utf16.count, !text.isEmpty { offsets.append((text as NSString).rangeOfComposedCharacterSequence(at: range.location - 1).location) }
-                    let queries: [[String: Any]] = offsets.map { ["kind": "modeAt", "position": TextPosition(offset: $0, in: text).json] }
-                    let result = try await client.command("tinymist.interactCodeContext", arguments: [["textDocument": ["uri": documentURL.absoluteString], "query": queries]])
+                    if range
+                        .length >
+                        0
+                    {
+                        offsets
+                            .append((text as NSString).rangeOfComposedCharacterSequence(at: NSMaxRange(range) - 1)
+                                .location)
+                    }
+                    if range.location == text.utf16.count,
+                       !text
+                       .isEmpty
+                    {
+                        offsets
+                            .append((text as NSString).rangeOfComposedCharacterSequence(at: range.location - 1)
+                                .location)
+                    }
+                    let queries: [[String: Any]] = offsets.map { [
+                        "kind": "modeAt",
+                        "position": TextPosition(offset: $0, in: text).json,
+                    ] }
+                    let result = try await client.command(
+                        "tinymist.interactCodeContext",
+                        arguments: [["textDocument": ["uri": documentURL.absoluteString], "query": queries]],
+                    )
                     let modes = result.array.compactMap { $0["mode"].string }
-                    guard modes.count == queries.count, Set(modes).count == 1, modes.allSatisfy(command.acceptsContext) else {
-                        throw CommandError.invalid(command.supportsMath ? L10n.text("Insert within body text or a single equation, without crossing code or comments.") : L10n.text("This command works in body text. Move out of equations, code or comments and try again. Your text is unchanged."))
+                    guard modes.count == queries.count, Set(modes).count == 1,
+                          modes.allSatisfy(command.acceptsContext)
+                    else {
+                        throw CommandError
+                            .invalid(command.supportsMath ? L10n
+                                .text(
+                                    "Insert within body text or a single equation, without crossing code or comments.",
+                                ) :
+                                L10n
+                                .text(
+                                    "This command works in body text. Move out of equations, code or comments and try again. Your text is unchanged.",
+                                ))
                     }
                     insertionContext = modes.first == "math" ? .math : .markup
                 }
-                guard version == documentVersion, generation == serviceGeneration, paletteOpen, editor.selectedRange() == range else {
-                    recordOperation("insertion.cancelled", ["command": command.id, "reason": "document, selection or panel changed"])
+                guard version == documentVersion, generation == serviceGeneration, paletteOpen,
+                      editor.selectedRange() == range
+                else {
+                    recordOperation(
+                        "insertion.cancelled",
+                        ["command": command.id, "reason": "document, selection or panel changed"],
+                    )
                     return
                 }
                 let selected = (text as NSString).substring(with: range)
-                let snippet = try TypstInsertion.make(command.id, values: values, selection: selected, context: insertionContext)
+                let snippet = try TypstInsertion.make(
+                    command.id,
+                    values: values,
+                    selection: selected,
+                    context: insertionContext,
+                )
                 let plan = InsertionPlan(command: command, snippet: snippet, text: text, selection: range)
                 closePalette()
-                if layout == .preview { layout = .split }
+                if layout == .preview {
+                    layout = .split
+                }
                 editor.insertSnippet(plan.snippet, replacing: plan.range)
-                recordOperation("insertion.finished", ["command": command.id, "insertedUTF16": String(plan.snippet.text.utf16.count)])
-            } catch { recordOperation("insertion.failed", ["command": command.id, "error": error.localizedDescription]); commandError = error.localizedDescription }
+                recordOperation(
+                    "insertion.finished",
+                    ["command": command.id, "insertedUTF16": String(plan.snippet.text.utf16.count)],
+                )
+            } catch { recordOperation("insertion.failed", ["command": command.id, "error": error.localizedDescription])
+                commandError = error.localizedDescription
+            }
         }
     }
 
     func jump(to offset: Int, synchronizePreview: Bool = true) {
-        if layout == .preview { layout = .split }
+        if layout == .preview {
+            layout = .split
+        }
         selection = NSRange(location: min(max(0, offset), text.utf16.count), length: 0)
         editor?.setSelectedRange(selection)
         editor?.scrollRangeToVisible(selection)
-        if let editor { editor.window?.makeFirstResponder(editor) }
-        if synchronizePreview, layout == .split { queuePreviewNavigation(reportFailure: false) }
-        else { pendingPreviewNavigation = nil }
+        if let editor {
+            editor.window?.makeFirstResponder(editor)
+        }
+        if synchronizePreview, layout == .split {
+            queuePreviewNavigation(reportFailure: false)
+        } else {
+            pendingPreviewNavigation = nil
+        }
     }
 
     func revealPreview() {
-        if layout == .writing { layout = .split }
+        if layout == .writing {
+            layout = .split
+        }
         queuePreviewNavigation(reportFailure: true)
     }
 
     func previewDidBecomeReady(at url: URL) {
-        guard previewURL == url else { return }
+        guard previewURL == url else {
+            return
+        }
         previewReadyForNavigation = true
         recordOperation("preview.ready")
         sendPendingPreviewNavigation()
     }
 
     func previewWillLoad(at url: URL) {
-        guard previewURL == url else { return }
+        guard previewURL == url else {
+            return
+        }
         previewReadyForNavigation = false
         recordOperation("preview.loading")
     }
@@ -758,7 +1264,8 @@ final class Workspace: ObservableObject {
         // rather than the preceding newline (which has no rendered position).
         let source = text as NSString
         let offset = min(selection.location, source.length)
-        let queryOffset = offset < source.length && source.character(at: offset) != 10 && source.character(at: offset) != 13
+        let queryOffset = offset < source.length && source.character(at: offset) != 10 && source
+            .character(at: offset) != 13
             ? NSMaxRange(source.rangeOfComposedCharacterSequence(at: offset)) : offset
         let target = metrics.position(at: queryOffset)
         pendingPreviewNavigation = (documentURL, target, documentVersion, reportFailure)
@@ -767,31 +1274,61 @@ final class Workspace: ObservableObject {
     }
 
     private func sendPendingPreviewNavigation() {
-        guard let pending = pendingPreviewNavigation else { return }
-        guard pending.url == documentURL, pending.version == documentVersion else {
-            pendingPreviewNavigation = nil; return
+        guard let pending = pendingPreviewNavigation else {
+            return
         }
-        guard serviceReady, previewReadyForNavigation, !previewStale else { return }
+        guard pending.url == documentURL, pending.version == documentVersion else {
+            pendingPreviewNavigation = nil
+            return
+        }
+        guard serviceReady, previewReadyForNavigation, !previewStale else {
+            return
+        }
         pendingPreviewNavigation = nil
         let generation = serviceGeneration
         let start = metrics.offset(at: TextPosition(line: pending.position.line, character: 0))
         let end = metrics.offset(at: pending.position)
         let column = (text as NSString).substring(with: NSRange(location: start, length: end - start)).utf8.count
         Task {
-            guard generation == serviceGeneration, pending.url == documentURL, pending.version == documentVersion else { return }
+            guard generation == serviceGeneration, pending.url == documentURL,
+                  pending.version == documentVersion
+            else {
+                return
+            }
             do {
-                _ = try await client.command("tinymist.scrollPreview", arguments: ["leftblank", ["event": "panelScrollTo", "filepath": pending.url.path, "line": pending.position.line, "character": column]])
-                recordOperation("preview.jump.sent", ["line": String(pending.position.line), "version": String(pending.version)])
+                _ = try await client.command(
+                    "tinymist.scrollPreview",
+                    arguments: [
+                        "leftblank",
+                        [
+                            "event": "panelScrollTo",
+                            "filepath": pending.url.path,
+                            "line": pending.position.line,
+                            "character": column,
+                        ],
+                    ],
+                )
+                recordOperation(
+                    "preview.jump.sent",
+                    ["line": String(pending.position.line), "version": String(pending.version)],
+                )
             } catch {
                 recordOperation("preview.jump.failed", ["error": error.localizedDescription])
-                if generation == serviceGeneration, pending.reportFailure { showMessage(error.localizedDescription) }
+                if generation == serviceGeneration, pending.reportFailure {
+                    showMessage(error.localizedDescription)
+                }
             }
         }
     }
 
     func exportPDF() {
         recordOperation("export.dialog")
-        guard serviceReady, !exporting else { showMessage(L10n.text("Please wait for the typesetting service to be ready.")); return }
+        guard serviceReady,
+              !exporting
+        else {
+            showMessage(L10n.text("Please wait for the typesetting service to be ready."))
+            return
+        }
         let panel = NSSavePanel()
         panel.title = L10n.text("Export PDF")
         panel.nameFieldStringValue = (managedTitle?.replacingOccurrences(of: "/", with: "-")
@@ -799,7 +1336,9 @@ final class Workspace: ObservableObject {
         panel.allowedContentTypes = [.pdf]
         present(panel) { [weak self] destination in
             Task { @MainActor in
-                guard let self else { return }
+                guard let self else {
+                    return
+                }
                 do { try await self.exportPDF(to: destination) }
                 catch { self.showMessage(error.localizedDescription, persistent: true) }
             }
@@ -807,32 +1346,98 @@ final class Workspace: ObservableObject {
     }
 
     func exportPDF(to destination: URL) async throws {
-        guard serviceReady, !exporting else { throw ServiceError.remote(L10n.text("Please wait for the typesetting service to be ready.")) }
+        guard serviceReady,
+              !exporting
+        else {
+            throw ServiceError.remote(L10n.text("Please wait for the typesetting service to be ready."))
+        }
         recordOperation("export.begin")
         exporting = true
         defer { exporting = false }
+        do {
+            let (data, version) = try await compiledPDF()
+            try data.write(to: destination, options: .atomic)
+            recordOperation("export.finished", ["exportedVersion": String(version)])
+            showMessage(version == documentVersion ? L10n
+                .format("PDF exported: %@", destination.lastPathComponent) : L10n
+                .text("PDF exported using the document version from when export began."))
+        } catch { recordOperation("export.failed", ["error": error.localizedDescription])
+            throw error
+        }
+    }
+
+    func printDocument() {
+        Task { @MainActor in
             do {
-                try flushChanges()
-                let version = documentVersion
-                let result = try await client.command("tinymist.exportPdf", arguments: [compilationURL.path])
-                guard let path = result["path"].string else { throw ServiceError.remote(L10n.text("The document cannot be compiled. Resolve the errors before exporting.")) }
-                let data = try Data(contentsOf: URL(fileURLWithPath: path))
-                guard data.starts(with: Data("%PDF".utf8)) else { throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF.")) }
-                try data.write(to: destination, options: .atomic)
-                recordOperation("export.finished", ["exportedVersion": String(version)])
-                showMessage(version == documentVersion ? L10n.format("PDF exported: %@", destination.lastPathComponent) : L10n.text("PDF exported using the document version from when export began."))
-            } catch { recordOperation("export.failed", ["error": error.localizedDescription]); throw error }
+                let operation = try await makePrintOperation()
+                operation.run()
+            } catch { showMessage(error.localizedDescription, persistent: true) }
+        }
+    }
+
+    func makePrintOperation() async throws -> NSPrintOperation {
+        guard serviceReady, !exporting,
+              !isLibraryHome
+        else {
+            throw ServiceError.remote(L10n.text("Please wait for the typesetting service to be ready."))
+        }
+        exporting = true
+        defer { exporting = false }
+        let (data, _) = try await compiledPDF()
+        guard let document = PDFDocument(data: data), document.pageCount > 0,
+              let operation = document.printOperation(
+                  for: NSPrintInfo.shared.copy() as? NSPrintInfo,
+                  scalingMode: .pageScaleDownToFit,
+                  autoRotate: true,
+              )
+        else {
+            throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF."))
+        }
+        operation.jobTitle = title
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        return operation
+    }
+
+    private func compiledPDF() async throws -> (Data, Int) {
+        try flushChanges()
+        let version = documentVersion
+        let result = try await client.command("tinymist.exportPdf", arguments: [compilationURL.path])
+        guard let path = result["path"].string
+        else {
+            throw ServiceError
+                .remote(L10n.text("The document cannot be compiled. Resolve the errors before exporting."))
+        }
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        guard data.starts(with: Data("%PDF".utf8))
+        else {
+            throw ServiceError.remote(L10n.text("The typesetting service did not produce a valid PDF."))
+        }
+        return (data, version)
     }
 
     func requestCompletion() {
-        guard serviceReady, !paletteOpen, layout != .preview, editor?.hasMarkedText() != true else { return }
+        guard serviceReady, !paletteOpen, layout != .preview, editor?.hasMarkedText() != true else {
+            return
+        }
         let version = documentVersion, generation = serviceGeneration
         let caret = selection
         Task {
             do {
                 try flushChanges()
-                let result = try await client.request("textDocument/completion", ["textDocument": ["uri": documentURL.absoluteString], "position": position.json, "context": ["triggerKind": 1]])
-                guard version == documentVersion, generation == serviceGeneration, caret == selection, !paletteOpen, layout != .preview, editor?.hasMarkedText() != true else { return }
+                let result = try await client.request(
+                    "textDocument/completion",
+                    [
+                        "textDocument": ["uri": documentURL.absoluteString],
+                        "position": position.json,
+                        "context": ["triggerKind": 1],
+                    ],
+                )
+                guard version == documentVersion, generation == serviceGeneration, caret == selection, !paletteOpen,
+                      layout != .preview, editor?.hasMarkedText() != true
+                else {
+                    return
+                }
                 let candidates = result.array.isEmpty ? result["items"].array : result.array
                 editor?.presentCompletions(Array(candidates.prefix(12)))
             } catch { showMessage(error.localizedDescription) }
@@ -840,11 +1445,22 @@ final class Workspace: ObservableObject {
     }
 
     private func receive(_ method: String, _ params: JSONValue) {
-        if method == "textDocument/publishDiagnostics", let uri = params["uri"].string, let url = URL(string: uri), url.isFileURL {
-            if url == documentURL, let version = params["version"].int, version < documentVersion { return }
+        if method == "textDocument/publishDiagnostics", let uri = params["uri"].string, let url = URL(string: uri),
+           url.isFileURL
+        {
+            if url == documentURL, let version = params["version"].int, version < documentVersion {
+                return
+            }
             diagnosticsByURI[uri] = params["diagnostics"].array.map { item in
-                DiagnosticItem(message: item["message"].string ?? L10n.text("Unknown Issue"), severity: item["severity"].int ?? 1,
-                    position: TextPosition(line: item["range"]["start"]["line"].int ?? 0, character: item["range"]["start"]["character"].int ?? 0), url: url)
+                DiagnosticItem(
+                    message: item["message"].string ?? L10n.text("Unknown Issue"),
+                    severity: item["severity"].int ?? 1,
+                    position: TextPosition(
+                        line: item["range"]["start"]["line"].int ?? 0,
+                        character: item["range"]["start"]["character"].int ?? 0,
+                    ),
+                    url: url,
+                )
             }
             diagnostics = diagnosticsByURI.keys.sorted().flatMap { diagnosticsByURI[$0] ?? [] }
             recordOperation("diagnostics.updated", ["count": String(diagnostics.count)])
@@ -856,7 +1472,8 @@ final class Workspace: ObservableObject {
             recordOperation("compile.status", ["status": params["status"].string ?? "unknown"])
             if let status = params["status"].string {
                 switch status {
-                case "compiling": previewStale = true; serviceStatus = "Typesetting"
+                case "compiling": previewStale = true
+                    serviceStatus = "Typesetting"
                 case "compileError":
                     previewStale = true
                     serviceStatus = hasSuccessfulPreview ? "Showing Last Preview · Check Source" : "Document Needs Attention"
@@ -872,20 +1489,30 @@ final class Workspace: ObservableObject {
     }
 
     private func showDocument(_ params: JSONValue) {
-        guard let uri = params["uri"].string, let url = URL(string: uri), url.isFileURL else { return }
-        if url.standardizedFileURL != documentURL.standardizedFileURL, !open(url, preservingMain: true) { return }
+        guard let uri = params["uri"].string, let url = URL(string: uri), url.isFileURL else {
+            return
+        }
+        if url.standardizedFileURL != documentURL.standardizedFileURL, !open(url, preservingMain: true) {
+            return
+        }
         let start = params["selection"]["start"]
-        jump(to: TextPosition(line: start["line"].int ?? 0, character: start["character"].int ?? 0).offset(in: text), synchronizePreview: false)
+        jump(
+            to: TextPosition(line: start["line"].int ?? 0, character: start["character"].int ?? 0).offset(in: text),
+            synchronizePreview: false,
+        )
     }
 
     func showDiagnostic(_ item: DiagnosticItem) {
         checksOpen = false
-        if item.url != documentURL, !open(item.url, preservingMain: true) { return }
+        if item.url != documentURL, !open(item.url, preservingMain: true) {
+            return
+        }
         jump(to: item.position.offset(in: text))
     }
 
     func showMessage(_ value: String, persistent: Bool = false) {
-        messageTask?.cancel(); message = value
+        messageTask?.cancel()
+        message = value
         if !persistent {
             messageTask = Task {
                 do { try await Task.sleep(for: .seconds(6)) } catch { return }
@@ -896,18 +1523,33 @@ final class Workspace: ObservableObject {
 
     func prepareToClose() -> Bool {
         saveTask?.cancel()
-        if fileURL != nil, text != savedText { save() }
-        if saveRecovery() { return true }
+        if fileURL != nil, text != savedText {
+            save()
+        }
+        if saveRecovery() {
+            return true
+        }
         let alert = NSAlert()
         alert.messageText = L10n.text("Your Document Has Not Been Saved Safely")
-        alert.informativeText = L10n.text("The recovery copy could not be written. Save to a writable location before quitting.")
+        alert.informativeText = L10n
+            .text("The recovery copy could not be written. Save to a writable location before quitting.")
         alert.addButton(withTitle: L10n.text("Return to Document"))
         alert.addButton(withTitle: L10n.text("Save As…"))
-        if alert.runModal() == .alertSecondButtonReturn { saveAs() }
+        if alert.runModal() == .alertSecondButtonReturn {
+            saveAs()
+        }
         return false
     }
 
-    func shutdown() { dismissAssistance(); recordOperation("session.end"); saveTask?.cancel(); syncTask?.cancel(); syntaxTask?.cancel(); library.stop(); client.stop() }
+    func shutdown() {
+        dismissAssistance()
+        recordOperation("session.end")
+        saveTask?.cancel()
+        syncTask?.cancel()
+        syntaxTask?.cancel()
+        library.stop()
+        client.stop()
+    }
 
     func recordOperation(_ event: String, _ fields: [String: String] = [:]) {
         var context = fields
@@ -917,36 +1559,78 @@ final class Workspace: ObservableObject {
     }
 
     func recordKeyEvent(_ event: NSEvent, stage: String) {
-        let special: [UInt16: String] = [36: "Return", 48: "Tab", 51: "Delete", 53: "Escape", 76: "Enter", 115: "Home", 116: "PageUp", 117: "ForwardDelete", 119: "End", 121: "PageDown", 123: "Left", 124: "Right", 125: "Down", 126: "Up"]
+        let special: [UInt16: String] = [
+            36: "Return",
+            48: "Tab",
+            51: "Delete",
+            53: "Escape",
+            76: "Enter",
+            115: "Home",
+            116: "PageUp",
+            117: "ForwardDelete",
+            119: "End",
+            121: "PageDown",
+            123: "Left",
+            124: "Right",
+            125: "Down",
+            126: "Up",
+        ]
         let flags = event.modifierFlags
-        let modifiers = [(NSEvent.ModifierFlags.command, "cmd"), (.control, "ctrl"), (.option, "option"), (.shift, "shift")].filter { flags.contains($0.0) }.map(\.1).joined(separator: "+")
+        let modifiers = [
+            (NSEvent.ModifierFlags.command, "cmd"),
+            (.control, "ctrl"),
+            (.option, "option"),
+            (.shift, "shift"),
+        ].filter { flags.contains($0.0) }.map(\.1).joined(separator: "+")
         // Never retain printable input or search terms. Only shortcut chords and
         // navigation keys need their actual key identity for diagnosing routing.
         let shortcut = event.charactersIgnoringModifiers?.uppercased() ?? "keyCode:\(event.keyCode)"
-        let key = special[event.keyCode] ?? (flags.intersection([.command, .control]).isEmpty ? "text" : shortcut)
-        recordOperation("key.down", ["key": key, "modifiers": modifiers, "stage": stage, "panel": activeCommand != nil ? "parameters" : (searchMode && paletteOpen ? "search" : (paletteOpen ? "groups" : "editor")), "markedText": String((event.window?.firstResponder as? NSTextView)?.hasMarkedText() == true)])
+        let key = special[event.keyCode] ?? (flags.isDisjoint(with: [.command, .control]) ? "text" : shortcut)
+        recordOperation(
+            "key.down",
+            [
+                "key": key,
+                "modifiers": modifiers,
+                "stage": stage,
+                "panel": activeCommand != nil ? "parameters" :
+                    (searchMode && paletteOpen ? "search" : (paletteOpen ? "groups" : "editor")),
+                "markedText": String((event.window?.firstResponder as? NSTextView)?.hasMarkedText() == true),
+            ],
+        )
     }
 
     func revealLogs() {
-        guard let actionLog else { showMessage(L10n.text("The diagnostic log folder is not writable."), persistent: true); return }
+        guard let actionLog else {
+            showMessage(
+                L10n.text("The diagnostic log folder is not writable."),
+                persistent: true,
+            )
+            return
+        }
         recordOperation("logs.reveal")
         NSWorkspace.shared.activateFileViewerSelecting([actionLog.fileURL])
     }
 
-    static var welcome: String { WelcomeDocument.source() }
+    static var welcome: String {
+        WelcomeDocument.source()
+    }
 }
 
 extension Workspace {
     func dismissAssistance() {
         assistanceRequest = UUID()
-        assistanceTask?.cancel(); assistanceTask = nil
+        assistanceTask?.cancel()
+        assistanceTask = nil
         assistance = nil
         editor?.dismissAssistance()
     }
 
     func requestAssistance(_ kind: WritingAssistance.Kind) {
         guard serviceReady, !paletteOpen, !isLibraryHome, layout != .preview,
-              let editor, !editor.hasMarkedText() else { return }
+              let editor, !editor.hasMarkedText()
+        else {
+            return
+        }
         dismissAssistance()
         let requestID = assistanceRequest, generation = serviceGeneration
         let version = documentVersion, source = text, url = documentURL, caret = selection
@@ -959,27 +1643,53 @@ extension Workspace {
                 let params: [String: Any] = ["textDocument": ["uri": url.absoluteString], "position": start.json]
                 if kind == .help {
                     if client.supports("hoverProvider") {
-                        hover = LanguageAssistance.hover(try await client.request("textDocument/hover", params))
+                        hover = try await LanguageAssistance.hover(client.request("textDocument/hover", params))
                     }
-                    guard !Task.isCancelled else { return }
+                    guard !Task.isCancelled else {
+                        return
+                    }
                     if client.supports("signatureHelpProvider") {
-                        signature = LanguageAssistance.signatureHelp(try await client.request("textDocument/signatureHelp", params))
+                        signature = try await LanguageAssistance.signatureHelp(client.request(
+                            "textDocument/signatureHelp",
+                            params,
+                        ))
                     }
                 } else if client.supports("codeActionProvider") {
-                    let result = try await client.request("textDocument/codeAction", ["textDocument": ["uri": url.absoluteString],
-                        "range": ["start": start.json, "end": end.json], "context": ["diagnostics": [], "triggerKind": 1]])
+                    let result = try await client.request(
+                        "textDocument/codeAction",
+                        ["textDocument": ["uri": url.absoluteString],
+                         "range": [
+                             "start": start.json,
+                             "end": end.json,
+                         ], "context": [
+                             "diagnostics": [],
+                             "triggerKind": 1,
+                         ]],
+                    )
                     actions = LanguageAssistance.codeActions(result, source: source, documentURL: url, version: version)
                 }
                 guard !Task.isCancelled, requestID == assistanceRequest, generation == serviceGeneration,
                       version == documentVersion, url == documentURL, caret == selection,
-                      !paletteOpen, layout != .preview, !editor.hasMarkedText() else { return }
-                let result = WritingAssistance(kind: kind, source: source, documentURL: url, revision: version,
-                                               hover: hover, signature: signature, actions: actions)
+                      !paletteOpen, layout != .preview, !editor.hasMarkedText()
+                else {
+                    return
+                }
+                let result = WritingAssistance(
+                    kind: kind,
+                    source: source,
+                    documentURL: url,
+                    revision: version,
+                    hover: hover,
+                    signature: signature,
+                    actions: actions,
+                )
                 assistance = result
                 editor.presentAssistance(result)
                 recordOperation("assistance.presented", ["kind": kind.rawValue, "actions": String(actions.count)])
             } catch {
-                guard requestID == assistanceRequest, generation == serviceGeneration else { return }
+                guard requestID == assistanceRequest, generation == serviceGeneration else {
+                    return
+                }
                 showMessage(error.localizedDescription)
             }
         }
@@ -988,8 +1698,10 @@ extension Workspace {
     func applyContextAction(_ action: SourceCodeAction) {
         guard let context = assistance, context.source == text, context.documentURL == documentURL,
               action.documentURL == documentURL, action.sourceVersion == documentVersion,
-              let editor, editor.isEditable, !editor.hasMarkedText(), !paletteOpen, !documentTransitionInProgress else {
-            dismissAssistance(); return
+              let editor, editor.isEditable, !editor.hasMarkedText(), !paletteOpen, !documentTransitionInProgress
+        else {
+            dismissAssistance()
+            return
         }
         do {
             let updated = try TextEditing.applying(action.edits, to: text)
@@ -1005,35 +1717,65 @@ extension Workspace {
     }
 
     func goToDefinition() {
-        guard serviceReady, client.supports("definitionProvider"), !paletteOpen, editor?.hasMarkedText() != true else { return }
+        guard serviceReady, client.supports("definitionProvider"), !paletteOpen,
+              editor?.hasMarkedText() != true
+        else {
+            return
+        }
         dismissAssistance()
-        let version = documentVersion, generation = serviceGeneration, url = documentURL, caret = selection, origin = position
+        let version = documentVersion, generation = serviceGeneration, url = documentURL, caret = selection,
+            origin = position
         Task {
             do {
                 try flushChanges()
-                let response = try await client.request("textDocument/definition", ["textDocument": ["uri": url.absoluteString], "position": origin.json])
+                let response = try await client.request(
+                    "textDocument/definition",
+                    ["textDocument": ["uri": url.absoluteString], "position": origin.json],
+                )
                 guard generation == serviceGeneration, version == documentVersion, caret == selection,
-                      !paletteOpen, editor?.hasMarkedText() != true else { return }
+                      !paletteOpen, editor?.hasMarkedText() != true
+                else {
+                    return
+                }
                 let destination = response.array.first ?? response
                 guard let uri = destination["uri"].string ?? destination["targetUri"].string,
                       let target = URL(string: uri), target.isFileURL,
-                      target.host == nil || target.host == "" || target.host == "localhost" else {
-                    requestAssistance(.help); return
+                      target.host == nil || target.host?.isEmpty == true || target.host == "localhost"
+                else {
+                    requestAssistance(.help)
+                    return
                 }
-                let range = destination["targetSelectionRange"].isNull ? destination["range"] : destination["targetSelectionRange"]
-                guard let line = range["start"]["line"].int, let column = range["start"]["character"].int, line >= 0, column >= 0 else { return }
-                if target != documentURL, !open(target, preservingMain: true) { return }
+                let range = destination["targetSelectionRange"]
+                    .isNull ? destination["range"] : destination["targetSelectionRange"]
+                guard let line = range["start"]["line"].int, let column = range["start"]["character"].int, line >= 0,
+                      column >= 0
+                else {
+                    return
+                }
+                if target != documentURL, !open(target, preservingMain: true) {
+                    return
+                }
                 navigationHistory.append((url, origin))
-                if navigationHistory.count > 32 { navigationHistory.removeFirst() }
+                if navigationHistory.count > 32 {
+                    navigationHistory.removeFirst()
+                }
                 jump(to: TextPosition(line: line, character: column).offset(in: text))
                 recordOperation("navigation.definition")
-            } catch { if generation == serviceGeneration { showMessage(error.localizedDescription) } }
+            } catch {
+                if generation == serviceGeneration {
+                    showMessage(error.localizedDescription)
+                }
+            }
         }
     }
 
     func navigateBack() {
-        guard let (url, position) = navigationHistory.last else { return }
-        if url != documentURL, !open(url, preservingMain: true) { return }
+        guard let (url, position) = navigationHistory.last else {
+            return
+        }
+        if url != documentURL, !open(url, preservingMain: true) {
+            return
+        }
         navigationHistory.removeLast()
         jump(to: position.offset(in: text))
     }

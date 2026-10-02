@@ -1,7 +1,7 @@
 import AppKit
 import Combine
-import SwiftUI
 import LeftBlankCore
+import SwiftUI
 
 /// Native dynamic colors resolve in each view's effective appearance. Keeping
 /// them in attributed text lets a theme change repaint without re-highlighting,
@@ -66,14 +66,20 @@ final class DockIconController {
     private var observer: AnyCancellable?
     private let light: NSImage?
     private let dark: NSImage?
-    var isAvailable: Bool { light != nil && dark != nil }
+    var isAvailable: Bool {
+        light != nil && dark != nil
+    }
 
     init() {
         var resources = Bundle.main.resourceURL
         #if DEBUG
-        if resources.map({ !FileManager.default.fileExists(atPath: $0.appendingPathComponent("AppIcon.icns").path) }) ?? true {
-            resources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources")
-        }
+            if resources
+                .map({ !FileManager.default.fileExists(atPath: $0.appendingPathComponent("AppIcon.icns").path) }) ??
+                true
+            {
+                resources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                    .deletingLastPathComponent().appendingPathComponent("Resources")
+            }
         #endif
         light = resources.flatMap { NSImage(contentsOf: $0.appendingPathComponent("AppIconLight.icns")) }
         dark = resources.flatMap { NSImage(contentsOf: $0.appendingPathComponent("AppIcon.icns")) }
@@ -85,15 +91,33 @@ final class DockIconController {
 
     private func update() {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        if let image = isDark ? dark : light { NSApp.applicationIconImage = image }
+        if let image = isDark ? dark : light {
+            NSApp.applicationIconImage = image
+        }
     }
 }
 
 extension Color {
-    init(hex: UInt32) { self.init(.sRGB, red: Double((hex >> 16) & 255) / 255, green: Double((hex >> 8) & 255) / 255, blue: Double(hex & 255) / 255, opacity: 1) }
+    init(hex: UInt32) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 255) / 255,
+            green: Double((hex >> 8) & 255) / 255,
+            blue: Double(hex & 255) / 255,
+            opacity: 1,
+        )
+    }
 }
+
 extension NSColor {
-    convenience init(hex: UInt32) { self.init(srgbRed: CGFloat((hex >> 16) & 255) / 255, green: CGFloat((hex >> 8) & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1) }
+    convenience init(hex: UInt32) {
+        self.init(
+            srgbRed: CGFloat((hex >> 16) & 255) / 255,
+            green: CGFloat((hex >> 8) & 255) / 255,
+            blue: CGFloat(hex & 255) / 255,
+            alpha: 1,
+        )
+    }
 }
 
 @MainActor
@@ -101,16 +125,22 @@ enum IconStore {
     private static var images: [String: NSImage] = [:]
     private static var missing: Set<String> = []
     static func image(_ name: String) -> NSImage? {
-        if let image = images[name] { return image }
-        if missing.contains(name) { return nil }
+        if let image = images[name] {
+            return image
+        }
+        if missing.contains(name) {
+            return nil
+        }
         var directory = Bundle.main.resourceURL?.appendingPathComponent("Icons")
         #if DEBUG
-        if directory.map({ !FileManager.default.fileExists(atPath: $0.path) }) ?? true {
-            directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources/Icons")
-        }
+            if directory.map({ !FileManager.default.fileExists(atPath: $0.path) }) ?? true {
+                directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                    .deletingLastPathComponent().appendingPathComponent("Resources/Icons")
+            }
         #endif
         guard let url = directory?.appendingPathComponent("\(name).pdf"), let image = NSImage(contentsOf: url) else {
-            missing.insert(name); return nil
+            missing.insert(name)
+            return nil
         }
         // Native menu labels may use the NSImage directly and ignore the
         // surrounding SwiftUI frame. PDF assets have a 256 pt artboard.
@@ -126,16 +156,19 @@ struct PhosphorIcon: View {
     var size: CGFloat = 18
     var body: some View {
         if let image = IconStore.image(name) {
-            Image(nsImage: image).resizable().interpolation(.high).frame(width: size, height: size).accessibilityHidden(true)
-        } else { Color.clear.frame(width: size, height: size).accessibilityHidden(true) }
+            Image(nsImage: image).resizable().interpolation(.high).frame(width: size, height: size)
+                .accessibilityHidden(true)
+        } else {
+            Color.clear.frame(width: size, height: size).accessibilityHidden(true)
+        }
     }
 }
 
 struct QuietButton: View {
     let icon: String
     let help: String
-    var shortcut: String? = nil
-    var detail: String? = nil
+    var shortcut: String?
+    var detail: String?
     var active = false
     var iconSize: CGFloat = 16
     var hitSize: CGFloat = 30
@@ -145,7 +178,9 @@ struct QuietButton: View {
             PhosphorIcon(name: icon, size: iconSize).foregroundStyle(active ? Theme.accent : Theme.secondary)
                 .frame(width: hitSize, height: hitSize)
                 .overlay(alignment: .bottom) {
-                    if active { Capsule().fill(Theme.accent).frame(width: 8, height: 1.5).padding(.bottom, 1) }
+                    if active {
+                        Capsule().fill(Theme.accent).frame(width: 8, height: 1.5).padding(.bottom, 1)
+                    }
                 }
         }.buttonStyle(QuietControlStyle()).accessibilityLabel(help)
             .accessibilityAddTraits(active ? .isSelected : [])
@@ -162,7 +197,10 @@ struct QuietControlStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .contentShape(Rectangle())
-            .background(Theme.secondary.opacity(enabled ? (configuration.isPressed ? 0.14 : (hovering ? 0.08 : 0)) : 0), in: RoundedRectangle(cornerRadius: 5))
+            .background(
+                Theme.secondary.opacity(enabled ? (configuration.isPressed ? 0.14 : (hovering ? 0.08 : 0)) : 0),
+                in: RoundedRectangle(cornerRadius: 5),
+            )
             .opacity(enabled ? 1 : 0.4)
             .onHover { hovering = $0 }
     }

@@ -1,8 +1,8 @@
-import Testing
 @testable import LeftBlankCore
+import Testing
 
 @Test func outlineDefaultsRevealCurrentAncestorsAndKeepDuplicateHeadingIdentity() {
-    let items = (0..<10).flatMap { chapter in
+    let items = (0 ..< 10).flatMap { chapter in
         [OutlineItem(title: "Chapter \(chapter)", level: 1, offset: chapter * 100),
          OutlineItem(title: "Examples", level: 2, offset: chapter * 100 + 10),
          OutlineItem(title: "Examples", level: 2, offset: chapter * 100 + 20)]

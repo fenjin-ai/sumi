@@ -1,11 +1,11 @@
-import LeftBlankTestSupport
 import AppKit
 import Foundation
+@testable import LeftBlankApp
+import LeftBlankCore
+import LeftBlankTestSupport
 import PDFKit
 import SwiftUI
 import Testing
-@testable import LeftBlankApp
-import LeftBlankCore
 
 /// These tests exercise the production window, editor, document controller and
 /// actual Tinymist process together. No alternate editor or fake LSP is used.
@@ -14,12 +14,14 @@ import LeftBlankCore
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["LEFTBLANK_INTEGRATION"] == "1"))
 @MainActor
 struct WritingFlowTests {
-    @Test func directShortcutsAndLeaderPathsShareTheSameActions() async throws {
+    @Test func directShortcutsAndLeaderPathsShareTheSameActions() throws {
         let app = try WritingFixture(text: "= Shortcuts\n\nBody\n", startService: false)
         defer { app.close() }
         let delegate = AppDelegate(workspace: app.workspace)
         let previousMenu = NSApp.mainMenu, previousWindowsMenu = NSApp.windowsMenu
-        defer { NSApp.mainMenu = previousMenu; NSApp.windowsMenu = previousWindowsMenu }
+        defer { NSApp.mainMenu = previousMenu
+            NSApp.windowsMenu = previousWindowsMenu
+        }
         delegate.installMenu()
         let menu = try #require(NSApp.mainMenu)
         #expect(menu.performKeyEquivalent(with: app.key("4", code: 21, modifiers: .command)))
@@ -44,9 +46,9 @@ struct WritingFlowTests {
         app.workspace.togglePalette()
         app.workspace.searchMode = true
         app.workspace.query = "撤销"
-        app.workspace.selectCommand(try #require(app.workspace.filteredCommands.first))
+        try app.workspace.selectCommand(#require(app.workspace.filteredCommands.first))
         #expect(editor.string.hasPrefix("= Shortcuts"))
-        app.workspace.execute(try #require(WritingCommand.all.first { $0.id == "redo" }))
+        try app.workspace.execute(#require(WritingCommand.all.first { $0.id == "redo" }))
         #expect(editor.string.hasPrefix("// = Shortcuts"))
         let outline = try #require(WritingCommand.search("⌘4").first)
         #expect(outline.id == "outline")
@@ -98,7 +100,10 @@ struct WritingFlowTests {
         let pdf = app.root.appendingPathComponent("writing.pdf")
         try await app.workspace.exportPDF(to: pdf)
         #expect(PDFDocument(url: pdf)?.string?.contains("Writing flow") == true)
-        let log = try String(contentsOf: app.workspace.stateDirectory.appendingPathComponent("Logs/events.jsonl"), encoding: .utf8)
+        let log = try String(
+            contentsOf: app.workspace.stateDirectory.appendingPathComponent("Logs/events.jsonl"),
+            encoding: .utf8,
+        )
         #expect(log.contains("insertion.finished"))
         #expect(log.contains("TABLE") == false)
         #expect(!log.contains("Writing flow"))
@@ -139,7 +144,10 @@ struct WritingFlowTests {
         defer { app.close() }
         try await app.ready()
         let editor = try #require(app.workspace.editor)
-        editor.insertSnippet(Snippet(text: "Chinese 中文😀\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "Chinese 中文😀\n"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         app.workspace.save()
         #expect(try String(contentsOf: app.document, encoding: .utf8).contains("Chinese 中文😀"))
         let renamed = app.root.appendingPathComponent("saved as.typ")
@@ -148,7 +156,10 @@ struct WritingFlowTests {
         #expect(app.workspace.savedText == editor.string)
         try await app.ready()
         try Data("= External change\n".utf8).write(to: renamed)
-        editor.insertSnippet(Snippet(text: "Local unsaved\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "Local unsaved\n"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         app.workspace.save()
         #expect(app.workspace.saveStatus == "Save Needs Attention")
         #expect(try String(contentsOf: renamed, encoding: .utf8) == "= External change\n")
@@ -159,7 +170,10 @@ struct WritingFlowTests {
         recovered.shutdown()
         app.workspace.reload()
         #expect(app.workspace.text == "= External change\n")
-        let archived = try FileManager.default.contentsOfDirectory(at: app.workspace.stateDirectory, includingPropertiesForKeys: nil).filter { $0.lastPathComponent.hasPrefix("Before-reload-") }
+        let archived = try FileManager.default.contentsOfDirectory(
+            at: app.workspace.stateDirectory,
+            includingPropertiesForKeys: nil,
+        ).filter { $0.lastPathComponent.hasPrefix("Before-reload-") }
         #expect(archived.count == 1)
         #expect(try String(contentsOf: archived[0], encoding: .utf8).contains("Local unsaved"))
         #expect(app.workspace.prepareToClose())
@@ -179,7 +193,10 @@ struct WritingFlowTests {
         let managedURL = try #require(app.workspace.fileURL)
         #expect(app.workspace.title == L10n.text("Untitled"))
         let editor = try #require(app.workspace.editor)
-        editor.insertSnippet(Snippet(text: "Unsaved draft sentinel"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "Unsaved draft sentinel"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         let draft = app.workspace.text
         #expect(app.workspace.open(app.document))
         try await app.ready()
@@ -203,7 +220,7 @@ struct WritingFlowTests {
         defer { app.close() }
         try await app.ready()
         try await app.wait { app.workspace.outline.count == 2 }
-        app.workspace.execute(try #require(WritingCommand.all.first { $0.id == "outline" }))
+        try app.workspace.execute(#require(WritingCommand.all.first { $0.id == "outline" }))
         await app.layout()
         #expect(app.workspace.sidePanel == .outline)
         app.workspace.jump(to: app.workspace.outline[1].offset)
@@ -216,7 +233,10 @@ struct WritingFlowTests {
         try await app.workspace.exportPDF(to: validPDF)
         let validBytes = try Data(contentsOf: validPDF)
         let editor = try #require(app.workspace.editor)
-        editor.insertSnippet(Snippet(text: "#unknown-function()"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "#unknown-function()"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         try await app.wait { app.workspace.diagnostics.contains { $0.severity == 1 } }
         app.workspace.checksOpen = true
         await app.layout()
@@ -241,13 +261,21 @@ struct WritingFlowTests {
         try Data("= Chapter\n\nSaved chapter".utf8).write(to: chapter)
         app.workspace.startService()
         try await app.ready()
-        let diagnostic = DiagnosticItem(message: "Navigate to chapter", severity: 2, position: TextPosition(line: 2, character: 0), url: chapter)
+        let diagnostic = DiagnosticItem(
+            message: "Navigate to chapter",
+            severity: 2,
+            position: TextPosition(line: 2, character: 0),
+            url: chapter,
+        )
         app.workspace.showDiagnostic(diagnostic)
         #expect(app.workspace.mainFileURL == app.document)
         #expect(app.workspace.compilationURL == app.document)
         try await app.ready()
         let editor = try #require(app.workspace.editor)
-        editor.insertSnippet(Snippet(text: "Unsaved chapter"), replacing: (editor.string as NSString).range(of: "Saved chapter"))
+        editor.insertSnippet(
+            Snippet(text: "Unsaved chapter"),
+            replacing: (editor.string as NSString).range(of: "Saved chapter"),
+        )
         let output = app.root.appendingPathComponent("book.pdf")
         try await app.workspace.exportPDF(to: output)
         let rendered = try #require(PDFDocument(url: output)?.string)
@@ -257,6 +285,33 @@ struct WritingFlowTests {
         #expect(app.workspace.mainFileURL == nil)
     }
 
+    @Test func printingCompilesCurrentWritingAndRejectsInvalidSource() async throws {
+        let app = try WritingFixture(text: "= Print flow\n")
+        defer { app.close() }
+        try await app.ready()
+        let editor = try #require(app.workspace.editor)
+        editor.insertSnippet(
+            Snippet(text: "\nLatest writing"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
+        let operation = try await app.workspace.makePrintOperation()
+        #expect(operation.jobTitle == app.workspace.title)
+        #expect(operation.showsPrintPanel)
+        #expect(operation.showsProgressPanel)
+        let view = try #require(operation.view)
+        let printedData = view.dataWithPDF(inside: view.bounds)
+        let printed = try #require(PDFDocument(data: printedData))
+        #expect(printed.string?.contains("Latest writing") == true)
+        #expect(!app.workspace.exporting)
+        editor.insertSnippet(
+            Snippet(text: "#unknown-function()"),
+            replacing: NSRange(location: 0, length: editor.string.utf16.count),
+        )
+        try await app.wait { app.workspace.diagnostics.contains { $0.severity == 1 } }
+        await #expect(throws: (any Error).self) { try await app.workspace.makePrintOperation() }
+        #expect(!app.workspace.exporting)
+    }
+
     @Test func nativeMenusDispatchToTheSameWritingWorkspace() async throws {
         let app = try WritingFixture(text: "= Menu flow\n")
         defer { app.close() }
@@ -264,11 +319,36 @@ struct WritingFlowTests {
         let delegate = AppDelegate(workspace: app.workspace)
         let previousMenu = NSApp.mainMenu
         let previousWindowsMenu = NSApp.windowsMenu
-        defer { NSApp.mainMenu = previousMenu; NSApp.windowsMenu = previousWindowsMenu }
+        let previousServicesMenu = NSApp.servicesMenu
+        defer { NSApp.mainMenu = previousMenu
+            NSApp.windowsMenu = previousWindowsMenu
+            NSApp.servicesMenu = previousServicesMenu
+        }
         delegate.installMenu()
         let menu = try #require(NSApp.mainMenu)
-        #expect(menu.items.map(\.title) == [AppDistribution.current.applicationName] + ["Documents", "Edit", "View", "Window"].map { L10n.text($0) })
+        #expect(menu.items.map(\.title) == [AppDistribution.current.applicationName] + [
+            "Documents",
+            "Edit",
+            "View",
+            "Window",
+        ].map { L10n.text($0) })
         let entries = menu.items.flatMap { $0.submenu?.items ?? [] }
+        let printItem = try #require(entries.first { $0.title == L10n.text("Print…") })
+        #expect(printItem.keyEquivalent == "p")
+        #expect(printItem.keyEquivalentModifierMask == .command)
+        #expect(delegate.validateMenuItem(printItem))
+        app.workspace.exporting = true
+        #expect(!delegate.validateMenuItem(printItem))
+        app.workspace.exporting = false
+        #expect(NSApp.servicesMenu?.title == L10n.text("Services"))
+        #expect(entries.contains { $0.title == L10n.text("Hide Others") && $0.keyEquivalentModifierMask == [
+            .command,
+            .option,
+        ] })
+        #expect(entries.contains { $0.title == L10n.text("Toggle Full Screen") && $0.keyEquivalentModifierMask == [
+            .command,
+            .control,
+        ] })
         func choose(_ title: String) throws {
             let item = try #require(entries.first { $0.title == L10n.text(title) })
             let action = try #require(item.action)
@@ -289,7 +369,10 @@ struct WritingFlowTests {
         #expect(app.workspace.paletteOpen)
         app.workspace.closePalette()
         let editor = try #require(app.workspace.editor)
-        editor.insertSnippet(Snippet(text: "Saved by menu"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "Saved by menu"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         try choose("Save")
         #expect(try String(contentsOf: app.document, encoding: .utf8).contains("Saved by menu"))
         try choose("New Document")
@@ -327,7 +410,7 @@ struct WritingFlowTests {
         #expect(!app.workspace.handlePaletteKey(app.key("x", code: 7)))
         #expect(!app.workspace.handlePaletteKey(app.key("c", code: 8, modifiers: .command)))
         app.window.sendEvent(app.key("\u{1b}", code: 53))
-        app.workspace.selectCommand(try #require(WritingCommand.all.first { $0.id == "table" }))
+        try app.workspace.selectCommand(#require(WritingCommand.all.first { $0.id == "table" }))
         await app.layout()
         #expect(app.workspace.activeCommand?.id == "table")
         app.window.sendEvent(app.key("\u{1b}", code: 53))
@@ -336,17 +419,20 @@ struct WritingFlowTests {
         #expect(!app.workspace.paletteOpen)
         #expect(editor.isEditable)
         for id in ["split", "preview", "writing", "outline", "outline", "diagnostics", "diagnostics"] {
-            app.workspace.execute(try #require(WritingCommand.all.first { $0.id == id }))
+            try app.workspace.execute(#require(WritingCommand.all.first { $0.id == id }))
             await app.layout()
         }
         #expect(app.workspace.layout == .writing)
         #expect(app.workspace.sidePanel == nil)
         app.workspace.togglePalette()
-        app.workspace.selectCommand(try #require(WritingCommand.all.first { $0.id == "bold" }))
+        try app.workspace.selectCommand(#require(WritingCommand.all.first { $0.id == "bold" }))
         #expect(app.workspace.commandError != nil, "Insertion must report unavailable service without changing text")
         #expect(editor.string == "= Routes\n")
         _ = app.window.performKeyEquivalent(with: app.key("z", code: 6, modifiers: .command))
-        let logs = try String(contentsOf: app.workspace.stateDirectory.appendingPathComponent("Logs/events.jsonl"), encoding: .utf8)
+        let logs = try String(
+            contentsOf: app.workspace.stateDirectory.appendingPathComponent("Logs/events.jsonl"),
+            encoding: .utf8,
+        )
         #expect(logs.contains("shortcut"))
         #expect(logs.contains("dispatch"))
     }
@@ -378,7 +464,12 @@ final class WritingFixture {
         let snapshot = RecoverySnapshot(fileURL: document, text: text, savedText: text, selection: text.utf16.count)
         try JSONEncoder().encode(snapshot).write(to: state.appendingPathComponent("recovery.json"))
         workspace = Workspace(stateDirectory: state)
-        window = WritingWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        window = WritingWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1220, height: 820),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false,
+        )
         window.isReleasedWhenClosed = false
         window.workspace = workspace
         workspace.window = window
@@ -386,7 +477,9 @@ final class WritingFixture {
         window.toolbar = toolbar.makeToolbar()
         window.contentView = NSHostingView(rootView: ContentView(workspace: workspace))
         window.contentView?.layoutSubtreeIfNeeded()
-        if startService { workspace.startService() }
+        if startService {
+            workspace.startService()
+        }
     }
 
     func layout() async {
@@ -403,12 +496,31 @@ final class WritingFixture {
 
     func wait(_ condition: () -> Bool) async throws {
         let deadline = ContinuousClock.now + .seconds(15)
-        while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(30)) }
-        try #require(condition(), "App feature did not reach its expected state before timeout. Status: \(workspace.serviceStatus), message: \(workspace.message ?? "none")")
+        while !condition(), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        try #require(
+            condition(),
+            "App feature did not reach its expected state before timeout. Status: \(workspace.serviceStatus), message: \(workspace.message ?? "none")",
+        )
     }
 
     func key(_ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = []) -> NSEvent {
-        NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code)!
+        guard let event = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: code,
+        ) else {
+            preconditionFailure("Could not create a test key event")
+        }
+        return event
     }
 
     func close() {

@@ -1,9 +1,9 @@
 import AppKit
+@testable import LeftBlankApp
+import LeftBlankCore
 import PDFKit
 import SwiftUI
 import Testing
-@testable import LeftBlankApp
-import LeftBlankCore
 
 extension WritingFlowTests {
     @Test func newDocumentDiscoversTemplatesWithoutCreatingOrReplacingWriting() async throws {
@@ -11,7 +11,9 @@ extension WritingFlowTests {
         defer { app.close() }
         let delegate = AppDelegate(workspace: app.workspace)
         let previousMenu = NSApp.mainMenu, previousWindowsMenu = NSApp.windowsMenu
-        defer { NSApp.mainMenu = previousMenu; NSApp.windowsMenu = previousWindowsMenu }
+        defer { NSApp.mainMenu = previousMenu
+            NSApp.windowsMenu = previousWindowsMenu
+        }
         delegate.installMenu()
         let menu = try #require(NSApp.mainMenu)
         #expect(menu.performKeyEquivalent(with: app.key("n", code: 45, modifiers: .command)))
@@ -21,7 +23,7 @@ extension WritingFlowTests {
         #expect(app.workspace.text == "= My unfinished idea\n")
         app.workspace.openLibrary()
         #expect(app.workspace.discoveryMode == nil)
-        app.workspace.execute(try #require(WritingCommand.all.first { $0.id == "universe" }))
+        try app.workspace.execute(#require(WritingCommand.all.first { $0.id == "universe" }))
         #expect(app.workspace.discoveryMode == .packages)
         app.workspace.newDocument()
         #expect(app.workspace.discoveryMode == .templates)
@@ -39,7 +41,10 @@ extension WritingFlowTests {
         app.workspace.showLibraryHome()
         app.workspace.newDocument()
         #expect(app.workspace.discoveryMode == .templates)
-        #expect(!app.workspace.libraryOpen, "An empty library changes its inline route, never presents a sheet on itself")
+        #expect(
+            !app.workspace.libraryOpen,
+            "An empty library changes its inline route, never presents a sheet on itself",
+        )
     }
 
     @Test func welcomeCreationCompilesBothLanguagesAndPreservesExistingWriting() async throws {
@@ -57,10 +62,14 @@ extension WritingFlowTests {
             #expect(app.workspace.text == WelcomeDocument.source(language: language))
             let sourceURL = try #require(app.workspace.fileURL)
             let originalMark = try WelcomeDocument.assets()[WelcomeDocument.markFilename]
-            #expect(try Data(contentsOf: sourceURL.deletingLastPathComponent().appendingPathComponent(WelcomeDocument.markFilename)) == originalMark)
+            #expect(try Data(contentsOf: sourceURL.deletingLastPathComponent()
+                    .appendingPathComponent(WelcomeDocument.markFilename)) == originalMark)
             let exported = app.root.appendingPathComponent("welcome-project-\(language.rawValue)")
             try await app.workspace.library.store.exportProject(id, to: exported)
-            #expect(try Data(contentsOf: exported.appendingPathComponent(WelcomeDocument.markFilename)) == originalMark, "Source export must retain the document's logo asset")
+            #expect(
+                try Data(contentsOf: exported.appendingPathComponent(WelcomeDocument.markFilename)) == originalMark,
+                "Source export must retain the document's logo asset",
+            )
             try await app.ready()
             let pdf = app.root.appendingPathComponent("welcome-\(language.rawValue).pdf")
             try await app.workspace.exportPDF(to: pdf)
@@ -80,11 +89,11 @@ extension WritingFlowTests {
         #expect(fresh.text == WelcomeDocument.source(language: .english))
         #expect(fresh.layout == .split)
         #expect(fresh.text.contains("@preview/cetz:0.5.2"))
-        #expect(FileManager.default.fileExists(atPath: fresh.stateDirectory.appendingPathComponent(WelcomeDocument.markFilename).path))
+        #expect(FileManager.default
+            .fileExists(atPath: fresh.stateDirectory.appendingPathComponent(WelcomeDocument.markFilename).path))
         fresh.save()
         let recovered = Workspace(stateDirectory: fresh.stateDirectory)
         defer { recovered.shutdown() }
         #expect(recovered.text == fresh.text)
     }
-
 }

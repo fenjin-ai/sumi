@@ -8,7 +8,10 @@ struct PaletteTextField: NSViewRepresentable {
     var autoFocus = true
     var onSubmit: () -> Void = {}
 
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
     func makeNSView(context: Context) -> FocusTextField {
         let field = FocusTextField()
         field.focusOnAttach = autoFocus
@@ -25,19 +28,31 @@ struct PaletteTextField: NSViewRepresentable {
         field.action = #selector(Coordinator.submit)
         return field
     }
+
     func updateNSView(_ field: FocusTextField, context: Context) {
         context.coordinator.parent = self
-        if field.stringValue != text { field.stringValue = text }
+        if field.stringValue != text {
+            field.stringValue = text
+        }
         field.placeholderString = placeholder
         field.setAccessibilityLabel(label)
     }
+
     @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: PaletteTextField
-        init(_ parent: PaletteTextField) { self.parent = parent }
-        func controlTextDidChange(_ notification: Notification) {
-            if let field = notification.object as? NSTextField { parent.text = field.stringValue }
+        init(_ parent: PaletteTextField) {
+            self.parent = parent
         }
-        @objc func submit() { parent.onSubmit() }
+
+        func controlTextDidChange(_ notification: Notification) {
+            if let field = notification.object as? NSTextField {
+                parent.text = field.stringValue
+            }
+        }
+
+        @objc func submit() {
+            parent.onSubmit()
+        }
     }
 }
 
@@ -45,11 +60,15 @@ struct PaletteTextField: NSViewRepresentable {
     var focusOnAttach = false
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        guard window != nil, focusOnAttach else { return }
+        guard window != nil, focusOnAttach else {
+            return
+        }
         DispatchQueue.main.async { [weak self] in
-            guard let self, let window = self.window else { return }
+            guard let self, let window else {
+                return
+            }
             window.makeFirstResponder(self)
-            self.selectText(nil)
+            selectText(nil)
         }
     }
 }

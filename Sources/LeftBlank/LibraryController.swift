@@ -22,18 +22,29 @@ final class LibraryController: ObservableObject {
     private let locationURL: URL
     var onSyncChange: ((Bool) -> Void)?
 
-    init(workspace: Workspace) {
+    init(
+        workspace: Workspace,
+        cloudResolver: @escaping DocumentLibrary.CloudResolver = { try LibraryCloudEnvironment.containerURL() },
+    ) {
         self.workspace = workspace
         locationURL = workspace.stateDirectory.appendingPathComponent("library-location.json")
-        store = DocumentLibrary(rootURL: workspace.stateDirectory.appendingPathComponent("Library"))
+        store = DocumentLibrary(
+            rootURL: workspace.stateDirectory.appendingPathComponent("Library"),
+            cloudResolver: cloudResolver,
+        )
     }
 
     func start() async {
-        guard !started else { return }
+        guard !started else {
+            return
+        }
         started = true
-        if (try? Data(contentsOf: locationURL)) == Data("icloud".utf8) {
-            do { _ = try await store.resumeICloud(); cloudEnabled = true; onSyncChange?(true) }
-            catch {
+        let savedLocation = try? Data(contentsOf: locationURL)
+        if savedLocation == Data("icloud".utf8) {
+            do { _ = try await store.resumeICloud()
+                cloudEnabled = true
+                onSyncChange?(true)
+            } catch {
                 self.error = error.localizedDescription
                 // The cached recovery buffer remains open; a stale local backup
                 // must never masquerade as the current cloud library.
@@ -47,15 +58,17 @@ final class LibraryController: ObservableObject {
             if documents.contains(where: { $0.id == workspace.managedDocumentID && $0.trashedAt != nil }) {
                 workspace.showLibraryHome()
             }
-        }
-        else if let workspace, !workspace.isLibraryHome {
+        } else if let workspace, !workspace.isLibraryHome {
             // One-time adoption of the previous single-draft model.
             do {
                 let mark = workspace.stateDirectory.appendingPathComponent(WelcomeDocument.markFilename)
                 let assets = (try? Data(contentsOf: mark)).map { [WelcomeDocument.markFilename: $0] } ?? [:]
                 try await create(title: L10n.text("Welcome"), text: workspace.text, assets: assets)
-            }
-            catch { self.error = error.localizedDescription }
+            } catch { self.error = error.localizedDescription }
+        }
+        if savedLocation == nil {
+            do { try await setCloudEnabled(true) }
+            catch { syncMessage = error.localizedDescription }
         }
         await observeRoot()
         accountMonitor = LibraryAccountMonitor { [weak self] in
@@ -71,7 +84,9 @@ final class LibraryController: ObservableObject {
         do {
             documents = try await store.list(includeTrashed: true)
             error = await store.issues.first?.message
-            if let workspace, let url = workspace.fileURL { associate(url) }
+            if let workspace, let url = workspace.fileURL {
+                associate(url)
+            }
         } catch { self.error = error.localizedDescription }
     }
 
@@ -83,33 +98,55 @@ final class LibraryController: ObservableObject {
     }
 
     func perform(_ action: @escaping @MainActor () async throws -> Void) {
-        guard !busy else { return }
+        guard !busy else {
+            return
+        }
         busy = true
         Task {
             defer { busy = false }
-            do { try await action(); error = nil }
-            catch { self.error = error.localizedDescription; workspace?.showMessage(error.localizedDescription, persistent: true) }
+            do { try await action()
+                error = nil
+            } catch { self.error = error.localizedDescription
+                workspace?.showMessage(error.localizedDescription, persistent: true)
+            }
         }
     }
 
-    func create(title: String? = nil, text: String? = nil, template: DocumentTemplate? = nil, assets: [String: Data] = [:]) async throws {
+    func create(
+        title: String? = nil,
+        text: String? = nil,
+        template: DocumentTemplate? = nil,
+        assets: [String: Data] = [:],
+    ) async throws {
         let selected = template ?? .blank
         let content = text ?? selected.source
-        let document = try await store.create(title: title ?? L10n.text(selected == .codeNotes ? "Code notes" : "Untitled"), text: content, assets: assets)
+        let document = try await store.create(
+            title: title ?? L10n.text(selected == .codeNotes ? "Code notes" : "Untitled"),
+            text: content,
+            assets: assets,
+        )
         await refresh()
         try await open(document.id)
     }
 
     func create(builtIn template: BuiltInTemplate) async throws {
         let assets = template == .welcome ? try WelcomeDocument.assets() : [:]
-        try await create(title: template == .welcome ? L10n.text("Welcome") : nil, text: template.source, assets: assets)
-        if template == .welcome { workspace?.layout = .split }
+        try await create(
+            title: template == .welcome ? L10n.text("Welcome") : nil,
+            text: template.source,
+            assets: assets,
+        )
+        if template == .welcome {
+            workspace?.layout = .split
+        }
     }
 
     /// A dedicated resolver keeps template downloads independent of the live
     /// document service, including when the library is empty or compilation is busy.
     func create(from package: UniversePackage) async throws {
-        guard let workspace, !busy else { throw LibraryInteractionError.operationInProgress }
+        guard let workspace, !busy else {
+            throw LibraryInteractionError.operationInProgress
+        }
         busy = true
         defer { busy = false }
         let staging = workspace.stateDirectory.appendingPathComponent("TemplateDownloads", isDirectory: true)
@@ -118,38 +155,61 @@ final class LibraryController: ObservableObject {
         defer { client.stop() }
         let project = try await withTaskCancellationHandler {
             try Task.checkCancellation()
-            try await client.start(root: staging, outputDirectory: workspace.stateDirectory.appendingPathComponent("Exports"))
+            try await client.start(
+                root: staging,
+                outputDirectory: workspace.stateDirectory.appendingPathComponent("Exports"),
+            )
             return try await UniverseTemplateInstaller.materialize(package, using: client, in: staging)
         } onCancel: {
             Task { @MainActor in client.stop() }
         }
         defer { try? FileManager.default.removeItem(at: project.directoryURL) }
         try Task.checkCancellation()
-        let document = try await store.importProject(at: project.directoryURL, mainFile: project.mainFileURL, title: package.name)
+        let document = try await store.importProject(
+            at: project.directoryURL,
+            mainFile: project.mainFileURL,
+            title: package.name,
+        )
         await refresh()
         try await open(document.id)
         workspace.recordOperation("library.createTemplate", ["package": package.name, "version": package.version])
     }
 
     func create(sample: SampleBook, using suppliedStore: SampleBookStore? = nil) async throws {
-        guard let workspace, !busy else { throw LibraryInteractionError.operationInProgress }
+        guard let workspace, !busy else {
+            throw LibraryInteractionError.operationInProgress
+        }
         busy = true
         defer { busy = false }
-        let books = suppliedStore ?? SampleBookStore(cacheURL: workspace.stateDirectory.appendingPathComponent("SampleBooks"))
-        let project = try await books.materialize(sample, in: workspace.stateDirectory.appendingPathComponent("SampleDownloads"))
+        let books = suppliedStore ??
+            SampleBookStore(cacheURL: workspace.stateDirectory.appendingPathComponent("SampleBooks"))
+        let project = try await books.materialize(
+            sample,
+            in: workspace.stateDirectory.appendingPathComponent("SampleDownloads"),
+        )
         defer { try? FileManager.default.removeItem(at: project.directoryURL) }
         try Task.checkCancellation()
-        let document = try await store.importProject(at: project.directoryURL, mainFile: project.mainFileURL, title: sample.title)
+        let document = try await store.importProject(
+            at: project.directoryURL,
+            mainFile: project.mainFileURL,
+            title: sample.title,
+        )
         await refresh()
         try await open(document.id)
         workspace.recordOperation("library.createExample", ["book": sample.rawValue])
     }
 
     func open(_ id: UUID) async throws {
-        guard let workspace else { return }
+        guard let workspace else {
+            return
+        }
         let result = try await store.read(id)
-        guard result.document.trashedAt == nil else { throw LibraryInteractionError.restoreFirst }
-        guard workspace.open(result.document.sourceURL) else { throw LibraryInteractionError.couldNotOpen }
+        guard result.document.trashedAt == nil else {
+            throw LibraryInteractionError.restoreFirst
+        }
+        guard workspace.open(result.document.sourceURL) else {
+            throw LibraryInteractionError.couldNotOpen
+        }
         workspace.managedDocumentID = result.document.id
         workspace.managedTitle = result.document.title
         workspace.onTitleChange?(workspace.title)
@@ -159,12 +219,16 @@ final class LibraryController: ObservableObject {
     func rename(_ id: UUID, title: String) async throws {
         _ = try await store.rename(id, title: title)
         await refresh()
-        if workspace?.managedDocumentID == id, let workspace { workspace.onTitleChange?(workspace.title) }
+        if workspace?.managedDocumentID == id, let workspace {
+            workspace.onTitleChange?(workspace.title)
+        }
         workspace?.recordOperation("library.rename", ["documentID": id.uuidString])
     }
 
     func moveToTrash(_ id: UUID) async throws {
-        guard let workspace else { return }
+        guard let workspace else {
+            return
+        }
         let wasActive = workspace.managedDocumentID == id
         if wasActive {
             workspace.documentTransitionInProgress = true
@@ -173,12 +237,15 @@ final class LibraryController: ObservableObject {
         defer {
             if wasActive {
                 workspace.documentTransitionInProgress = false
-                workspace.editor?.isEditable = !workspace.isLibraryHome && workspace.layout != .preview && !workspace.paletteOpen
+                workspace.editor?.isEditable = !workspace.isLibraryHome && workspace.layout != .preview && !workspace
+                    .paletteOpen
             }
         }
         if wasActive {
             workspace.save()
-            guard workspace.text == workspace.savedText else { throw LibraryInteractionError.saveFirst }
+            guard workspace.text == workspace.savedText else {
+                throw LibraryInteractionError.saveFirst
+            }
         }
         _ = try await store.trash(id)
         workspace.recordOperation("library.trash", ["documentID": id.uuidString, "active": String(wasActive)])
@@ -201,22 +268,34 @@ final class LibraryController: ObservableObject {
     }
 
     func confirmEmptyTrash() {
-        guard let owner = workspace?.window ?? workspace?.editor?.window else { return }
+        guard let owner = workspace?.window ?? workspace?.editor?.window else {
+            return
+        }
         let window = owner.attachedSheet ?? owner
-        guard window.attachedSheet == nil else { return }
+        guard window.attachedSheet == nil else {
+            return
+        }
         perform { [self] in
-            let snapshot = try await self.store.trashSnapshot()
-            guard snapshot.count > 0 else { await self.refresh(); return }
+            let snapshot = try await store.trashSnapshot()
+            guard !snapshot.isEmpty else {
+                await refresh()
+                return
+            }
             let alert = NSAlert()
             alert.messageText = L10n.text("Empty Trash?")
-            alert.informativeText = L10n.format("Permanently delete %d documents and their attachments? This cannot be undone.", snapshot.count)
+            alert.informativeText = L10n.format(
+                "Permanently delete %d documents and their attachments? This cannot be undone.",
+                snapshot.count,
+            )
             alert.alertStyle = .warning
             alert.addButton(withTitle: L10n.text("Cancel"))
             alert.addButton(withTitle: L10n.text("Empty Trash"))
             alert.buttons[1].hasDestructiveAction = true
             alert.beginSheetModal(for: window) { [weak self] response in
-                guard response == .alertSecondButtonReturn, let self else { return }
-                self.perform { try await self.emptyTrash(snapshot) }
+                guard response == .alertSecondButtonReturn, let self else {
+                    return
+                }
+                perform { try await self.emptyTrash(snapshot) }
             }
         }
     }
@@ -224,9 +303,16 @@ final class LibraryController: ObservableObject {
     func emptyTrash(_ snapshot: LibraryTrashSnapshot) async throws {
         let result = try await store.emptyTrash(snapshot)
         await refresh()
-        workspace?.recordOperation("library.emptyTrash", ["deleted": String(result.deletedCount), "failed": String(result.issues.count)])
+        workspace?.recordOperation(
+            "library.emptyTrash",
+            ["deleted": String(result.deletedCount), "failed": String(result.issues.count)],
+        )
         if let issue = result.issues.first {
-            throw CommandError.invalid(L10n.format("%d documents deleted. Some items could not be removed: %@", result.deletedCount, issue.message))
+            throw CommandError.invalid(L10n.format(
+                "%d documents deleted. Some items could not be removed: %@",
+                result.deletedCount,
+                issue.message,
+            ))
         }
     }
 
@@ -243,19 +329,30 @@ final class LibraryController: ObservableObject {
     }
 
     func importPanel(project: Bool = false) {
-        guard let owner = workspace?.window ?? workspace?.editor?.window else { return }
+        guard let owner = workspace?.window ?? workspace?.editor?.window else {
+            return
+        }
         let window = owner.attachedSheet ?? owner
-        guard window.attachedSheet == nil else { return }
+        guard window.attachedSheet == nil else {
+            return
+        }
         let panel = NSOpenPanel()
         panel.title = L10n.text(project ? "Import project folder" : "Import a document")
         panel.canChooseDirectories = project
         panel.canChooseFiles = !project
         panel.allowsMultipleSelection = false
-        if !project { panel.allowedContentTypes = [UTType(filenameExtension: "typ") ?? .plainText] }
+        if !project {
+            panel.allowedContentTypes = [UTType(filenameExtension: "typ") ?? .plainText]
+        }
         panel.beginSheetModal(for: window) { [weak self] response in
-            guard response == .OK, let url = panel.url, let self else { return }
-            if project { self.chooseProjectEntry(in: url, window: window) }
-            else { self.perform { try await self.importDocument(url) } }
+            guard response == .OK, let url = panel.url, let self else {
+                return
+            }
+            if project {
+                chooseProjectEntry(in: url, window: window)
+            } else {
+                perform { try await self.importDocument(url) }
+            }
         }
     }
 
@@ -265,37 +362,58 @@ final class LibraryController: ObservableObject {
         panel.directoryURL = folder
         panel.allowedContentTypes = [UTType(filenameExtension: "typ") ?? .plainText]
         panel.beginSheetModal(for: window) { [weak self] response in
-            guard response == .OK, let mainFile = panel.url, let self else { return }
-            self.perform { try await self.importProject(folder, mainFile: mainFile) }
+            guard response == .OK, let mainFile = panel.url, let self else {
+                return
+            }
+            perform { try await self.importProject(folder, mainFile: mainFile) }
         }
     }
 
     func exportProject(_ id: UUID, to destination: URL) async throws {
         if workspace?.managedDocumentID == id {
             workspace?.save()
-            guard workspace?.text == workspace?.savedText else { throw LibraryInteractionError.saveFirst }
+            guard workspace?.text == workspace?.savedText else {
+                throw LibraryInteractionError.saveFirst
+            }
         }
         try await store.exportProject(id, to: destination)
     }
 
     func exportPanel(_ document: LibraryDocument) {
-        guard let owner = workspace?.window ?? workspace?.editor?.window else { return }
+        guard let owner = workspace?.window ?? workspace?.editor?.window else {
+            return
+        }
         let window = owner.attachedSheet ?? owner
-        guard window.attachedSheet == nil else { return }
+        guard window.attachedSheet == nil else {
+            return
+        }
         let panel = NSSavePanel()
         panel.title = L10n.text("Export source project")
         panel.nameFieldStringValue = document.title
         panel.canCreateDirectories = true
         panel.beginSheetModal(for: window) { [weak self] response in
-            guard response == .OK, let url = panel.url, let self else { return }
-            self.perform { try await self.exportProject(document.id, to: url) }
+            guard response == .OK, let url = panel.url, let self else {
+                return
+            }
+            perform { try await self.exportProject(document.id, to: url) }
         }
     }
 
     func setCloudEnabled(_ enabled: Bool) async throws {
-        guard let workspace, enabled != cloudEnabled else { return }
-        if workspace.fileURL != nil { workspace.save() }
-        guard workspace.fileURL == nil || workspace.text == workspace.savedText else { throw LibraryInteractionError.saveFirst }
+        guard let workspace else {
+            return
+        }
+        if enabled == cloudEnabled {
+            try Data(enabled ? "icloud".utf8 : "local".utf8).write(to: locationURL, options: .atomic)
+            return
+        }
+        if workspace.fileURL != nil {
+            workspace.save()
+        }
+        guard workspace.fileURL == nil || workspace.text == workspace.savedText
+        else {
+            throw LibraryInteractionError.saveFirst
+        }
         let currentID = workspace.managedDocumentID
         workspace.documentTransitionInProgress = true
         workspace.editor?.isEditable = false
@@ -307,10 +425,13 @@ final class LibraryController: ObservableObject {
         cloudEnabled = report.isICloud
         try Data(enabled ? "icloud".utf8 : "local".utf8).write(to: locationURL, options: .atomic)
         onSyncChange?(enabled)
-        syncMessage = enabled ? L10n.text("iCloud Drive manages uploads and downloads.") : L10n.text("Saved on this Mac")
+        syncMessage = enabled ? L10n.text("iCloud Drive manages uploads and downloads.") : L10n
+            .text("Saved on this Mac")
         await refresh()
         await observeRoot()
-        if let currentID { try await open(report.idMappings[currentID] ?? currentID) }
+        if let currentID {
+            try await open(report.idMappings[currentID] ?? currentID)
+        }
     }
 
     private func observeRoot() async {
@@ -319,9 +440,11 @@ final class LibraryController: ObservableObject {
         let root = await store.rootURL
         let changed: @Sendable () -> Void = { [weak self] in
             Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.refreshTask?.cancel()
-                self.refreshTask = Task {
+                guard let self else {
+                    return
+                }
+                refreshTask?.cancel()
+                refreshTask = Task {
                     do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
                     await self.refresh()
                     await self.workspace?.refreshFromLibrary()
@@ -329,14 +452,25 @@ final class LibraryController: ObservableObject {
             }
         }
         monitor = LibraryFileMonitor(rootURL: root, onChange: changed)
-        if cloudEnabled { cloudQuery = LibraryCloudQuery(rootURL: root, onChange: changed) }
+        if cloudEnabled {
+            cloudQuery = LibraryCloudQuery(rootURL: root, onChange: changed)
+        }
     }
 
-    func stop() { refreshTask?.cancel(); monitor?.stop(); monitor = nil; accountMonitor = nil; cloudQuery = nil }
+    func stop() {
+        refreshTask?.cancel()
+        monitor?.stop()
+        monitor = nil
+        accountMonitor = nil
+        cloudQuery = nil
+    }
 }
 
 enum LibraryInteractionError: LocalizedError {
-    case saveFirst, restoreFirst, couldNotOpen, operationInProgress
+    case saveFirst
+    case restoreFirst
+    case couldNotOpen
+    case operationInProgress
     var errorDescription: String? {
         switch self {
         case .operationInProgress: L10n.text("Another library operation is in progress. Try again in a moment.")

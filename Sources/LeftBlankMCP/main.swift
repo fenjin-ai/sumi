@@ -1,7 +1,7 @@
 import Foundation
-import MCP
 import LeftBlankAutomation
 import LeftBlankMCPServer
+import MCP
 
 // stdout is exclusively MCP JSON-RPC. Never write logs or banners there.
 let bridge = AutomationBridgeClient()

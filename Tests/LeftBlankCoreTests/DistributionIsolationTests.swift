@@ -1,15 +1,17 @@
 import Foundation
-import Testing
-import LeftBlankTestSupport
 @testable import LeftBlankCore
+import LeftBlankTestSupport
+import Testing
 
 struct DistributionIsolationTests {
-    @Test func previewAndProductionKeepIndependentLibrariesAndPreferences() async throws {
+    @Test func previewAndProductionKeepIndependentLocalLibrariesAndPreferences() async throws {
         let root = TestPaths.temporaryDirectory.appendingPathComponent("distribution-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let stable = DocumentLibrary(rootURL: AppDistribution.standard.stateDirectory(applicationSupport: root).appendingPathComponent("Library"))
-        let preview = DocumentLibrary(rootURL: AppDistribution.preview.stateDirectory(applicationSupport: root).appendingPathComponent("Library"))
+        let stable = DocumentLibrary(rootURL: AppDistribution.standard.stateDirectory(applicationSupport: root)
+            .appendingPathComponent("Library"))
+        let preview = DocumentLibrary(rootURL: AppDistribution.preview.stateDirectory(applicationSupport: root)
+            .appendingPathComponent("Library"))
         let original = try await stable.create(title: "Writing", text: "Keep the original")
         let copy = try await preview.create(title: "Writing", text: "Try an experiment")
         #expect(try await stable.list().map(\.id) == [original.id])

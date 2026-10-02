@@ -1,6 +1,6 @@
 import AppKit
-import SwiftUI
 import LeftBlankCore
+import SwiftUI
 
 struct EditableDocumentName: NSViewRepresentable {
     let title: String
@@ -10,9 +10,11 @@ struct EditableDocumentName: NSViewRepresentable {
     var help = "Click to rename. Double-click to open your writing."
     var onOpen: () -> Void
     var onRename: (String) -> Void
-    var onFinish: (() -> Void)? = nil
+    var onFinish: (() -> Void)?
 
-    func makeNSView(context: Context) -> DocumentTitleField { DocumentTitleField() }
+    func makeNSView(context: Context) -> DocumentTitleField {
+        DocumentTitleField()
+    }
 
     func updateNSView(_ field: DocumentTitleField, context: Context) {
         field.update(title: title, documentID: documentID)
@@ -54,7 +56,10 @@ final class DocumentTitleField: NSTextField, NSTextFieldDelegate {
         setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     func update(title: String, documentID: UUID?) {
         if self.documentID != documentID {
@@ -62,35 +67,58 @@ final class DocumentTitleField: NSTextField, NSTextFieldDelegate {
             finish(commit: false)
         }
         self.documentID = documentID
-        if !renaming { stringValue = title }
+        if !renaming {
+            stringValue = title
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard !renaming else { super.mouseDown(with: event); return }
+        guard !renaming else {
+            super.mouseDown(with: event)
+            return
+        }
         pendingClick?.cancel()
-        if event.clickCount >= 2 { onOpenLibrary?(); return }
+        if event.clickCount >= 2 {
+            onOpenLibrary?()
+            return
+        }
         pendingClick = Task { @MainActor [weak self] in
             do { try await Task.sleep(for: .seconds(NSEvent.doubleClickInterval)) } catch { return }
-            guard let self, self.window != nil else { return }
-            guard self.documentID != nil else { self.onOpenLibrary?(); return }
-            self.originalTitle = self.stringValue
-            self.renaming = true
-            self.isEditable = true
-            self.isSelectable = true
-            self.selectText(nil)
+            guard let self, window != nil else {
+                return
+            }
+            guard documentID != nil else {
+                onOpenLibrary?()
+                return
+            }
+            originalTitle = stringValue
+            renaming = true
+            isEditable = true
+            isSelectable = true
+            selectText(nil)
         }
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        if commandSelector == #selector(NSResponder.cancelOperation(_:)) { finish(commit: false); return true }
-        if commandSelector == #selector(NSResponder.insertNewline(_:)) { finish(commit: true); return true }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            finish(commit: false)
+            return true
+        }
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            finish(commit: true)
+            return true
+        }
         return false
     }
 
-    func controlTextDidEndEditing(_ notification: Notification) { finish(commit: true, restoreFocus: false) }
+    func controlTextDidEndEditing(_ notification: Notification) {
+        finish(commit: true, restoreFocus: false)
+    }
 
     private func finish(commit: Bool, restoreFocus: Bool = true) {
-        guard renaming else { return }
+        guard renaming else {
+            return
+        }
         let title = stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         renaming = false
         // End the field editor before resetting the label or publishing metadata.
@@ -98,8 +126,11 @@ final class DocumentTitleField: NSTextField, NSTextFieldDelegate {
         isEditable = false
         isSelectable = false
         stringValue = originalTitle
-        if commit, !title.isEmpty, title != originalTitle { onRename?(title) }
-        if restoreFocus { onFinish?() }
+        if commit, !title.isEmpty, title != originalTitle {
+            onRename?(title)
+        }
+        if restoreFocus {
+            onFinish?()
+        }
     }
 }
-

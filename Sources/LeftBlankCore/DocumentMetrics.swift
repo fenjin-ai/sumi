@@ -16,11 +16,18 @@ public struct DocumentMetrics: Sendable {
     @discardableResult public mutating func apply(_ edit: TextReplacement, to original: String) -> Bool {
         let source = original as NSString
         guard source.length == lines.length, edit.range.location >= 0, edit.range.length >= 0,
-              edit.range.location <= source.length, edit.range.length <= source.length - edit.range.location else { return false }
+              edit.range.location <= source.length,
+              edit.range.length <= source.length - edit.range.location
+        else {
+            return false
+        }
         let range = lines.rescanRange(for: edit.range)
         let before = source.substring(with: range)
         let after = NSMutableString(string: before)
-        after.replaceCharacters(in: NSRange(location: edit.range.location - range.location, length: edit.range.length), with: edit.text)
+        after.replaceCharacters(
+            in: NSRange(location: edit.range.location - range.location, length: edit.range.length),
+            with: edit.text,
+        )
         let changed = after as String
         wordCount += Self.count(changed) - Self.count(before)
         lines.replaceLines(in: range, with: changed)
@@ -39,5 +46,7 @@ public struct DocumentMetrics: Sendable {
         lines.position(at: offset)
     }
 
-    public func offset(at position: TextPosition) -> Int { lines.offset(at: position) }
+    public func offset(at position: TextPosition) -> Int {
+        lines.offset(at: position)
+    }
 }

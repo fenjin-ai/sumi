@@ -1,8 +1,8 @@
-import LeftBlankTestSupport
 import Foundation
+@testable import LeftBlankCore
+import LeftBlankTestSupport
 import PDFKit
 import Testing
-@testable import LeftBlankCore
 
 @MainActor
 @Test(.enabled(if: ProcessInfo.processInfo.environment["LEFTBLANK_INTEGRATION"] == "1"))
@@ -13,10 +13,16 @@ func realTinymistRoundTrip() async throws {
     var diagnosticEvents: [JSONValue] = []
     var statuses: [String] = []
     client.onNotification = { method, params in
-        if method == "textDocument/publishDiagnostics" { diagnosticEvents.append(params) }
-        if method == "tinymist/compileStatus", let status = params["status"].string { statuses.append(status) }
+        if method == "textDocument/publishDiagnostics" {
+            diagnosticEvents.append(params)
+        }
+        if method == "tinymist/compileStatus", let status = params["status"].string {
+            statuses.append(status)
+        }
     }
-    defer { client.stop(); try? FileManager.default.removeItem(at: root) }
+    defer { client.stop()
+        try? FileManager.default.removeItem(at: root)
+    }
     let file = root.appendingPathComponent("中文 文稿.typ")
     try Data("= Saved sentinel\n".utf8).write(to: file)
     try Data("Included content.".utf8).write(to: root.appendingPathComponent("section.typ"))
@@ -34,9 +40,16 @@ func realTinymistRoundTrip() async throws {
     try await client.start(root: root, outputDirectory: root)
     try client.open(file, text: source, version: 1)
     let preview = try await client.startPreview(file)
-    let semantic = try await client.request("textDocument/semanticTokens/full", ["textDocument": ["uri": file.absoluteString]])
-    let tokens = SemanticHighlighting.decode(semantic["data"].array.compactMap(\.int), source: source,
-        types: client.semanticTokenTypes, modifiers: client.semanticTokenModifiers)
+    let semantic = try await client.request(
+        "textDocument/semanticTokens/full",
+        ["textDocument": ["uri": file.absoluteString]],
+    )
+    let tokens = SemanticHighlighting.decode(
+        semantic["data"].array.compactMap(\.int),
+        source: source,
+        types: client.semanticTokenTypes,
+        modifiers: client.semanticTokenModifiers,
+    )
     #expect(tokens.contains { $0.kind == "heading" })
     #expect(tokens.contains { $0.modifiers.contains("math") })
     #expect(tokens.contains { (source as NSString).substring(with: $0.range) == "let" && $0.kind == "keyword" })
@@ -55,14 +68,26 @@ func realTinymistRoundTrip() async throws {
 
     let positions = [(2, 7), (3, 3), (5, 5), (7, 8)]
     let queries: [[String: Any]] = positions.map { ["kind": "modeAt", "position": ["line": $0.0, "character": $0.1]] }
-    let context = try await client.command("tinymist.interactCodeContext", arguments: [["textDocument": ["uri": file.absoluteString], "query": queries]])
+    let context = try await client.command(
+        "tinymist.interactCodeContext",
+        arguments: [["textDocument": ["uri": file.absoluteString], "query": queries]],
+    )
     #expect(context.array.compactMap { $0["mode"].string } == ["markup", "math", "raw", "code"])
-    let symbols = try await client.request("textDocument/documentSymbol", ["textDocument": ["uri": file.absoluteString]])
+    let symbols = try await client.request(
+        "textDocument/documentSymbol",
+        ["textDocument": ["uri": file.absoluteString]],
+    )
     #expect(symbols.array.contains { $0["name"].string == "Unsaved 文稿" })
-    _ = try await client.command("tinymist.scrollPreview", arguments: ["leftblank", ["event": "panelScrollTo", "filepath": file.path, "line": 2, "character": 11]])
+    _ = try await client.command(
+        "tinymist.scrollPreview",
+        arguments: ["leftblank", ["event": "panelScrollTo", "filepath": file.path, "line": 2, "character": 11]],
+    )
 
     try client.change(file, text: "#te", version: 2)
-    let completion = try await client.request("textDocument/completion", ["textDocument": ["uri": file.absoluteString], "position": ["line": 0, "character": 3]])
+    let completion = try await client.request(
+        "textDocument/completion",
+        ["textDocument": ["uri": file.absoluteString], "position": ["line": 0, "character": 3]],
+    )
     let items = completion.array.isEmpty ? completion["items"].array : completion.array
     #expect(items.contains { $0["label"].string == "text" })
 
@@ -71,8 +96,10 @@ func realTinymistRoundTrip() async throws {
     do { _ = try await client.command("tinymist.exportPdf", arguments: [file.path]) }
     catch { failed = true }
     #expect(failed, "Invalid input must fail instead of exporting the last valid PDF")
-    for _ in 0..<100 {
-        if diagnosticEvents.contains(where: { $0["diagnostics"].array.contains { $0["severity"].int == 1 } }) { break }
+    for _ in 0 ..< 100 {
+        if diagnosticEvents.contains(where: { $0["diagnostics"].array.contains { $0["severity"].int == 1 } }) {
+            break
+        }
         try await Task.sleep(for: .milliseconds(30))
     }
     #expect(diagnosticEvents.contains { $0["diagnostics"].array.contains { $0["severity"].int == 1 } })
@@ -97,7 +124,7 @@ func realTinymistRoundTrip() async throws {
     _ = try await client.startPreview(file)
     // Export immediately after each included-source edit, without a sleep or
     // waiting for preview compilation; the PDF must contain that exact revision.
-    for edit in 2...21 {
+    for edit in 2 ... 21 {
         let expected = "Child unsaved edit \(edit)"
         try client.change(child, text: expected, version: edit)
         let multiFile = try await client.command("tinymist.exportPdf", arguments: [file.path])
@@ -107,5 +134,4 @@ func realTinymistRoundTrip() async throws {
         #expect(multiText.contains(expected), "Rendered: \(multiText); expected: \(expected)")
     }
     #expect(try String(contentsOf: child, encoding: .utf8) == "Included content.")
-
 }

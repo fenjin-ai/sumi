@@ -1,22 +1,25 @@
 import AppKit
-import Testing
-import LeftBlankCore
 @testable import LeftBlankApp
+import LeftBlankCore
+import Testing
 
 extension WritingFlowTests {
     @Test func longManuscriptTypingUndoAndIdleStylingKeepTheViewportStable() async throws {
-        let source = String(repeating: "= Chapter\n\nA paragraph with *strong*, _emphasis_ and `code`. 中文😀\n\n", count: 1500) + "Writing here\n"
+        let source = String(
+            repeating: "= Chapter\n\nA paragraph with *strong*, _emphasis_ and `code`. 中文😀\n\n",
+            count: 1500,
+        ) + "Writing here\n"
         let app = try WritingFixture(text: source, startService: false)
         defer { app.close() }
         let editor = try #require(app.workspace.editor)
         editor.setSelectedRange(NSRange(location: source.utf16.count - 1, length: 0))
         editor.highlight()
         editor.scrollRangeToVisible(editor.selectedRange())
-        let edits = StorageEditRecorder(try #require(editor.textStorage))
+        let edits = try StorageEditRecorder(#require(editor.textStorage))
         var durations: [Duration] = []
         editor.breakUndoCoalescing()
         editor.undoManager?.beginUndoGrouping()
-        for _ in 0..<30 {
+        for _ in 0 ..< 30 {
             let start = ContinuousClock.now
             editor.insertText("a", replacementRange: editor.selectedRange())
             _ = app.workspace.position
@@ -51,7 +54,10 @@ extension WritingFlowTests {
         try await app.wait { app.workspace.syntaxSnapshot?.source == source }
         let editor = try #require(app.workspace.editor)
         let keyword = (source as NSString).range(of: "define").location
-        #expect(editorColor(editor, at: keyword) == Theme.sourceFunction, "An outer name span must not overwrite its nested built-in token")
+        #expect(
+            editorColor(editor, at: keyword) == Theme.sourceFunction,
+            "An outer name span must not overwrite its nested built-in token",
+        )
     }
 
     @Test func continuousTypingKeepsSemanticColorsAndDoesNotRestyleTheDocument() async throws {
@@ -90,7 +96,11 @@ extension WritingFlowTests {
 
 @MainActor
 func editorColor(_ editor: ManuscriptTextView, at offset: Int) -> NSColor? {
-    editor.layoutManager?.temporaryAttribute(.foregroundColor, atCharacterIndex: offset, effectiveRange: nil) as? NSColor
+    editor.layoutManager?.temporaryAttribute(
+        .foregroundColor,
+        atCharacterIndex: offset,
+        effectiveRange: nil,
+    ) as? NSColor
         ?? editor.textStorage?.attribute(.foregroundColor, at: offset, effectiveRange: nil) as? NSColor
 }
 
@@ -99,10 +109,20 @@ private final class StorageEditRecorder: NSObject {
     var ranges: [NSRange] = []
     init(_ storage: NSTextStorage) {
         super.init()
-        NotificationCenter.default.addObserver(self, selector: #selector(record(_:)), name: NSTextStorage.didProcessEditingNotification, object: storage)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(record(_:)),
+            name: NSTextStorage.didProcessEditingNotification,
+            object: storage,
+        )
     }
+
     @objc private func record(_ notification: Notification) {
-        guard let storage = notification.object as? NSTextStorage, storage.editedMask.contains(.editedAttributes) else { return }
+        guard let storage = notification.object as? NSTextStorage,
+              storage.editedMask.contains(.editedAttributes)
+        else {
+            return
+        }
         ranges.append(storage.editedRange)
     }
 }

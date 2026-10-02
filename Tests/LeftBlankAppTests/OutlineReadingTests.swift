@@ -1,12 +1,12 @@
 import AppKit
-import Testing
-import LeftBlankCore
 @testable import LeftBlankApp
+import LeftBlankCore
+import Testing
 
 extension WritingFlowTests {
     @Test func longOutlineFollowsScrollingFoldsAndRemembersChoices() async throws {
-        let source = (1...8).map { chapter in
-            "= Chapter \(chapter)\n\n" + (1...5).map { section in
+        let source = (1 ... 8).map { chapter in
+            "= Chapter \(chapter)\n\n" + (1 ... 5).map { section in
                 "== Section \(section)\n\n" + String(repeating: "A paragraph for scrolling. 中文😀\n\n", count: 5)
             }.joined()
         }.joined()
@@ -31,7 +31,7 @@ extension WritingFlowTests {
         // Scroll without moving the caret: the final section still has a mark,
         // even when its row is hidden under a folded chapter.
         let scroll = try #require(editor.enclosingScrollView)
-        editor.layoutManager?.ensureLayout(for: try #require(editor.textContainer))
+        try editor.layoutManager?.ensureLayout(for: #require(editor.textContainer))
         scroll.contentView.scroll(to: NSPoint(x: 0, y: editor.bounds.height - scroll.contentSize.height))
         scroll.reflectScrolledClipView(scroll.contentView)
         try await app.wait { (workspace.activeOutlineIndex ?? 0) >= 45 }
@@ -42,9 +42,9 @@ extension WritingFlowTests {
         #expect(buckets.flatMap { Array($0) } == Array(workspace.outline.indices))
         #expect(workspace.outlineNavigation.visibleAncestor(of: active) == 42)
         #expect(editor.selectedRange().location < workspace.outline[1].offset)
-        workspace.execute(try #require(WritingCommand.all.first { $0.id == "outlineExpand" }))
+        try workspace.execute(#require(WritingCommand.all.first { $0.id == "outlineExpand" }))
         #expect(workspace.outlineNavigation.visibleIndices.count == 48)
-        workspace.execute(try #require(WritingCommand.all.first { $0.id == "outlineCollapse" }))
+        try workspace.execute(#require(WritingCommand.all.first { $0.id == "outlineCollapse" }))
         #expect(workspace.outlineNavigation.visibleIndices.count == 8)
         workspace.toggleOutlineSection(42)
         #expect(workspace.outlineNavigation.visibleIndices.contains(active))

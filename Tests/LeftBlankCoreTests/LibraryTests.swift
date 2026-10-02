@@ -1,7 +1,7 @@
-import LeftBlankTestSupport
 import Foundation
-import Testing
 @testable import LeftBlankCore
+import LeftBlankTestSupport
+import Testing
 
 private func libraryFixture() throws -> URL {
     let url = TestPaths.temporaryDirectory.appendingPathComponent("LeftBlank-library-" + UUID().uuidString)
@@ -20,7 +20,9 @@ private func libraryFixture() throws -> URL {
     let retrash = try await library.create(title: "Again", text: "A different trash generation")
     let attachment = deleted.folderURL.appendingPathComponent("figure.svg")
     try Data("<svg/>".utf8).write(to: attachment)
-    for id in [deleted.id, restored.id, retrash.id] { _ = try await library.trash(id) }
+    for id in [deleted.id, restored.id, retrash.id] {
+        _ = try await library.trash(id)
+    }
     let snapshot = try await library.trashSnapshot()
     #expect(snapshot.count == 3)
     _ = try await library.restore(restored.id)
@@ -38,7 +40,7 @@ private func libraryFixture() throws -> URL {
     #expect(try await library.read(retrash.id).document.isTrashed)
     #expect(try await library.emptyTrash(snapshot).deletedCount == 0)
     #expect(try await library.emptyTrash(library.trashSnapshot()).deletedCount == 2)
-    #expect(try await library.trashSnapshot().count == 0)
+    #expect(try await library.trashSnapshot().isEmpty)
     #expect(try await library.emptyTrash(library.trashSnapshot()).deletedCount == 0)
 }
 
@@ -50,7 +52,9 @@ private func libraryFixture() throws -> URL {
     let good = try await library.create(title: "Good", text: "Delete me")
     let corrupt = try await library.create(title: "Corrupt", text: "Preserve me")
     let linked = try await library.create(title: "Linked", text: "Outside library")
-    for id in [good.id, corrupt.id, linked.id] { _ = try await library.trash(id) }
+    for id in [good.id, corrupt.id, linked.id] {
+        _ = try await library.trash(id)
+    }
     let snapshot = try await library.trashSnapshot()
     try Data("broken".utf8).write(to: corrupt.folderURL.appendingPathComponent("document.json"))
     let outside = root.appendingPathComponent("Outside")
@@ -70,14 +74,21 @@ private func libraryFixture() throws -> URL {
     defer { try? FileManager.default.removeItem(at: root) }
     let library = DocumentLibrary(rootURL: root)
     #expect(try await library.list().isEmpty)
-    let initial = try await library.create(title: "  Café journal  ", text: "#set text(size: 11pt)\n// Writing notes\n= Spring\n\nHello 世界 👋")
+    let initial = try await library.create(
+        title: "  Café journal  ",
+        text: "#set text(size: 11pt)\n// Writing notes\n= Spring\n\nHello 世界 👋",
+    )
     #expect(initial.title == "Café journal")
     #expect(initial.sourceURL.lastPathComponent == "main.typ")
     #expect(initial.snippet == "Hello 世界 👋")
     #expect(initial.folderURL.lastPathComponent == initial.id.uuidString)
     let opened = try await library.read(initial.id)
     #expect(opened.text.contains("世界"))
-    let saved = try await library.save(initial.id, text: opened.text + "\nA distant keyword: telescope", baseline: opened.baseline)
+    let saved = try await library.save(
+        initial.id,
+        text: opened.text + "\nA distant keyword: telescope",
+        baseline: opened.baseline,
+    )
     #expect(saved.baseline.data == Data(saved.text.utf8))
     #expect(try await library.list(query: "CAFE telescope").map(\.id) == [initial.id])
     #expect(try await library.list(query: "missing").isEmpty)
@@ -111,11 +122,19 @@ private func libraryFixture() throws -> URL {
     let document = try await library.create(title: "Shared", text: "Original")
     let opened = try await library.read(document.id)
     _ = try DocumentStorage.write("Other device", to: document.sourceURL, baseline: opened.baseline)
-    await #expect(throws: DocumentStorageError.self) { try await library.save(document.id, text: "Local edit", baseline: opened.baseline) }
+    await #expect(throws: DocumentStorageError.self) { try await library.save(
+        document.id,
+        text: "Local edit",
+        baseline: opened.baseline,
+    ) }
     #expect(try await library.read(document.id).text == "Other device")
     #expect(try await library.list().first?.snippet == "Other device")
     try FileManager.default.removeItem(at: document.sourceURL)
-    await #expect(throws: DocumentStorageError.self) { try await library.save(document.id, text: "Do not recreate", baseline: opened.baseline) }
+    await #expect(throws: DocumentStorageError.self) { try await library.save(
+        document.id,
+        text: "Do not recreate",
+        baseline: opened.baseline,
+    ) }
 }
 
 @Test func libraryImportsAndExportsSelfContainedProjectWithoutChangingOriginals() async throws {
@@ -124,7 +143,10 @@ private func libraryFixture() throws -> URL {
     let project = root.appendingPathComponent("Original")
     let main = project.appendingPathComponent("chapters/main.typ")
     try FileManager.default.createDirectory(at: main.deletingLastPathComponent(), withIntermediateDirectories: true)
-    try FileManager.default.createDirectory(at: project.appendingPathComponent("images"), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: project.appendingPathComponent("images"),
+        withIntermediateDirectories: true,
+    )
     let source = "= Project\n#image(\"../images/figure.svg\")"
     try Data(source.utf8).write(to: main)
     let image = Data("<svg/>".utf8)
@@ -138,16 +160,21 @@ private func libraryFixture() throws -> URL {
     #expect(single.title == "main")
     let export = root.appendingPathComponent("Export")
     try await library.exportProject(imported.id, to: export)
-    #expect(try String(contentsOf: export.appendingPathComponent("Project/chapters/main.typ"), encoding: .utf8) == source)
+    #expect(try String(contentsOf: export.appendingPathComponent("Project/chapters/main.typ"), encoding: .utf8) ==
+        source)
     #expect(try Data(contentsOf: export.appendingPathComponent("Project/images/figure.svg")) == image)
     #expect(!FileManager.default.fileExists(atPath: export.appendingPathComponent("document.json").path))
-    #expect(try String(contentsOf: export.appendingPathComponent("LEFTBLANK-ENTRYPOINT.txt"), encoding: .utf8).contains("Project/chapters/main.typ"))
+    #expect(try String(contentsOf: export.appendingPathComponent("LEFTBLANK-ENTRYPOINT.txt"), encoding: .utf8)
+        .contains("Project/chapters/main.typ"))
     let plain = root.appendingPathComponent("export.typ")
     try await library.exportSource(single.id, to: plain)
     await #expect(throws: LibraryError.self) { try await library.exportSource(single.id, to: plain) }
     await #expect(throws: LibraryError.self) { try await library.exportProject(imported.id, to: export) }
     #expect(try String(contentsOf: main, encoding: .utf8) == source)
-    await #expect(throws: LibraryError.self) { try await library.importProject(at: project.appendingPathComponent("images"), mainFile: main) }
+    await #expect(throws: LibraryError.self) { try await library.importProject(
+        at: project.appendingPathComponent("images"),
+        mainFile: main,
+    ) }
     try FileManager.default.createSymbolicLink(at: project.appendingPathComponent("escape"), withDestinationURL: root)
     await #expect(throws: LibraryError.self) { try await library.importProject(at: project, mainFile: main) }
     #expect(try await library.list().count == 2)
@@ -236,14 +263,20 @@ private func libraryFixture() throws -> URL {
     #expect(try await library.read(document.id).text == "Keep writing")
     #expect(LibraryCloudEnvironment.state(of: document.sourceURL) == .local)
     try LibraryCloudEnvironment.requestDownloadIfNeeded(document.sourceURL)
-    #expect(throws: LibraryError.self) { try LibraryCloudEnvironment.containerURL(identifier: "invalid.test.container") }
+    #expect(throws: LibraryError.self) { try LibraryCloudEnvironment.containerURL(identifier: "invalid.test.container")
+    }
 }
 
 private final class LibraryEventCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
-    func increment() { lock.withLock { count += 1 } }
-    var value: Int { lock.withLock { count } }
+    func increment() {
+        lock.withLock { count += 1 }
+    }
+
+    var value: Int {
+        lock.withLock { count }
+    }
 }
 
 @Test func libraryPresenterAndAccountNotifications() async throws {
@@ -255,7 +288,9 @@ private final class LibraryEventCounter: @unchecked Sendable {
     #expect(NSFileCoordinator.filePresenters.contains { $0 === monitor })
     let file = root.appendingPathComponent("main.typ")
     _ = try DocumentStorage.write("Hello", to: file, baseline: nil)
-    for _ in 0..<50 where counter.value == 0 { try await Task.sleep(for: .milliseconds(20)) }
+    for _ in 0 ..< 50 where counter.value == 0 {
+        try await Task.sleep(for: .milliseconds(20))
+    }
     #expect(counter.value > 0)
     let account = LibraryAccountMonitor { counter.increment() }
     let before = counter.value

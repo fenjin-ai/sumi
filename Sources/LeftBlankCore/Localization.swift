@@ -5,7 +5,10 @@ public enum AppLanguage: String, CaseIterable, Sendable, Identifiable {
     case english = "en"
     case simplifiedChinese = "zh-Hans"
 
-    public var id: String { rawValue }
+    public var id: String {
+        rawValue
+    }
+
     public var displayName: String {
         switch self {
         case .system: L10n.text("Follow System")
@@ -15,7 +18,9 @@ public enum AppLanguage: String, CaseIterable, Sendable, Identifiable {
     }
 
     public static func resolve(_ language: Self, preferredLanguages: [String] = Locale.preferredLanguages) -> Self {
-        guard language == .system else { return language }
+        guard language == .system else {
+            return language
+        }
         let best = Bundle.preferredLocalizations(from: ["en", "zh-Hans"], forPreferences: preferredLanguages).first
         return best == "zh-Hans" ? .simplifiedChinese : .english
     }
@@ -29,13 +34,17 @@ public extension Notification.Name {
 public enum L10n {
     public static let preferenceKey = "appLanguage"
     private static let state = LocalizationState()
-    // Native SwiftPM's generated accessor looks beside the executable bundle
-    // and then in the build checkout. A distributed app keeps resources here.
+    /// Native SwiftPM's generated accessor looks beside the executable bundle
+    /// and then in the build checkout. A distributed app keeps resources here.
     static let resourceBundle: Bundle = {
         if let url = Bundle.main.url(forResource: "LeftBlank_LeftBlankCore", withExtension: "bundle"),
-           let bundle = Bundle(url: url) { return bundle }
+           let bundle = Bundle(url: url)
+        {
+            return bundle
+        }
         return Bundle.module
     }()
+
     private static let bundles: [AppLanguage: Bundle] = Dictionary(uniqueKeysWithValues:
         [AppLanguage.english, .simplifiedChinese].compactMap { language in
             // SwiftPM's native builder lowercases locale directories; the Xcode
@@ -47,12 +56,22 @@ public enum L10n {
                 .flatMap(Bundle.init(path:)).map { (language, $0) }
         })
 
-    public static var language: AppLanguage { state.readLanguage() }
-    public static var resolvedLanguage: AppLanguage { AppLanguage.resolve(language) }
-    public static var locale: Locale { Locale(identifier: resolvedLanguage.rawValue) }
+    public static var language: AppLanguage {
+        state.readLanguage()
+    }
+
+    public static var resolvedLanguage: AppLanguage {
+        AppLanguage.resolve(language)
+    }
+
+    public static var locale: Locale {
+        Locale(identifier: resolvedLanguage.rawValue)
+    }
 
     public static func setLanguage(_ language: AppLanguage) {
-        guard state.changeLanguage(language) else { return }
+        guard state.changeLanguage(language) else {
+            return
+        }
         UserDefaults.standard.set(language.rawValue, forKey: preferenceKey)
         NotificationCenter.default.post(name: .leftblankLanguageChanged, object: nil)
     }
@@ -74,12 +93,20 @@ public enum L10n {
 
 private final class LocalizationState: @unchecked Sendable {
     private let lock = NSLock()
-    private var language = AppLanguage(rawValue: UserDefaults.standard.string(forKey: L10n.preferenceKey) ?? "system") ?? .system
+    private var language = AppLanguage(
+        rawValue: UserDefaults.standard.string(forKey: L10n.preferenceKey) ?? "system",
+    ) ??
+        .system
 
-    func readLanguage() -> AppLanguage { lock.withLock { language } }
+    func readLanguage() -> AppLanguage {
+        lock.withLock { language }
+    }
+
     func changeLanguage(_ next: AppLanguage) -> Bool {
         lock.withLock {
-            guard language != next else { return false }
+            guard language != next else {
+                return false
+            }
             language = next
             return true
         }

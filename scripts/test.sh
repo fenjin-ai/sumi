@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 source scripts/environment.sh
 python3 scripts/test-icloud-profile.py
 scripts/bootstrap.sh
-swift build --build-tests --enable-code-coverage
+swift build --build-tests --enable-code-coverage -Xswiftc -warnings-as-errors
 export LEFTBLANK_MCP_HELPER="$(swift build --show-bin-path)/LeftBlankMCP"
 # SwiftPM's Xcode backend can leave command-line products unsigned on Apple silicon.
 # Sign after the complete build so a subsequent link cannot invalidate the helper.

@@ -1,11 +1,14 @@
 import AppKit
-import Testing
-import LeftBlankCore
 @testable import LeftBlankApp
+import LeftBlankCore
+import Testing
 
 extension WritingFlowTests {
     @Test func longManuscriptCommandNavigation() async throws {
-        let source = String(repeating: "= Chapter\n\nA paragraph with *strong*, _emphasis_ and `code`. 中文😀\n\n", count: 1500)
+        let source = String(
+            repeating: "= Chapter\n\nA paragraph with *strong*, _emphasis_ and `code`. 中文😀\n\n",
+            count: 1500,
+        )
         let app = try WritingFixture(text: source, startService: false)
         defer { app.close() }
         app.workspace.togglePalette()
@@ -13,7 +16,7 @@ extension WritingFlowTests {
         app.workspace.query = ""
         await app.layout()
         let start = ContinuousClock.now
-        for index in 0..<500 {
+        for index in 0 ..< 500 {
             app.workspace.selectedCommandIndex = index % app.workspace.paletteEntryCount
             _ = app.workspace.highlightedCommand
             _ = app.workspace.filteredCommands
@@ -23,12 +26,14 @@ extension WritingFlowTests {
         let navigation = start.duration(to: .now)
         let editor = try #require(app.workspace.editor)
         let caretStart = ContinuousClock.now
-        for index in 0..<30 {
+        for index in 0 ..< 30 {
             editor.setSelectedRange(NSRange(location: index * 65, length: 0))
             editor.highlight()
         }
         let caret = caretStart.duration(to: .now)
-        print("LEFTBLANK PERFORMANCE: \(source.utf16.count) UTF16, 500 command selections \(navigation), 30 caret highlights \(caret)")
+        print(
+            "LEFTBLANK PERFORMANCE: \(source.utf16.count) UTF16, 500 command selections \(navigation), 30 caret highlights \(caret)",
+        )
         // Broad regression budgets tolerate instrumented CI and shared runners.
         // The old repeated-full-document path took 17.5 s and 13.4 s locally.
         #expect(navigation < .seconds(1))
@@ -44,17 +49,24 @@ extension WritingFlowTests {
         let scroll = try #require(editor.enclosingScrollView)
         let frame = scroll.convert(scroll.bounds, to: nil)
         let inset = editor.textContainerInset
-        app.workspace.outline = [.init(title: "First", level: 1, offset: 0), .init(title: "Second", level: 2, offset: 16)]
+        app.workspace.outline = [
+            .init(title: "First", level: 1, offset: 0),
+            .init(title: "Second", level: 2, offset: 16),
+        ]
         app.workspace.sidePanel = .outline
         await app.layout()
         #expect(scroll.convert(scroll.bounds, to: nil) == frame)
         #expect(editor.textContainerInset == inset)
         app.workspace.layout = .split
         await app.layout()
-        let pin = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }.first { $0.title == L10n.text("Unpin outline") })
+        let pin = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }
+            .first { $0.title == L10n.text("Unpin outline") })
         let pinFrame = pin.convert(pin.bounds, to: nil)
         let sourceLeadingEdge = editor.convert(NSPoint(x: editor.textContainerInset.width, y: 0), to: nil).x
-        #expect(pinFrame.maxX <= sourceLeadingEdge, "The pinned compact rail must fit beside the first source character")
+        #expect(
+            pinFrame.maxX <= sourceLeadingEdge,
+            "The pinned compact rail must fit beside the first source character",
+        )
         app.workspace.layout = .writing
         await app.layout()
         app.workspace.jump(to: 16)
@@ -105,9 +117,13 @@ extension WritingFlowTests {
         #expect(Set(WritingCommand.all.map(\.icon)).count == WritingCommand.all.count)
         for command in WritingCommand.all {
             let image = try #require(IconStore.image(command.icon))
-            #expect(image.size.width <= 24 && image.size.height <= 24, "Native menu labels must not use the PDF artboard size")
+            #expect(
+                image.size.width <= 24 && image.size.height <= 24,
+                "Native menu labels must not use the PDF artboard size",
+            )
         }
-        #expect(IconStore.image("command") === IconStore.image("command"))
+        let cachedIcon = IconStore.image("command")
+        #expect(cachedIcon === IconStore.image("command"))
         #expect(IconStore.image("missing-icon") == nil)
         #expect(IconStore.image("missing-icon") == nil)
         for command in WritingCommand.all.filter({ !$0.fields.isEmpty }) {
@@ -177,16 +193,28 @@ extension WritingFlowTests {
         func click(_ anchor: HelpAnchor, nearEdge: Bool = false) throws {
             let point = anchor.convert(NSPoint(x: nearEdge ? 3 : anchor.bounds.midX, y: anchor.bounds.midY), to: nil)
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-                app.window.sendEvent(try #require(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
-                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: app.window.windowNumber,
-                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1)))
+                try app.window.sendEvent(#require(NSEvent.mouseEvent(
+                    with: type,
+                    location: point,
+                    modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: app.window.windowNumber,
+                    context: nil,
+                    eventNumber: 0,
+                    clickCount: 1,
+                    pressure: 1,
+                )))
             }
         }
         // Compact glyphs still have full-sized targets, including the empty
         // area beside the icon. Exercise the production responder path.
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             app.window.appearance = NSAppearance(named: appearance)
-            for (title, layout) in [("Read the Preview", EditorLayout.preview), ("Focus on Writing", .writing), ("Side-by-side Preview", .split)] {
+            for (title, layout) in [
+                ("Read the Preview", EditorLayout.preview),
+                ("Focus on Writing", .writing),
+                ("Side-by-side Preview", .split),
+            ] {
                 await app.layout()
                 let anchor = try #require(anchors.first { $0.title == L10n.text(title) })
                 try click(anchor, nearEdge: true)
@@ -196,7 +224,8 @@ extension WritingFlowTests {
         }
         app.workspace.layout = .split
         await app.layout()
-        let reveal = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }.first { $0.title == L10n.text("Preview") })
+        let reveal = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }
+            .first { $0.title == L10n.text("Preview") })
         try click(reveal)
         await app.layout()
         for dark in [false, true, false] {
@@ -207,8 +236,10 @@ extension WritingFlowTests {
             #expect(colors.bounds.width == 68)
             #expect(colors.bounds.height == 28)
         }
-        let zoomOut = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }.first { $0.title == L10n.text("Zoom Out") })
-        let zoomIn = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }.first { $0.title == L10n.text("Zoom In") })
+        let zoomOut = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }
+            .first { $0.title == L10n.text("Zoom Out") })
+        let zoomIn = try #require(descendants(app.window.contentView).compactMap { $0 as? HelpAnchor }
+            .first { $0.title == L10n.text("Zoom In") })
         app.workspace.previewZoom = 1
         await app.layout()
         try click(zoomIn, nearEdge: true)
@@ -226,6 +257,8 @@ extension WritingFlowTests {
 
 @MainActor
 private func descendants(_ view: NSView?) -> [NSView] {
-    guard let view else { return [] }
+    guard let view else {
+        return []
+    }
     return [view] + view.subviews.flatMap { descendants($0) }
 }

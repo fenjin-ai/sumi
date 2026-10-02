@@ -1,8 +1,8 @@
 import AppKit
+@testable import LeftBlankApp
+import LeftBlankCore
 import SwiftUI
 import Testing
-import LeftBlankCore
-@testable import LeftBlankApp
 
 extension WritingFlowTests {
     @Test func appearanceSwitchPersistsWithoutChangingWritingSelectionOrUndo() async throws {
@@ -11,13 +11,21 @@ extension WritingFlowTests {
         let originalIcon = NSApp.applicationIconImage
         let dockIcon = DockIconController()
         #expect(dockIcon.isAvailable)
-        defer { withExtendedLifetime(dockIcon) {}; NSApp.appearance = originalAppearance; NSApp.applicationIconImage = originalIcon }
+        defer {
+            withExtendedLifetime(dockIcon) {}
+            NSApp.appearance = originalAppearance
+            NSApp
+                .applicationIconImage = originalIcon
+        }
         var icons: [AppAppearance: Data] = [:]
         let suite = "LeftBlank.appearance.test." + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         // Keep this test independent of the user's app language and preferences.
-        defaults.set(try JSONEncoder().encode(SyncedPreferences(language: L10n.language.rawValue)), forKey: LibraryPreferences.storageKey)
+        try defaults.set(
+            JSONEncoder().encode(SyncedPreferences(language: L10n.language.rawValue)),
+            forKey: LibraryPreferences.storageKey,
+        )
         let source = "= A quiet page\n\n#let value = 42\n\nKeep 中文😀 intact.\n"
         let app = try WritingFixture(text: source, startService: false)
         defer { app.close() }
@@ -36,7 +44,11 @@ extension WritingFlowTests {
         let edits = AppearanceEditRecorder(storage)
         let keyword = (text as NSString).range(of: "#let").location
         let syntaxColor = try #require(editorColor(editor, at: keyword))
-        let settingsView = NSHostingView(rootView: WritingSettingsView(workspace: app.workspace, settings: settings, library: app.workspace.library))
+        let settingsView = NSHostingView(rootView: WritingSettingsView(
+            workspace: app.workspace,
+            settings: settings,
+            library: app.workspace.library,
+        ))
         settingsView.frame = NSRect(x: 0, y: 0, width: 530, height: 690)
         settingsView.layoutSubtreeIfNeeded()
         #expect(settingsView.fittingSize.height > 0)
@@ -46,12 +58,16 @@ extension WritingFlowTests {
             await app.layout()
             try await app.wait { settings.preferences.values.appearance == preference.rawValue }
             let icon = try #require(NSApp.applicationIconImage?.tiffRepresentation)
-            if let earlier = icons[preference] { #expect(icon == earlier) }
+            if let earlier = icons[preference] {
+                #expect(icon == earlier)
+            }
             icons[preference] = icon
             let appearance = editor.effectiveAppearance
             #expect(appearance.bestMatch(from: [.aqua, .darkAqua]) == (preference == .dark ? .darkAqua : .aqua))
-            #expect(resolvedHex(editor.backgroundColor, appearance: appearance) == (preference == .dark ? 0x1C1F23 : 0xFFFFFF))
-            #expect(resolvedHex(Theme.sourceText, appearance: appearance) == (preference == .dark ? 0xD5D9DE : 0x37474F))
+            #expect(resolvedHex(editor.backgroundColor, appearance: appearance) ==
+                (preference == .dark ? 0x1C1F23 : 0xFFFFFF))
+            #expect(resolvedHex(Theme.sourceText, appearance: appearance) ==
+                (preference == .dark ? 0xD5D9DE : 0x37474F))
             #expect(resolvedHex(syntaxColor, appearance: appearance) == (preference == .dark ? 0xA5B8C8 : 0x496B7D))
             #expect(editor.string == text && app.workspace.text == text)
             #expect(editor.selectedRange() == selection)
@@ -73,17 +89,23 @@ extension WritingFlowTests {
         app.workspace.appearance = .system
         #expect(NSApp.appearance == nil)
         await app.layout()
-        let inheritedIcon = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? AppAppearance.dark : .light
+        let inheritedIcon = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? AppAppearance
+            .dark : .light
         #expect(NSApp.applicationIconImage?.tiffRepresentation == icons[inheritedIcon])
         for inherited in [NSAppearance.Name.darkAqua, .aqua] {
             app.window.appearance = NSAppearance(named: inherited)
             await app.layout()
             #expect(editor.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == inherited)
-            #expect(resolvedHex(editor.backgroundColor, appearance: editor.effectiveAppearance) == (inherited == .darkAqua ? 0x1C1F23 : 0xFFFFFF))
+            #expect(resolvedHex(editor.backgroundColor, appearance: editor.effectiveAppearance) ==
+                (inherited == .darkAqua ? 0x1C1F23 : 0xFFFFFF))
             #expect(editor.string == text)
         }
         app.window.appearance = nil
-        editor.setMarkedText("输入", selectedRange: NSRange(location: 2, length: 0), replacementRange: editor.selectedRange())
+        editor.setMarkedText(
+            "输入",
+            selectedRange: NSRange(location: 2, length: 0),
+            replacementRange: editor.selectedRange(),
+        )
         let composition = editor.string
         app.workspace.appearance = .dark
         await app.layout()
@@ -97,7 +119,9 @@ extension WritingFlowTests {
 func resolvedHex(_ color: NSColor, appearance: NSAppearance) -> UInt32 {
     var value: UInt32 = 0
     appearance.performAsCurrentDrawingAppearance {
-        guard let rgb = color.usingColorSpace(.sRGB) else { return }
+        guard let rgb = color.usingColorSpace(.sRGB) else {
+            return
+        }
         value = UInt32((rgb.redComponent * 255).rounded()) << 16
             | UInt32((rgb.greenComponent * 255).rounded()) << 8
             | UInt32((rgb.blueComponent * 255).rounded())
@@ -110,10 +134,20 @@ private final class AppearanceEditRecorder: NSObject {
     var characterEdits = 0
     init(_ storage: NSTextStorage) {
         super.init()
-        NotificationCenter.default.addObserver(self, selector: #selector(record(_:)), name: NSTextStorage.didProcessEditingNotification, object: storage)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(record(_:)),
+            name: NSTextStorage.didProcessEditingNotification,
+            object: storage,
+        )
     }
+
     @objc private func record(_ notification: Notification) {
-        guard let storage = notification.object as? NSTextStorage, storage.editedMask.contains(.editedCharacters) else { return }
+        guard let storage = notification.object as? NSTextStorage,
+              storage.editedMask.contains(.editedCharacters)
+        else {
+            return
+        }
         characterEdits += 1
     }
 }
