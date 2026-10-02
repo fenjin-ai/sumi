@@ -103,8 +103,9 @@ extension WritingFlowTests {
         #expect(try await app.workspace.library.store.list().count == 1)
     }
 
-    @Test func sampleBookCreationPreservesWritingAndLocalStyleNavigation() async throws {
-        let app = try WritingFixture(text: "= Keep my writing\n", startService: false)
+    @Test(arguments: [false, true])
+    func sampleBookCreationPreservesWritingAndLocalStyleNavigation(linkedState: Bool) async throws {
+        let app = try WritingFixture(text: "= Keep my writing\n", startService: false, linkedState: linkedState)
         defer { app.close() }
         let previous = try #require(app.workspace.fileURL)
         let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

@@ -360,7 +360,7 @@ final class WritingFixture {
     let window: WritingWindow
     let toolbar: WindowToolbar
 
-    init(text: String, startService: Bool = true) throws {
+    init(text: String, startService: Bool = true, linkedState: Bool = false) throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
         root = TestPaths.temporaryDirectory.appendingPathComponent("Sumi-writing-\(UUID().uuidString)")
@@ -368,7 +368,13 @@ final class WritingFixture {
         document = root.appendingPathComponent("manuscript.typ")
         try Data(text.utf8).write(to: document)
         let state = root.appendingPathComponent("State")
-        try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        if linkedState {
+            let storage = root.appendingPathComponent("Storage")
+            try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+            try FileManager.default.createSymbolicLink(at: state, withDestinationURL: storage)
+        } else {
+            try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        }
         let snapshot = RecoverySnapshot(fileURL: document, text: text, savedText: text, selection: text.utf16.count)
         try JSONEncoder().encode(snapshot).write(to: state.appendingPathComponent("recovery.json"))
         workspace = Workspace(stateDirectory: state)
