@@ -1,21 +1,36 @@
 import AppKit
-import SwiftUI
-import Testing
 @testable import LeftBlankApp
 import LeftBlankCore
+import SwiftUI
+import Testing
 
 extension WritingFlowTests {
-    private static let index = Data(#"[{"name":"cetz","version":"0.5.2","description":"Draw diagrams with CeTZ","categories":["visualization"],"keywords":["diagram"],"license":"LGPL-3.0-or-later","authors":["CeTZ contributors"],"compiler":"0.14.0"},{"name":"fletcher","version":"0.5.8","description":"Flowcharts and diagrams","categories":["visualization"],"license":"MIT","compiler":"0.14.0"}]"#.utf8)
+    private static let index = Data(
+        #"[{"name":"cetz","version":"0.5.2","description":"Draw diagrams with CeTZ","categories":["visualization"],"keywords":["diagram"],"license":"LGPL-3.0-or-later","authors":["CeTZ contributors"],"compiler":"0.14.0"},{"name":"fletcher","version":"0.5.8","description":"Flowcharts and diagrams","categories":["visualization"],"license":"MIT","compiler":"0.14.0"}]"#
+            .utf8,
+    )
 
     @Test func cachedPackageBrowserRendersWithoutNetwork() async throws {
         let app = try WritingFixture(text: "= Package discovery\n", startService: false)
         defer { app.close() }
         let cache = app.root.appendingPathComponent("universe.json")
         let fixtureData = Self.index
-        let store = UniverseCatalogStore(cacheURL: cache, transport: { _ in UniverseHTTPResponse(data: fixtureData, statusCode: 200) })
+        let store = UniverseCatalogStore(
+            cacheURL: cache,
+            transport: { _ in UniverseHTTPResponse(data: fixtureData, statusCode: 200) },
+        )
         _ = try await store.load()
-        let browser = NSHostingView(rootView: UniverseBrowser(cacheURL: cache, size: CGSize(width: 790, height: 590), onImport: app.workspace.importPackage))
-        let browserWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 790, height: 590), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let browser = NSHostingView(rootView: UniverseBrowser(
+            cacheURL: cache,
+            size: CGSize(width: 790, height: 590),
+            onImport: app.workspace.importPackage,
+        ))
+        let browserWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 790, height: 590),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false,
+        )
         browserWindow.isReleasedWhenClosed = false
         browserWindow.contentView = browser
         defer { browserWindow.close() }
@@ -28,7 +43,10 @@ extension WritingFlowTests {
         #expect(bitmap.pixelsWide >= 790)
         #expect(bitmap.pixelsHigh >= 590)
         #expect(bitmap.representation(using: .png, properties: [:])?.isEmpty == false)
-        #expect(app.workspace.text == "= Package discovery\n", "Browsing must not insert package code before a user chooses import")
+        #expect(
+            app.workspace.text == "= Package discovery\n",
+            "Browsing must not insert package code before a user chooses import",
+        )
         #expect(await store.cached()?.packages.count == 2)
     }
 
@@ -36,8 +54,14 @@ extension WritingFlowTests {
         let app = try WritingFixture(text: "= My current writing\n", startService: false)
         defer { app.close() }
         let cache = app.root.appendingPathComponent("templates.json")
-        let fixtureData = Data(#"[{"name":"basic-resume","version":"0.2.9","description":"A calm resume with clear typography","categories":["cv"],"template":{"path":"template","entrypoint":"main.typ"}},{"name":"research-paper","version":"1.0.0","description":"A paper for your next idea","categories":["paper"],"template":{"path":"template","entrypoint":"main.typ"}}]"#.utf8)
-        let store = UniverseCatalogStore(cacheURL: cache, transport: { _ in UniverseHTTPResponse(data: fixtureData, statusCode: 200) })
+        let fixtureData = Data(
+            #"[{"name":"basic-resume","version":"0.2.9","description":"A calm resume with clear typography","categories":["cv"],"template":{"path":"template","entrypoint":"main.typ"}},{"name":"research-paper","version":"1.0.0","description":"A paper for your next idea","categories":["paper"],"template":{"path":"template","entrypoint":"main.typ"}}]"#
+                .utf8,
+        )
+        let store = UniverseCatalogStore(
+            cacheURL: cache,
+            transport: { _ in UniverseHTTPResponse(data: fixtureData, statusCode: 200) },
+        )
         _ = try await store.load()
         let model = UniverseBrowserModel(store: store, mode: .templates)
         await model.load()
@@ -58,9 +82,24 @@ extension WritingFlowTests {
         #expect(model.results.count == 2)
 
         for size in [CGSize(width: 620, height: 530), CGSize(width: 1040, height: 720)] {
-            let browser = NSHostingView(rootView: UniverseBrowser(cacheURL: cache, mode: .templates, size: size,
-                onCreate: app.workspace.library.create(from:), onCreateBuiltIn: app.workspace.library.create(builtIn:), onAddSample: { try await app.workspace.library.create(sample: $0) }, onImport: app.workspace.importPackage))
-            let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let browser = NSHostingView(rootView: UniverseBrowser(
+                cacheURL: cache,
+                mode: .templates,
+                size: size,
+                onCreate: app.workspace.library.create(from:),
+                onCreateBuiltIn: app.workspace.library
+                    .create(builtIn:),
+                onAddSample: {
+                    try await app.workspace.library.create(sample: $0)
+                },
+                onImport: app.workspace.importPackage,
+            ))
+            let window = NSWindow(
+                contentRect: NSRect(origin: .zero, size: size),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false,
+            )
             window.isReleasedWhenClosed = false
             window.contentView = browser
             defer { window.close() }
@@ -88,7 +127,13 @@ extension WritingFlowTests {
         let app = try WritingFixture(text: "= Preserve my writing\n", startService: false)
         defer { app.close() }
         let beforeURL = try #require(app.workspace.fileURL)
-        let package = try JSONDecoder().decode(UniversePackage.self, from: Data(#"{"name":"charged-ieee","version":"0.1.4","compiler":"0.12.0","template":{"path":"template","entrypoint":"main.typ","thumbnail":"thumbnail.png"}}"#.utf8))
+        let package = try JSONDecoder().decode(
+            UniversePackage.self,
+            from: Data(
+                #"{"name":"charged-ieee","version":"0.1.4","compiler":"0.12.0","template":{"path":"template","entrypoint":"main.typ","thumbnail":"thumbnail.png"}}"#
+                    .utf8,
+            ),
+        )
         try await app.workspace.library.create(from: package)
         await app.layout()
         #expect(app.workspace.managedDocumentID != nil)
@@ -108,9 +153,14 @@ extension WritingFlowTests {
         let app = try WritingFixture(text: "= Keep my writing\n", startService: false, linkedState: linkedState)
         defer { app.close() }
         let previous = try #require(app.workspace.fileURL)
-        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let data = try Data(contentsOf: repository.appendingPathComponent("Examples/Books/SICP/" + SampleBook.sicp.archiveName))
-        let store = SampleBookStore(cacheURL: app.root.appendingPathComponent("Books"), transport: { _ in UniverseHTTPResponse(data: data, statusCode: 200) })
+        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let data = try Data(contentsOf: repository
+            .appendingPathComponent("Examples/Books/SICP/" + SampleBook.sicp.archiveName))
+        let store = SampleBookStore(
+            cacheURL: app.root.appendingPathComponent("Books"),
+            transport: { _ in UniverseHTTPResponse(data: data, statusCode: 200) },
+        )
         try await app.workspace.library.create(sample: .sicp, using: store)
         await app.layout()
         #expect(app.workspace.title == SampleBook.sicp.title)
@@ -125,8 +175,13 @@ extension WritingFlowTests {
         #expect(app.workspace.compilationURL == main)
         #expect(app.workspace.text.contains("#let book(body)"))
         #expect(!app.workspace.library.busy)
-        #expect(try FileManager.default.contentsOfDirectory(atPath: app.workspace.stateDirectory.appendingPathComponent("SampleDownloads").path).isEmpty)
-        let failed = SampleBookStore(cacheURL: app.root.appendingPathComponent("NoCache"), transport: { _ in throw URLError(.notConnectedToInternet) })
+        #expect(try FileManager.default
+            .contentsOfDirectory(atPath: app.workspace.stateDirectory.appendingPathComponent("SampleDownloads").path)
+            .isEmpty)
+        let failed = SampleBookStore(
+            cacheURL: app.root.appendingPathComponent("NoCache"),
+            transport: { _ in throw URLError(.notConnectedToInternet) },
+        )
         await #expect(throws: URLError.self) { try await app.workspace.library.create(sample: .sicp, using: failed) }
         #expect(app.workspace.fileURL == style)
         #expect(!app.workspace.library.busy)
@@ -137,7 +192,10 @@ extension WritingFlowTests {
         defer { app.close() }
         let cache = app.root.appendingPathComponent("universe.json")
         let fixtureData = Self.index
-        let model = UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: cache, transport: { _ in UniverseHTTPResponse(data: fixtureData, statusCode: 200) }))
+        let model = UniverseBrowserModel(store: UniverseCatalogStore(
+            cacheURL: cache,
+            transport: { _ in UniverseHTTPResponse(data: fixtureData, statusCode: 200) },
+        ))
         await model.load()
         #expect(model.results.map(\.name) == ["cetz", "fletcher"])
         model.query = "flowchart"
@@ -153,17 +211,24 @@ extension WritingFlowTests {
         await model.load(forceRefresh: true)
         #expect(model.error == nil)
         #expect(!model.isLoading)
-        let offline = UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: cache, transport: { _ in throw URLError(.notConnectedToInternet) }))
+        let offline = UniverseBrowserModel(store: UniverseCatalogStore(
+            cacheURL: cache,
+            transport: { _ in throw URLError(.notConnectedToInternet) },
+        ))
         await offline.load(forceRefresh: true)
         #expect(offline.snapshot?.source == .offlineCache)
         #expect(offline.results.count == 2)
-        let uncached = UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: app.root.appendingPathComponent("absent.json"), transport: { _ in throw URLError(.notConnectedToInternet) }))
+        let uncached = UniverseBrowserModel(store: UniverseCatalogStore(
+            cacheURL: app.root.appendingPathComponent("absent.json"),
+            transport: { _ in throw URLError(.notConnectedToInternet) },
+        ))
         await uncached.load()
         #expect(uncached.error != nil)
         #expect(uncached.snapshot?.source == .bundled)
         #expect(uncached.results.contains { $0.name == "cetz" })
         #expect(uncached.selected == nil)
     }
+
     @Test(.enabled(if: ProcessInfo.processInfo.environment["LEFTBLANK_UNIVERSE_NETWORK"] == "1"))
     func officialTemplateGalleryLoadsRealThumbnails() async throws {
         let app = try WritingFixture(text: "= Keep writing\n", startService: false)
@@ -177,9 +242,23 @@ extension WritingFlowTests {
         #expect((response as? HTTPURLResponse)?.statusCode == 200)
         #expect(NSImage(data: data) != nil, "Official thumbnail must decode on macOS")
         let size = CGSize(width: 1040, height: 720)
-        let browser = NSHostingView(rootView: UniverseBrowser(cacheURL: cache, mode: .templates, size: size,
-            onCreate: app.workspace.library.create(from:), onCreateBuiltIn: app.workspace.library.create(builtIn:), onAddSample: { try await app.workspace.library.create(sample: $0) }, onImport: app.workspace.importPackage))
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
+        let browser = NSHostingView(rootView: UniverseBrowser(
+            cacheURL: cache,
+            mode: .templates,
+            size: size,
+            onCreate: app.workspace.library.create(from:),
+            onCreateBuiltIn: app.workspace.library.create(builtIn:),
+            onAddSample: {
+                try await app.workspace.library.create(sample: $0)
+            },
+            onImport: app.workspace.importPackage,
+        ))
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false,
+        )
         window.isReleasedWhenClosed = false
         window.contentView = browser
         defer { window.close() }
@@ -196,7 +275,6 @@ extension WritingFlowTests {
         }
         #expect(app.workspace.text == "= Keep writing\n")
     }
-
 }
 
 private actor DiscoveryNetworkGate {
@@ -208,17 +286,22 @@ private actor DiscoveryNetworkGate {
         requests.append(request)
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                if Task.isCancelled { continuation.resume(throwing: CancellationError()) }
-                else { self.continuation = continuation }
+                if Task.isCancelled {
+                    continuation.resume(throwing: CancellationError())
+                } else {
+                    self.continuation = continuation
+                }
             }
         } onCancel: {
             Task { await self.cancel() }
         }
     }
+
     func complete(_ response: UniverseHTTPResponse) {
         continuation?.resume(returning: response)
         continuation = nil
     }
+
     private func cancel() {
         cancellations += 1
         continuation?.resume(throwing: CancellationError())
@@ -233,12 +316,21 @@ extension WritingFlowTests {
         let cache = app.root.appendingPathComponent("slow-index.json")
         let old = Date().addingTimeInterval(-UniverseCatalogStore.cacheLifetime - 1)
         let fixtureData = Self.index
-        _ = try await UniverseCatalogStore(cacheURL: cache, transport: { _ in UniverseHTTPResponse(data: fixtureData, statusCode: 200) }, now: { old }).load()
+        _ = try await UniverseCatalogStore(
+            cacheURL: cache,
+            transport: { _ in UniverseHTTPResponse(data: fixtureData, statusCode: 200) },
+            now: { old },
+        ).load()
         let network = DiscoveryNetworkGate()
-        let model = UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: cache, transport: { try await network.send($0) }))
+        let model = UniverseBrowserModel(store: UniverseCatalogStore(
+            cacheURL: cache,
+            transport: { try await network.send($0) },
+        ))
         let refresh = Task { await model.load() }
         defer { refresh.cancel() }
-        for _ in 0..<100 where await network.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0 ..< 100 where await network.requests.isEmpty {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         #expect(await network.requests.count == 1)
         #expect(model.isLoading)
         #expect(model.snapshot?.source == .cache)
@@ -246,7 +338,7 @@ extension WritingFlowTests {
         model.query = "diagram"
         model.selectedID = "cetz"
         #expect(model.selected?.name == "cetz")
-        for _ in 0..<20 {
+        for _ in 0 ..< 20 {
             model.changeMode(.templates)
             #expect(model.selected == nil)
             model.changeMode(.packages)
@@ -262,7 +354,9 @@ extension WritingFlowTests {
         #expect(app.workspace.text == "= Slow connection\n")
 
         let retry = Task { await model.load(forceRefresh: true) }
-        for _ in 0..<100 where await network.requests.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0 ..< 100 where await network.requests.count < 2 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         retry.cancel()
         await retry.value
         #expect(!model.isLoading)
@@ -275,10 +369,18 @@ extension WritingFlowTests {
         let app = try WritingFixture(text: "= First launch offline\n", startService: false)
         defer { app.close() }
         let network = DiscoveryNetworkGate()
-        let model = UniverseBrowserModel(store: UniverseCatalogStore(cacheURL: app.root.appendingPathComponent("new-index.json"), transport: { try await network.send($0) }), mode: .templates)
+        let model = UniverseBrowserModel(
+            store: UniverseCatalogStore(
+                cacheURL: app.root.appendingPathComponent("new-index.json"),
+                transport: { try await network.send($0) },
+            ),
+            mode: .templates,
+        )
         let refresh = Task { await model.load() }
         defer { refresh.cancel() }
-        for _ in 0..<100 where await network.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0 ..< 100 where await network.requests.isEmpty {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         #expect(model.isLoading)
         #expect(model.snapshot?.source == .bundled)
         model.query = "简历"
@@ -299,20 +401,27 @@ extension WritingFlowTests {
         let cache = app.root.appendingPathComponent("previews")
         let network = DiscoveryNetworkGate()
         let loader = UniversePreviewLoader(transport: { try await network.send($0) })
-        let url = URL(string: "https://packages.typst.org/preview/thumbnails/example-1.0.0-small.webp")!
+        let url = try #require(URL(string: "https://packages.typst.org/preview/thumbnails/example-1.0.0-small.webp"))
         let first = Task { await loader.data(for: url, cacheURL: cache) }
-        for _ in 0..<100 where await network.requests.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0 ..< 100 where await network.requests.isEmpty {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         first.cancel()
         #expect(await first.value == nil)
-        for _ in 0..<100 where await network.cancellations == 0 { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0 ..< 100 where await network.cancellations == 0 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         #expect(await network.cancellations == 1, "A scrolled-off image must not keep downloading in the background")
         let retry = Task { await loader.data(for: url, cacheURL: cache) }
-        for _ in 0..<100 where await network.requests.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0 ..< 100 where await network.requests.count < 2 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         #expect(await network.requests.count == 2, "Cancellation must not trigger the failure cooldown")
         let bytes = Data("preview bytes".utf8)
         await network.complete(UniverseHTTPResponse(data: bytes, statusCode: 200))
         #expect(await retry.value == bytes)
-        #expect(await loader.data(for: URL(string: "https://example.com/private-image")!, cacheURL: cache) == nil)
+        #expect(try await loader
+            .data(for: #require(URL(string: "https://example.com/private-image")), cacheURL: cache) == nil)
         #expect(await network.requests.count == 2)
     }
 }

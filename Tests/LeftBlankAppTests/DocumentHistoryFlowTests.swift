@@ -1,9 +1,9 @@
 import AppKit
 import Foundation
+@testable import LeftBlankApp
+import LeftBlankCore
 import SwiftUI
 import Testing
-import LeftBlankCore
-@testable import LeftBlankApp
 
 extension WritingFlowTests {
     @Test func historyPresentationRendersEmptyChangesAndMatchingSnapshot() async throws {
@@ -11,8 +11,12 @@ extension WritingFlowTests {
         defer { app.close() }
         let workspace = app.workspace, history = workspace.history
         let host = NSHostingView(rootView: DocumentHistoryView(workspace: workspace, history: history))
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 940, height: 600),
-                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 940, height: 600),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false,
+        )
         window.isReleasedWhenClosed = false
         window.contentView = host
         defer { window.close() }
@@ -27,7 +31,11 @@ extension WritingFlowTests {
         }
         let empty = try await draw()
         #expect(history.revisions.isEmpty)
-        let original = try await history.store.preserveBeforeRestore("= Draft\n\nA busy place. 中文 😀\n", key: workspace.historyKey, at: Date())
+        let original = try await history.store.preserveBeforeRestore(
+            "= Draft\n\nA busy place. 中文 😀\n",
+            key: workspace.historyKey,
+            at: Date(),
+        )
         await history.load()
         await history.select(original)
         let changes = try await draw()
@@ -55,7 +63,10 @@ extension WritingFlowTests {
         workspace.save()
         await history.drain()
         #expect(try await history.store.revisions(for: key).isEmpty)
-        editor.insertSnippet(Snippet(text: "More writing.\n"), replacing: NSRange(location: workspace.text.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "More writing.\n"),
+            replacing: NSRange(location: workspace.text.utf16.count, length: 0),
+        )
         try await app.wait { workspace.text == workspace.savedText }
         await history.drain()
         var revisions = try await history.store.revisions(for: key)
@@ -64,7 +75,10 @@ extension WritingFlowTests {
         #expect(try await history.store.source(for: original, key: key) == "= Original\n\nFirst words.\n")
         let second = workspace.text
         date = date.addingTimeInterval(3601)
-        editor.insertSnippet(Snippet(text: "A later thought.\n"), replacing: NSRange(location: workspace.text.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "A later thought.\n"),
+            replacing: NSRange(location: workspace.text.utf16.count, length: 0),
+        )
         workspace.save()
         await history.drain()
         revisions = try await history.store.revisions(for: key)
@@ -84,7 +98,8 @@ extension WritingFlowTests {
         #expect(history.comparison?.after.contains("A later thought") == true)
         let comparison = try #require(history.comparison)
         #expect(comparison.removedRanges.isEmpty)
-        #expect(comparison.addedRanges.map { (comparison.after as NSString).substring(with: $0) }.joined().contains("More writing."))
+        #expect(comparison.addedRanges.map { (comparison.after as NSString).substring(with: $0) }.joined()
+            .contains("More writing."))
         #expect(await history.restore(original))
         #expect(workspace.text == "= Original\n\nFirst words.\n")
         revisions = try await history.store.revisions(for: key)
@@ -111,19 +126,23 @@ extension WritingFlowTests {
         let editor = try #require(workspace.editor)
         let root = workspace.stateDirectory.appendingPathComponent("History")
         try Data("block history directory".utf8).write(to: root)
-        editor.insertSnippet(Snippet(text: " plus more"), replacing: NSRange(location: workspace.text.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: " plus more"),
+            replacing: NSRange(location: workspace.text.utf16.count, length: 0),
+        )
         workspace.save()
         await history.drain()
         #expect(workspace.savedText == "Important writing plus more")
         #expect(history.error != nil)
         try FileManager.default.removeItem(at: root)
         let revision = try await history.store.preserveBeforeRestore("Original", key: workspace.historyKey, at: Date())
-        let folder = try #require(FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).first)
+        let folder = try #require(FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .first)
         // Existing snapshots stay readable, but preserving current writing fails.
         // Restore must leave the live buffer and disk untouched in that case.
         try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder.path) }
-        #expect(!(await history.restore(revision)))
+        #expect(await !(history.restore(revision)))
         #expect(workspace.text == "Important writing plus more")
         #expect(workspace.savedText == "Important writing plus more")
         #expect(history.error != nil)
@@ -139,7 +158,10 @@ extension WritingFlowTests {
         var approved = false
         // Exercise native termination sequencing without exiting the test host.
         delegate.replyToTermination = { approved = $0 }
-        editor.insertSnippet(Snippet(text: " after"), replacing: NSRange(location: workspace.text.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: " after"),
+            replacing: NSRange(location: workspace.text.utf16.count, length: 0),
+        )
         #expect(delegate.applicationShouldTerminate(NSApp) == .terminateLater)
         #expect(!approved)
         try await app.wait { approved }

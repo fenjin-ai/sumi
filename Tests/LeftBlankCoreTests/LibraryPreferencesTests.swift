@@ -1,15 +1,24 @@
 import Foundation
-import Testing
 @testable import LeftBlankCore
+import Testing
 
 @MainActor
 private final class PreferenceFixtureCloud: PreferenceCloudStore {
     var values: [String: Data] = [:]
     var writes = 0
     var canSynchronize = true
-    func data(forKey key: String) -> Data? { values[key] }
-    func set(_ data: Data, forKey key: String) { values[key] = data; writes += 1 }
-    func synchronize() -> Bool { canSynchronize }
+    func data(forKey key: String) -> Data? {
+        values[key]
+    }
+
+    func set(_ data: Data, forKey key: String) {
+        values[key] = data
+        writes += 1
+    }
+
+    func synchronize() -> Bool {
+        canSynchronize
+    }
 }
 
 @MainActor
@@ -27,7 +36,13 @@ private final class PreferenceFixtureCloud: PreferenceCloudStore {
     #expect(cloud.writes == 0)
     #expect(preferences.syncState == .local)
     #expect(LibraryPreferences(defaults: defaults, cloud: cloud).values.fontSize == 19)
-    let remote = SyncedPreferences(language: "zh-Hans", commandKey: "k", fontSize: 22, previewDark: true, appearance: "dark")
+    let remote = SyncedPreferences(
+        language: "zh-Hans",
+        commandKey: "k",
+        fontSize: 22,
+        previewDark: true,
+        appearance: "dark",
+    )
     cloud.values[LibraryPreferences.storageKey] = try JSONEncoder().encode(remote)
     preferences.setSyncEnabled(true)
     #expect(preferences.values == remote)
@@ -77,7 +92,8 @@ private final class PreferenceFixtureCloud: PreferenceCloudStore {
     #expect(unavailable.syncState == .unavailable)
     #expect(unavailable.values.fontSize == 25)
     #expect(states.contains(.waiting))
-    #expect(SyncedPreferences(language: "unknown", commandKey: "escape", fontSize: .infinity).validated == SyncedPreferences())
+    #expect(SyncedPreferences(language: "unknown", commandKey: "escape", fontSize: .infinity)
+        .validated == SyncedPreferences())
     #expect(SyncedPreferences(fontSize: 50).validated.fontSize == 32)
     #expect(SyncedPreferences(fontSize: 2).validated.fontSize == 10)
     #expect(SyncedPreferences(documentTemplate: "codeNotes").validated.documentTemplate == "codeNotes")

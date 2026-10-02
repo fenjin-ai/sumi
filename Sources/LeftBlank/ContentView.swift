@@ -1,5 +1,5 @@
-import SwiftUI
 import LeftBlankCore
+import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var workspace: Workspace
@@ -12,7 +12,9 @@ struct ContentView: View {
                 LibraryBrowser(workspace: workspace, library: workspace.library)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.editor)
-            } else { writing }
+            } else {
+                writing
+            }
         }
         .background(Theme.background)
         .foregroundStyle(Theme.text)
@@ -29,26 +31,41 @@ struct ContentView: View {
             HStack(spacing: 0) {
                 GeometryReader { geometry in
                     let width = geometry.size.width
-                    let editorWidth = workspace.layout == .writing ? width : (workspace.layout == .preview ? 0 : max(280, min(width - 280, width * splitFraction)))
+                    let editorWidth = workspace.layout == .writing ? width : (workspace.layout == .preview ? 0 : max(
+                        280,
+                        min(width - 280, width * splitFraction),
+                    ))
                     HStack(spacing: 0) {
                         manuscript.frame(width: editorWidth).clipped()
                             .overlay(alignment: .topLeading) {
                                 if workspace.layout != .preview {
-                                    FloatingOutline(workspace: workspace, availableMargin: max(36, (editorWidth - 740) / 2))
-                                        .padding(.leading, 6).padding(.top, 64)
+                                    FloatingOutline(
+                                        workspace: workspace,
+                                        availableMargin: max(36, (editorWidth - 740) / 2),
+                                    )
+                                    .padding(.leading, 6).padding(.top, 64)
                                 }
                             }
                             .opacity(workspace.layout == .preview ? 0 : 1)
                             .accessibilityHidden(workspace.layout == .preview)
                         Rectangle().fill(Theme.border).frame(width: workspace.layout == .split ? 1 : 0)
-                            .overlay(Color.clear.frame(width: 9).contentShape(Rectangle()).gesture(DragGesture(coordinateSpace: .named("writingArea")).onChanged { value in splitFraction = min(0.75, max(0.25, value.location.x / width)) }))
-                        preview.frame(width: max(0, width - editorWidth - (workspace.layout == .split ? 1 : 0))).clipped()
+                            .overlay(Color.clear.frame(width: 9).contentShape(Rectangle())
+                                .gesture(DragGesture(coordinateSpace: .named("writingArea")).onChanged { value in
+                                    splitFraction = min(
+                                        0.75,
+                                        max(0.25, value.location.x / width),
+                                    )
+                                }))
+                        preview.frame(width: max(0, width - editorWidth - (workspace.layout == .split ? 1 : 0)))
+                            .clipped()
                             .opacity(workspace.layout == .writing ? 0 : 1)
                             .accessibilityHidden(workspace.layout == .writing)
                     }.coordinateSpace(name: "writingArea")
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            if let message = workspace.message { messageBar(message) }
+            if let message = workspace.message {
+                messageBar(message)
+            }
             if workspace.paletteOpen {
                 Rectangle().fill(Theme.accent.opacity(0.4)).frame(height: 1)
                 CommandPalette(workspace: workspace)
@@ -61,6 +78,8 @@ struct ContentView: View {
                 GeometryReader { geometry in
                     ZStack(alignment: .bottomTrailing) {
                         Color.clear.contentShape(Rectangle()).onTapGesture { workspace.checksOpen = false }
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityLabel(L10n.text("Close"))
                         DocumentChecksPopup(workspace: workspace)
                             .frame(width: min(380, max(260, geometry.size.width - 32)))
                             .padding(.trailing, 18).padding(.bottom, 42)
@@ -77,16 +96,24 @@ struct ContentView: View {
     private var preview: some View {
         Group {
             if let url = workspace.previewURL {
-                PreviewView(url: url, zoom: workspace.previewZoom, dark: workspace.previewDark,
-                            onLoading: { workspace.previewWillLoad(at: url) },
-                            onReady: { workspace.previewDidBecomeReady(at: url) }) { workspace.showMessage($0, persistent: true) }
+                PreviewView(
+                    url: url,
+                    zoom: workspace.previewZoom,
+                    dark: workspace.previewDark,
+                    onLoading: { workspace.previewWillLoad(at: url) },
+                    onReady: { workspace.previewDidBecomeReady(at: url) },
+                ) { workspace.showMessage(
+                    $0,
+                    persistent: true,
+                ) }
             } else {
                 VStack(spacing: 16) {
                     PhosphorIcon(name: "file-text", size: 32).foregroundStyle(Theme.accent.opacity(0.8))
                     Text(L10n.text("Your words are becoming pages")).font(.system(size: 16, weight: .medium))
                     Text(L10n.text(workspace.serviceStatus)).font(.system(size: 12)).foregroundStyle(Theme.secondary)
                     if !workspace.serviceReady {
-                        Button(L10n.text("Reconnect")) { workspace.startService() }.buttonStyle(.plain).foregroundStyle(Theme.accent)
+                        Button(L10n.text("Reconnect")) { workspace.startService() }.buttonStyle(.plain)
+                            .foregroundStyle(Theme.accent)
                     }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -99,7 +126,11 @@ struct ContentView: View {
                             .foregroundStyle(workspace.previewDark ? Theme.accent : Theme.secondary)
                             .frame(width: 68, height: 28).contentShape(Rectangle())
                     }.buttonStyle(QuietControlStyle()).accessibilityIdentifier("preview-colors")
-                        .learningHelp(L10n.text("Preview Colors"), shortcut: "⌘\(workspace.commandKey.uppercased()) → v n", detail: L10n.text("Only changes preview colors. Exported PDFs are unchanged."))
+                        .learningHelp(
+                            L10n.text("Preview Colors"),
+                            shortcut: "⌘\(workspace.commandKey.uppercased()) → v n",
+                            detail: L10n.text("Only changes preview colors. Exported PDFs are unchanged."),
+                        )
                     QuietButton(icon: "minus", help: L10n.text("Zoom Out"), iconSize: 14, hitSize: 28) {
                         workspace.previewZoom = max(0.5, workspace.previewZoom - 0.1)
                     }.disabled(workspace.previewZoom <= 0.5)
@@ -121,7 +152,9 @@ struct ContentView: View {
                         Button { workspace.checksOpen = true } label: {
                             HStack(spacing: 6) {
                                 Circle().fill(Theme.accent).frame(width: 4, height: 4)
-                                Text(workspace.hasSuccessfulPreview ? L10n.text("Showing the last successful preview while your changes are typeset") : L10n.text("Waiting for the first successful preview"))
+                                Text(workspace.hasSuccessfulPreview ? L10n
+                                    .text("Showing the last successful preview while your changes are typeset") : L10n
+                                    .text("Waiting for the first successful preview"))
                                     .font(.system(size: 10)).lineLimit(2)
                             }
                         }.buttonStyle(.plain).learningHelp(L10n.text("Check Source"))
@@ -147,14 +180,26 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     PhosphorIcon(name: "command", size: 14)
                     Text(L10n.text("Discover Commands")).font(.system(size: 11))
-                    Text("⌘ \(workspace.commandKey.uppercased())").font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
+                    Text("⌘ \(workspace.commandKey.uppercased())").font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Theme.muted)
                 }.foregroundStyle(workspace.paletteOpen ? Theme.accent : Theme.secondary)
-            }.buttonStyle(.plain).accessibilityLabel(L10n.format("Discover Commands %@", "⌘\(workspace.commandKey.uppercased())")).learningHelp(L10n.text("Discover Commands"), shortcut: "⌘\(workspace.commandKey.uppercased())", detail: L10n.text("Explore with letter keys, or press / to search all commands."))
+            }.buttonStyle(.plain).accessibilityLabel(L10n.format(
+                "Discover Commands %@",
+                "⌘\(workspace.commandKey.uppercased())",
+            )).learningHelp(
+                L10n.text("Discover Commands"),
+                shortcut: "⌘\(workspace.commandKey.uppercased())",
+                detail: L10n.text("Explore with letter keys, or press / to search all commands."),
+            )
             Spacer()
             Text(L10n.text(workspace.saveStatus)).font(.system(size: 10)).foregroundStyle(Theme.muted)
             Rectangle().fill(Theme.border).frame(width: 1, height: 10)
-            Text(L10n.format("%@ words", String(workspace.wordCount))).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
-            Text("\(workspace.position.line + 1):\(workspace.position.character + 1)").font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted).frame(minWidth: 35, alignment: .trailing)
+            Text(L10n.format("%@ words", String(workspace.wordCount))).font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(Theme.muted)
+            Text("\(workspace.position.line + 1):\(workspace.position.character + 1)").font(.system(
+                size: 10,
+                design: .monospaced,
+            )).foregroundStyle(Theme.muted).frame(minWidth: 35, alignment: .trailing)
             DocumentCheckButton(workspace: workspace)
         }.padding(.horizontal, 24).frame(height: 34)
     }

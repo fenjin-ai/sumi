@@ -1,30 +1,69 @@
-import SwiftUI
 import LeftBlankCore
+import SwiftUI
 
 /// Healthy, pending and disconnected states remain distinct: an empty diagnostic
 /// list alone is not evidence that the document compiled successfully.
 extension Workspace {
-    var checkErrors: Int { diagnostics.filter { $0.severity == 1 }.count }
-    var checkWarnings: Int { diagnostics.filter { $0.severity == 2 }.count }
-    var checksPassed: Bool { serviceReady && hasSuccessfulPreview && !previewStale && diagnostics.isEmpty }
+    var checkErrors: Int {
+        diagnostics.filter { $0.severity == 1 }.count
+    }
+
+    var checkWarnings: Int {
+        diagnostics.filter { $0.severity == 2 }.count
+    }
+
+    var checksPassed: Bool {
+        serviceReady && hasSuccessfulPreview && !previewStale && diagnostics.isEmpty
+    }
+
     var checkLabel: String {
-        if !serviceReady { return L10n.text(serviceStatus) }
-        if checkErrors > 0 { return checkErrors == 1 ? L10n.text("1 error") : L10n.format("%@ errors", String(checkErrors)) }
-        if checkWarnings > 0 { return checkWarnings == 1 ? L10n.text("1 warning") : L10n.format("%@ warnings", String(checkWarnings)) }
-        if !diagnostics.isEmpty { return L10n.format("%@ suggestions", String(diagnostics.count)) }
-        if checksPassed { return L10n.text("Up to date") }
+        if !serviceReady {
+            return L10n.text(serviceStatus)
+        }
+        if checkErrors > 0 {
+            return checkErrors == 1 ? L10n.text("1 error") : L10n.format(
+                "%@ errors",
+                String(checkErrors),
+            )
+        }
+        if checkWarnings > 0 {
+            return checkWarnings == 1 ? L10n.text("1 warning") : L10n.format(
+                "%@ warnings",
+                String(checkWarnings),
+            )
+        }
+        if !diagnostics.isEmpty {
+            return L10n.format("%@ suggestions", String(diagnostics.count))
+        }
+        if checksPassed {
+            return L10n.text("Up to date")
+        }
         return L10n.text(serviceStatus == "Typesetting" ? "Checking…" : "Waiting for Typesetting")
     }
+
     var checkColor: Color {
-        if !serviceReady { return Theme.muted }
-        if checkErrors > 0 { return Theme.red }
-        if !diagnostics.isEmpty { return Theme.accent }
+        if !serviceReady {
+            return Theme.muted
+        }
+        if checkErrors > 0 {
+            return Theme.red
+        }
+        if !diagnostics.isEmpty {
+            return Theme.accent
+        }
         return checksPassed ? Theme.green.opacity(0.8) : Theme.muted
     }
+
     var checkIcon: String {
-        if !serviceReady { return "plugs-connected" }
-        if checkErrors > 0 { return "warning-circle" }
-        if !diagnostics.isEmpty { return "info" }
+        if !serviceReady {
+            return "plugs-connected"
+        }
+        if checkErrors > 0 {
+            return "warning-circle"
+        }
+        if !diagnostics.isEmpty {
+            return "info"
+        }
         return checksPassed ? "check" : "clock-counter-clockwise"
     }
 }
@@ -58,11 +97,15 @@ struct DocumentChecksPopup: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(workspace.checksPassed ? L10n.text("Everything looks good") : workspace.checkLabel)
                             .font(.system(size: 12, weight: .medium))
-                        Text(workspace.checksPassed ? L10n.text("Your latest changes are in the preview.") : L10n.text("You can keep writing while checks run."))
+                        Text(workspace.checksPassed ? L10n.text("Your latest changes are in the preview.") : L10n
+                            .text("You can keep writing while checks run."))
                             .font(.system(size: 11)).foregroundStyle(Theme.secondary)
                         if !workspace.serviceReady {
                             Button(L10n.text("Reconnect")) { workspace.startService() }
-                                .font(.system(size: 11)).buttonStyle(.plain).foregroundStyle(Theme.accent).padding(.top, 4)
+                                .font(.system(size: 11)).buttonStyle(.plain).foregroundStyle(Theme.accent).padding(
+                                    .top,
+                                    4,
+                                )
                         }
                     }
                 }.padding(.horizontal, 18).padding(.bottom, 18)
@@ -70,10 +113,13 @@ struct DocumentChecksPopup: View {
                 HStack(spacing: 10) {
                     Text(workspace.checkLabel).foregroundStyle(workspace.checkColor)
                     if workspace.checkErrors > 0, workspace.checkWarnings > 0 {
-                        Text(L10n.format("%@ warnings", String(workspace.checkWarnings))).foregroundStyle(Theme.secondary)
+                        Text(L10n.format("%@ warnings", String(workspace.checkWarnings)))
+                            .foregroundStyle(Theme.secondary)
                     }
                     Spacer()
-                    if workspace.previewStale { Text(L10n.text("Preview pending")).foregroundStyle(Theme.muted) }
+                    if workspace.previewStale {
+                        Text(L10n.text("Preview pending")).foregroundStyle(Theme.muted)
+                    }
                 }.font(.system(size: 10)).padding(.horizontal, 18).padding(.bottom, 10)
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 2) {
@@ -97,15 +143,21 @@ private struct DiagnosticRow: View {
     var body: some View {
         Button { workspace.showDiagnostic(diagnostic) } label: {
             HStack(alignment: .top, spacing: 10) {
-                Circle().fill(diagnostic.severity == 1 ? Theme.red : Theme.accent).frame(width: 5, height: 5).padding(.top, 5)
+                Circle().fill(diagnostic.severity == 1 ? Theme.red : Theme.accent).frame(width: 5, height: 5).padding(
+                    .top,
+                    5,
+                )
                 VStack(alignment: .leading, spacing: 5) {
                     Text(diagnostic.message).font(.system(size: 12)).foregroundStyle(Theme.text)
                         .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
-                    Text("\(diagnostic.url.lastPathComponent) · \(diagnostic.position.line + 1):\(diagnostic.position.character + 1)")
-                        .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
+                    Text(
+                        "\(diagnostic.url.lastPathComponent) · \(diagnostic.position.line + 1):\(diagnostic.position.character + 1)",
+                    )
+                    .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 0)
-                PhosphorIcon(name: "arrow-up-right", size: 12).foregroundStyle(hovering ? Theme.secondary : Theme.muted.opacity(0.4))
+                PhosphorIcon(name: "arrow-up-right", size: 12)
+                    .foregroundStyle(hovering ? Theme.secondary : Theme.muted.opacity(0.4))
             }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
                 .background(hovering ? Theme.border.opacity(0.4) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
                 .contentShape(Rectangle())

@@ -13,7 +13,16 @@ public struct SyncedPreferences: Codable, Equatable, Sendable {
     public var historyInterval: String?
     public var appearance: String?
 
-    public init(language: String = "system", commandKey: String = "j", fontSize: Double = 16, previewDark: Bool = false, styledSource: Bool = true, documentTemplate: String? = nil, historyInterval: String? = nil, appearance: String? = nil) {
+    public init(
+        language: String = "system",
+        commandKey: String = "j",
+        fontSize: Double = 16,
+        previewDark: Bool = false,
+        styledSource: Bool = true,
+        documentTemplate: String? = nil,
+        historyInterval: String? = nil,
+        appearance: String? = nil,
+    ) {
         self.language = language
         self.commandKey = commandKey
         self.fontSize = fontSize
@@ -23,14 +32,18 @@ public struct SyncedPreferences: Codable, Equatable, Sendable {
         self.historyInterval = historyInterval
         self.appearance = appearance
     }
+
     public var validated: Self {
-        Self(language: ["system", "en", "zh-Hans"].contains(language) ? language : "system",
+        Self(
+            language: ["system", "en", "zh-Hans"].contains(language) ? language : "system",
             commandKey: ["j", "k"].contains(commandKey) ? commandKey : "j",
             fontSize: fontSize.isFinite ? min(32, max(10, fontSize)) : 16,
-            previewDark: previewDark, styledSource: styledSource,
+            previewDark: previewDark,
+            styledSource: styledSource,
             documentTemplate: ["blank", "codeNotes"].contains(documentTemplate ?? "blank") ? documentTemplate : nil,
             historyInterval: historyInterval.flatMap { HistoryInterval(rawValue: $0)?.rawValue },
-            appearance: appearance.flatMap { AppAppearance(rawValue: $0)?.rawValue })
+            appearance: appearance.flatMap { AppAppearance(rawValue: $0)?.rawValue },
+        )
     }
 }
 
@@ -45,10 +58,21 @@ public protocol PreferenceCloudStore: AnyObject {
 @MainActor
 public final class NativePreferenceCloudStore: PreferenceCloudStore {
     private let store: NSUbiquitousKeyValueStore
-    public init(store: NSUbiquitousKeyValueStore = .default) { self.store = store }
-    public func data(forKey key: String) -> Data? { store.data(forKey: key) }
-    public func set(_ data: Data, forKey key: String) { store.set(data, forKey: key) }
-    public func synchronize() -> Bool { store.synchronize() }
+    public init(store: NSUbiquitousKeyValueStore = .default) {
+        self.store = store
+    }
+
+    public func data(forKey key: String) -> Data? {
+        store.data(forKey: key)
+    }
+
+    public func set(_ data: Data, forKey key: String) {
+        store.set(data, forKey: key)
+    }
+
+    public func synchronize() -> Bool {
+        store.synchronize()
+    }
 }
 
 public enum PreferenceSyncState: Sendable, Equatable { case local, waiting, active, unavailable, quotaExceeded }
@@ -68,19 +92,32 @@ public final class LibraryPreferences {
     private var enabled = false
     private var cloudBase: SyncedPreferences?
 
-    public init(defaults: UserDefaults = .standard, cloud: (any PreferenceCloudStore)? = nil,
-                available: @escaping () -> Bool = LibraryCloudEnvironment.preferenceSyncAvailable) {
+    public init(
+        defaults: UserDefaults = .standard,
+        cloud: (any PreferenceCloudStore)? = nil,
+        available: @escaping () -> Bool = LibraryCloudEnvironment.preferenceSyncAvailable,
+    ) {
         self.defaults = defaults
         self.cloud = cloud
         self.available = available
-        if let data = defaults.data(forKey: Self.storageKey), let saved = try? JSONDecoder().decode(SyncedPreferences.self, from: data) {
+        if let data = defaults.data(forKey: Self.storageKey), let saved = try? JSONDecoder().decode(
+            SyncedPreferences.self,
+            from: data,
+        ) {
             values = saved.validated
         } else {
-            values = SyncedPreferences(language: defaults.string(forKey: L10n.preferenceKey) ?? "system",
-                commandKey: defaults.string(forKey: "commandKey") ?? "j").validated
+            values = SyncedPreferences(
+                language: defaults.string(forKey: L10n.preferenceKey) ?? "system",
+                commandKey: defaults.string(forKey: "commandKey") ?? "j",
+            ).validated
         }
-        observer = PreferenceObservation(NotificationCenter.default.addObserver(forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification, object: nil, queue: .main) { [weak self] notification in
-            let reason = notification.userInfo?[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int ?? NSUbiquitousKeyValueStoreServerChange
+        observer = PreferenceObservation(NotificationCenter.default.addObserver(
+            forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+            object: nil,
+            queue: .main,
+        ) { [weak self] notification in
+            let reason = notification
+                .userInfo?[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int ?? NSUbiquitousKeyValueStoreServerChange
             Task { @MainActor [weak self] in self?.receiveCloudChange(reason: reason) }
         })
     }
@@ -88,30 +125,64 @@ public final class LibraryPreferences {
     public func update(_ value: SyncedPreferences) {
         values = value.validated
         persist()
-        if enabled && available() && syncState == .active, let data = try? JSONEncoder().encode(values) { cloud?.set(data, forKey: Self.storageKey) }
+        if enabled, available(), syncState == .active, let data = try? JSONEncoder().encode(values) {
+            cloud?.set(
+                data,
+                forKey: Self.storageKey,
+            )
+        }
         onChange?(values)
     }
 
     public func setSyncEnabled(_ value: Bool) {
         enabled = value
         cloudBase = value ? values : nil
-        guard value else { changeState(.local); return }
-        guard available() else { changeState(.unavailable); return }
-        if cloud == nil { cloud = NativePreferenceCloudStore() }
-        guard cloud?.synchronize() == true else { enabled = false; changeState(.unavailable); return }
+        guard value else {
+            changeState(.local)
+            return
+        }
+        guard available() else {
+            changeState(.unavailable)
+            return
+        }
+        if cloud == nil {
+            cloud = NativePreferenceCloudStore()
+        }
+        guard cloud?.synchronize() == true else {
+            enabled = false
+            changeState(.unavailable)
+            return
+        }
         // Do not upload local defaults before initial cloud reconciliation; they may overwrite another device.
         changeState(.waiting)
-        if let data = cloud?.data(forKey: Self.storageKey), let remote = try? JSONDecoder().decode(SyncedPreferences.self, from: data) {
+        if let data = cloud?.data(forKey: Self.storageKey), let remote = try? JSONDecoder().decode(
+            SyncedPreferences.self,
+            from: data,
+        ) {
             apply(remote)
             changeState(.active)
         }
     }
 
     public func receiveCloudChange(reason: Int) {
-        guard enabled else { return }
-        guard reason != NSUbiquitousKeyValueStoreQuotaViolationChange else { changeState(.quotaExceeded); return }
-        guard reason != NSUbiquitousKeyValueStoreAccountChange, available() else { enabled = false; changeState(.unavailable); return }
-        if let data = cloud?.data(forKey: Self.storageKey), let remote = try? JSONDecoder().decode(SyncedPreferences.self, from: data) {
+        guard enabled else {
+            return
+        }
+        guard reason != NSUbiquitousKeyValueStoreQuotaViolationChange else {
+            changeState(.quotaExceeded)
+            return
+        }
+        guard reason != NSUbiquitousKeyValueStoreAccountChange,
+              available()
+        else {
+            enabled = false
+            changeState(.unavailable)
+            return
+        }
+        if let data = cloud?.data(forKey: Self.storageKey), let remote = try? JSONDecoder().decode(
+            SyncedPreferences.self,
+            from: data,
+        ) {
             apply(remote)
         } else if reason == NSUbiquitousKeyValueStoreInitialSyncChange, let data = try? JSONEncoder().encode(values) {
             cloud?.set(data, forKey: Self.storageKey)
@@ -128,25 +199,44 @@ public final class LibraryPreferences {
         func merge<Value: Equatable>(_ key: KeyPath<SyncedPreferences, Value>) -> Value {
             values[keyPath: key] == base[keyPath: key] ? remote[keyPath: key] : values[keyPath: key]
         }
-        values = SyncedPreferences(language: merge(\.language), commandKey: merge(\.commandKey),
-            fontSize: merge(\.fontSize), previewDark: merge(\.previewDark), styledSource: merge(\.styledSource),
-            documentTemplate: merge(\.documentTemplate), historyInterval: merge(\.historyInterval), appearance: merge(\.appearance))
+        values = SyncedPreferences(
+            language: merge(\.language),
+            commandKey: merge(\.commandKey),
+            fontSize: merge(\.fontSize),
+            previewDark: merge(\.previewDark),
+            styledSource: merge(\.styledSource),
+            documentTemplate: merge(\.documentTemplate),
+            historyInterval: merge(\.historyInterval),
+            appearance: merge(\.appearance),
+        )
         cloudBase = remote
         persist()
         onChange?(values)
-        if values != remote, let data = try? JSONEncoder().encode(values) { cloud?.set(data, forKey: Self.storageKey) }
+        if values != remote, let data = try? JSONEncoder().encode(values) {
+            cloud?.set(data, forKey: Self.storageKey)
+        }
     }
+
     private func persist() {
-        if let data = try? JSONEncoder().encode(values) { defaults.set(data, forKey: Self.storageKey) }
+        if let data = try? JSONEncoder().encode(values) {
+            defaults.set(data, forKey: Self.storageKey)
+        }
         defaults.set(values.language, forKey: L10n.preferenceKey)
         defaults.set(values.commandKey, forKey: "commandKey")
     }
-    private func changeState(_ state: PreferenceSyncState) { syncState = state; onSyncStateChange?(state) }
+
+    private func changeState(_ state: PreferenceSyncState) {
+        syncState = state
+        onSyncStateChange?(state)
+    }
 }
 
 /// NotificationCenter removal is thread-safe; the immutable token needs no actor isolation.
 private final class PreferenceObservation: @unchecked Sendable {
     let token: any NSObjectProtocol
-    init(_ token: any NSObjectProtocol) { self.token = token }
+    init(_ token: any NSObjectProtocol) {
+        self.token = token
+    }
+
     deinit { NotificationCenter.default.removeObserver(token) }
 }

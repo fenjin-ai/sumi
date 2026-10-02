@@ -1,9 +1,9 @@
 import AppKit
+@testable import LeftBlankApp
+import LeftBlankCore
 import PDFKit
 import SwiftUI
 import Testing
-@testable import LeftBlankApp
-import LeftBlankCore
 
 extension WritingFlowTests {
     @Test func emptyTrashConfirmationCancelsThenDeletesWithoutTouchingOpenWriting() async throws {
@@ -35,7 +35,10 @@ extension WritingFlowTests {
         #expect(app.workspace.text == original)
         #expect(app.workspace.editor?.string == original)
         #expect(!app.workspace.isLibraryHome)
-        let log = try String(contentsOf: app.workspace.stateDirectory.appendingPathComponent("Logs/events.jsonl"), encoding: .utf8)
+        let log = try String(
+            contentsOf: app.workspace.stateDirectory.appendingPathComponent("Logs/events.jsonl"),
+            encoding: .utf8,
+        )
         #expect(log.contains("library.emptyTrash"))
         #expect(!log.contains("Private title"))
         #expect(!log.contains("Private writing"))
@@ -58,7 +61,10 @@ extension WritingFlowTests {
         app.workspace.libraryOpen = false
 
         let editor = try #require(app.workspace.editor)
-        editor.insertSnippet(Snippet(text: "Preserve this before trashing.\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "Preserve this before trashing.\n"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         let preserved = editor.string
         try await library.moveToTrash(first)
         #expect(try await library.store.list().isEmpty)
@@ -90,7 +96,10 @@ extension WritingFlowTests {
         #expect(app.workspace.managedDocumentID == first)
         #expect(app.workspace.editor?.string == preserved)
         #expect(app.workspace.editor?.isEditable == true)
-        let log = try String(contentsOf: app.workspace.stateDirectory.appendingPathComponent("Logs/events.jsonl"), encoding: .utf8)
+        let log = try String(
+            contentsOf: app.workspace.stateDirectory.appendingPathComponent("Logs/events.jsonl"),
+            encoding: .utf8,
+        )
         #expect(log.contains("library.trash"))
         #expect(log.contains("library.restore"))
         #expect(!log.contains("Preserve this before trashing"))
@@ -106,13 +115,24 @@ extension WritingFlowTests {
         }
         let field = try #require(app.window.toolbar?.items.compactMap(\.view).flatMap(fields).first)
         let editor = try #require(app.workspace.editor)
-        editor.insertSnippet(Snippet(text: "Unsaved thought 👋\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "Unsaved thought 👋\n"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         let text = editor.string, selection = editor.selectedRange(), source = app.workspace.fileURL
         let id = try #require(app.workspace.managedDocumentID)
         func click(_ count: Int) throws {
-            field.mouseDown(with: try #require(NSEvent.mouseEvent(with: .leftMouseDown,
-                location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: app.window.windowNumber, context: nil, eventNumber: 0, clickCount: count, pressure: 1)))
+            try field.mouseDown(with: #require(NSEvent.mouseEvent(
+                with: .leftMouseDown,
+                location: .zero,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: app.window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: count,
+                pressure: 1,
+            )))
         }
         try click(1)
         try await app.wait { field.renaming }
@@ -129,7 +149,10 @@ extension WritingFlowTests {
         try click(1)
         try await app.wait { field.renaming }
         let cancelled = try #require(field.currentEditor() as? NSTextView)
-        cancelled.insertText("Discard this title", replacementRange: NSRange(location: 0, length: cancelled.string.utf16.count))
+        cancelled.insertText(
+            "Discard this title",
+            replacementRange: NSRange(location: 0, length: cancelled.string.utf16.count),
+        )
         app.workspace.sidePanel = .outline
         app.window.sendEvent(app.key("\u{1b}", code: 53))
         #expect(!field.renaming)
@@ -155,7 +178,10 @@ extension WritingFlowTests {
         let id = try #require(app.workspace.managedDocumentID)
         let source = try #require(app.workspace.fileURL)
         let editor = try #require(app.workspace.editor)
-        editor.insertSnippet(Snippet(text: "One more thought.\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "One more thought.\n"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         try await library.rename(id, title: "Field notes")
         #expect(app.workspace.title == "Field notes")
         #expect(app.workspace.fileURL == source)
@@ -163,7 +189,8 @@ extension WritingFlowTests {
         #expect(try await library.store.list(query: "narwhal").map(\.id) == [id])
         let export = app.root.appendingPathComponent("Exported")
         try await library.exportProject(id, to: export)
-        #expect(try String(contentsOf: export.appendingPathComponent("main.typ"), encoding: .utf8).contains("One more thought"))
+        #expect(try String(contentsOf: export.appendingPathComponent("main.typ"), encoding: .utf8)
+            .contains("One more thought"))
         try await library.moveToTrash(id)
         #expect(app.workspace.managedDocumentID != id)
         #expect(library.documents.first { $0.id == id }?.trashedAt != nil)
@@ -188,7 +215,7 @@ extension WritingFlowTests {
         editor.insertSnippet(Snippet(text: "My second"), replacing: (editor.string as NSString).range(of: "Second"))
         let local = editor.string
         let remote = base.replacingOccurrences(of: "First", with: "Their first")
-        try Data(remote.utf8).write(to: try #require(app.workspace.fileURL), options: .atomic)
+        try Data(remote.utf8).write(to: #require(app.workspace.fileURL), options: .atomic)
         let search = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
         app.window.contentView?.addSubview(search)
         app.window.makeFirstResponder(search)
@@ -204,7 +231,10 @@ extension WritingFlowTests {
         #expect(editor.string == local)
         app.workspace.save()
         let saved = editor.string
-        editor.insertSnippet(Snippet(text: "Local replacement"), replacing: (editor.string as NSString).range(of: "First"))
+        editor.insertSnippet(
+            Snippet(text: "Local replacement"),
+            replacing: (editor.string as NSString).range(of: "First"),
+        )
         let conflict = saved.replacingOccurrences(of: "First", with: "Remote replacement")
         let url = try #require(app.workspace.fileURL)
         try Data(conflict.utf8).write(to: url, options: .atomic)
@@ -240,7 +270,9 @@ extension WritingFlowTests {
         let suite = "LeftBlank.tests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         let oldLanguage = L10n.language
-        defer { defaults.removePersistentDomain(forName: suite); L10n.setLanguage(oldLanguage) }
+        defer { defaults.removePersistentDomain(forName: suite)
+            L10n.setLanguage(oldLanguage)
+        }
         let settings = WorkspaceSettings(workspace: app.workspace, defaults: defaults)
         defer { settings.stop() }
         let editor = try #require(app.workspace.editor)
@@ -258,7 +290,11 @@ extension WritingFlowTests {
         #expect(saved.values == settings.preferences.values)
         #expect(!settings.agentEnabled)
         #expect(settings.connectionCommand.hasPrefix("codex mcp add " + AppDistribution.current.agentName + " --"))
-        let view = NSHostingView(rootView: WritingSettingsView(workspace: app.workspace, settings: settings, library: app.workspace.library))
+        let view = NSHostingView(rootView: WritingSettingsView(
+            workspace: app.workspace,
+            settings: settings,
+            library: app.workspace.library,
+        ))
         view.layoutSubtreeIfNeeded()
         #expect(view.fittingSize.width == 530)
         await #expect(throws: (any Error).self) { try await app.workspace.library.setCloudEnabled(true) }

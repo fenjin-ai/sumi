@@ -14,6 +14,16 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  lint:
+    name: Swift lint (zero warnings)
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Strict SwiftFormat and SwiftLint
+        run: scripts/lint.sh
   integration:
     name: build and test
     runs-on: macos-15
@@ -75,7 +85,7 @@ jobs:
           LEFTBLANK_DISTRIBUTION: appstore
         run: |
           source scripts/environment.sh
-          LEFTBLANK_INTEGRATION=1 swift test --filter distributionUsesMatchingAppAndAgentIdentity
+          LEFTBLANK_INTEGRATION=1 swift test -Xswiftc -warnings-as-errors --filter distributionUsesMatchingAppAndAgentIdentity
           binary="$(swift build --show-bin-path)/LeftBlank"
           if otool -L "$binary" | grep -q Sparkle; then
             echo 'App Store binary unexpectedly links Sparkle.' >&2
@@ -105,7 +115,7 @@ jobs:
           retention-days: 14
   preview:
     name: Signed preview
-    needs: integration
+    needs: [lint, integration]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: macos-15
     timeout-minutes: 60

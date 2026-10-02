@@ -4,12 +4,34 @@ import Foundation
 public enum SampleBook: String, Sendable {
     case sicp
 
-    public var title: String { "Structure and Interpretation of Computer Programs" }
-    public var sha256: String { "4000daf0000ac5b92586fa111e08e6bd10c7f303f022170cdc5704a1fe18bd85" }
-    public var archiveName: String { "sicp-" + sha256.prefix(12) + ".zip" }
-    public var downloadURL: URL { URL(string: "https://raw.githubusercontent.com/leftblank-app/leftblank/main/Examples/Books/SICP/" + archiveName)! }
-    public var downloadBytes: Int { 1_864_400 }
-    public var sourceURL: URL { URL(string: "https://github.com/sarabander/sicp")! }
+    public var title: String {
+        "Structure and Interpretation of Computer Programs"
+    }
+
+    public var sha256: String {
+        "4000daf0000ac5b92586fa111e08e6bd10c7f303f022170cdc5704a1fe18bd85"
+    }
+
+    public var archiveName: String {
+        "sicp-" + sha256.prefix(12) + ".zip"
+    }
+
+    public var downloadURL: URL {
+        guard let base =
+            URL(string: "https://raw.githubusercontent.com/leftblank-app/leftblank/main/Examples/Books/SICP/")
+        else {
+            preconditionFailure("Invalid sample book base URL")
+        }
+        return base.appendingPathComponent(archiveName)
+    }
+
+    public var downloadBytes: Int {
+        1_864_400
+    }
+
+    public var sourceURL: URL {
+        URL(string: "https://github.com/sarabander/sicp")!
+    }
 
     public func matches(_ query: String) -> Bool {
         let terms = query.lowercased().split(whereSeparator: \.isWhitespace)
@@ -19,7 +41,8 @@ public enum SampleBook: String, Sendable {
 }
 
 public enum SampleBookError: LocalizedError {
-    case invalidDownload, extractionFailed
+    case invalidDownload
+    case extractionFailed
     public var errorDescription: String? {
         L10n.text("The example could not be downloaded or verified. Please try again.")
     }
@@ -46,7 +69,11 @@ public actor SampleBookStore {
             request.timeoutInterval = 60
             let response = try await transport(request)
             try Task.checkCancellation()
-            guard response.statusCode == 200, verify(response.data, book: book) else { throw SampleBookError.invalidDownload }
+            guard response.statusCode == 200,
+                  verify(response.data, book: book)
+            else {
+                throw SampleBookError.invalidDownload
+            }
             try manager.createDirectory(at: cacheURL, withIntermediateDirectories: true)
             try response.data.write(to: archive, options: .atomic)
         }
@@ -54,7 +81,11 @@ public actor SampleBookStore {
         try manager.createDirectory(at: parent, withIntermediateDirectories: true)
         let directory = parent.appendingPathComponent("Example-" + UUID().uuidString, isDirectory: true)
         var succeeded = false
-        defer { if !succeeded { try? manager.removeItem(at: directory) } }
+        defer {
+            if !succeeded {
+                try? manager.removeItem(at: directory)
+            }
+        }
         // The archive digest identifies reviewed bytes produced by package-sicp.py.
         // Never extract arbitrary downloaded archives before this verification.
         let process = Process()
@@ -64,7 +95,9 @@ public actor SampleBookStore {
         process.standardError = FileHandle.nullDevice
         try process.run()
         process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw SampleBookError.extractionFailed }
+        guard process.terminationStatus == 0 else {
+            throw SampleBookError.extractionFailed
+        }
         try Task.checkCancellation()
         let result = try UniverseTemplateInstaller.validateProject(at: directory, entrypoint: "main.typ")
         succeeded = true
@@ -73,21 +106,30 @@ public actor SampleBookStore {
 
     private func isVerifiedArchive(_ url: URL, book: SampleBook) -> Bool {
         guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size == book.downloadBytes,
-              let data = try? Data(contentsOf: url) else { return false }
+              let data = try? Data(contentsOf: url)
+        else {
+            return false
+        }
         return verify(data, book: book)
     }
 
     private func verify(_ data: Data, book: SampleBook) -> Bool {
-        data.count == book.downloadBytes && SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == book.sha256
+        data.count == book.downloadBytes && SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == book
+            .sha256
     }
 
     public static func download(_ request: URLRequest) async throws -> UniverseHTTPResponse {
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
         guard let response = response as? HTTPURLResponse, response.statusCode == 200,
-              response.expectedContentLength <= 8 * 1_024 * 1_024 else { throw SampleBookError.invalidDownload }
+              response.expectedContentLength <= 8 * 1024 * 1024
+        else {
+            throw SampleBookError.invalidDownload
+        }
         var data = Data()
         for try await byte in bytes {
-            guard data.count < 8 * 1_024 * 1_024 else { throw SampleBookError.invalidDownload }
+            guard data.count < 8 * 1024 * 1024 else {
+                throw SampleBookError.invalidDownload
+            }
             data.append(byte)
         }
         return UniverseHTTPResponse(data: data, statusCode: response.statusCode)

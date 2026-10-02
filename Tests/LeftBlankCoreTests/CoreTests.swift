@@ -1,13 +1,13 @@
-import LeftBlankTestSupport
 import Foundation
-import Testing
 @testable import LeftBlankCore
+import LeftBlankTestSupport
+import Testing
 
 @Test func framingHandlesEveryByteBoundary() throws {
     let first = try JSONRPCFramer.encode(["jsonrpc": "2.0", "id": 1, "result": "中文😀"])
     let second = try JSONRPCFramer.encode(["id": 2, "result": true])
     let combined = first + second
-    for split in 0...combined.count {
+    for split in 0 ... combined.count {
         var framer = JSONRPCFramer()
         let frames = try framer.append(Data(combined.prefix(split))) + framer.append(Data(combined.dropFirst(split)))
         #expect(frames.count == 2)
@@ -16,7 +16,12 @@ import Testing
 }
 
 @Test func framingRejectsMalformedInput() {
-    for header in ["Content-Length:\r\n\r\n", "Content-Length: -1\r\n\r\n", "Content-Length: 999999999\r\n\r\n", "Invalid: x\r\n\r\n"] {
+    for header in [
+        "Content-Length:\r\n\r\n",
+        "Content-Length: -1\r\n\r\n",
+        "Content-Length: 999999999\r\n\r\n",
+        "Invalid: x\r\n\r\n",
+    ] {
         var framer = JSONRPCFramer()
         #expect(throws: (any Error).self) { try framer.append(Data(header.utf8)) }
     }
@@ -51,9 +56,11 @@ import Testing
 @Test func tableFieldsAndUnsafeInput() throws {
     let table = try TypstInsertion.make("table", values: ["columns": "2", "rows": "3"])
     #expect(table.selections.count == 8)
-    for range in table.selections { #expect(!(table.text as NSString).substring(with: range).isEmpty) }
+    for range in table.selections {
+        #expect(!(table.text as NSString).substring(with: range).isEmpty)
+    }
     #expect(throws: (any Error).self) { try TypstInsertion.make("table", values: ["rows": "-1"]) }
-    #expect(throws: (any Error).self) { try TypstInsertion.make("reference", values: ["name": "oops> #panic()"] ) }
+    #expect(throws: (any Error).self) { try TypstInsertion.make("reference", values: ["name": "oops> #panic()"]) }
     #expect(TypstInsertion.quoted("a\"b\\c\n") == "\"a\\\"b\\\\c\\n\"")
     let code = try TypstInsertion.make("code", selection: "````")
     #expect(code.text.hasPrefix("`````rust"))
@@ -61,16 +68,28 @@ import Testing
 
 @Test func settingsComeAfterExistingRules() throws {
     let text = "// A note\n#set page(paper: \"a4\", margin: (x: 20mm))\n#set text(\n size: 11pt,\n)\n\n= Title\nBody"
-    let command = WritingCommand.all.first { $0.id == "margin" }!
-    let plan = InsertionPlan(command: command, snippet: try TypstInsertion.make("margin"), text: text, selection: NSRange(location: text.utf16.count, length: 0))
+    let command = try #require(WritingCommand.all.first { $0.id == "margin" })
+    let plan = try InsertionPlan(
+        command: command,
+        snippet: TypstInsertion.make("margin"),
+        text: text,
+        selection: NSRange(location: text.utf16.count, length: 0),
+    )
     let updated = (text as NSString).replacingCharacters(in: plan.range, with: plan.snippet.text)
-    #expect(updated.range(of: "margin: 24mm")!.lowerBound > updated.range(of: "size: 11pt")!.upperBound)
-    #expect(updated.range(of: "margin: 24mm")!.upperBound < updated.range(of: "= Title")!.lowerBound)
+    #expect(try #require(updated.range(of: "margin: 24mm")?.lowerBound) >
+        (try #require(updated.range(of: "size: 11pt"))).upperBound)
+    #expect(try #require(updated.range(of: "margin: 24mm")?.upperBound) < (try #require(updated.range(of: "= Title")))
+        .lowerBound)
 }
 
 @Test func blockInsertionDoesNotMergeWithParagraph() throws {
-    let command = WritingCommand.all.first { $0.id == "heading" }!
-    let plan = InsertionPlan(command: command, snippet: try TypstInsertion.make("heading", language: .simplifiedChinese), text: "beforeafter", selection: NSRange(location: 6, length: 0))
+    let command = try #require(WritingCommand.all.first { $0.id == "heading" })
+    let plan = try InsertionPlan(
+        command: command,
+        snippet: TypstInsertion.make("heading", language: .simplifiedChinese),
+        text: "beforeafter",
+        selection: NSRange(location: 6, length: 0),
+    )
     #expect(plan.snippet.text == "\n\n= 标题\n\n")
     #expect((plan.snippet.text as NSString).substring(with: plan.snippet.selections[0]) == "标题")
 }

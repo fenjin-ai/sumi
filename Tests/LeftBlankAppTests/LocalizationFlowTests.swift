@@ -1,8 +1,8 @@
 import AppKit
-import SwiftUI
-import Testing
 @testable import LeftBlankApp
 import LeftBlankCore
+import SwiftUI
+import Testing
 
 extension WritingFlowTests {
     @Test func languageSwitchUpdatesExistingCommandsAndPreservesTheDocument() async throws {
@@ -11,13 +11,19 @@ extension WritingFlowTests {
         let localization = AppLocalization.shared
         defer {
             localization.select(originalLanguage)
-            if let originalPreference { UserDefaults.standard.set(originalPreference, forKey: L10n.preferenceKey) }
-            else { UserDefaults.standard.removeObject(forKey: L10n.preferenceKey) }
+            if let originalPreference {
+                UserDefaults.standard.set(originalPreference, forKey: L10n.preferenceKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: L10n.preferenceKey)
+            }
         }
         let app = try WritingFixture(text: "= My own words\n\nKeep 中文😀 unchanged.\n", startService: false)
         defer { app.close() }
         let editor = try #require(app.workspace.editor)
-        editor.insertSnippet(Snippet(text: "A thought.\n"), replacing: NSRange(location: editor.string.utf16.count, length: 0))
+        editor.insertSnippet(
+            Snippet(text: "A thought.\n"),
+            replacing: NSRange(location: editor.string.utf16.count, length: 0),
+        )
         let original = editor.string
         let table = try #require(WritingCommand.all.first { $0.id == "table" })
         let englishResults = WritingCommand.search("table").map(\.id)
@@ -27,8 +33,11 @@ extension WritingFlowTests {
         #expect(table.fields[0].title == "Columns · 1–8")
         #expect(table.example?.contains("Heading 1") == true)
         func fieldLabels(_ view: NSView?) -> [String] {
-            guard let view else { return [] }
-            return (view as? FocusTextField).flatMap { $0.accessibilityLabel() }.map { [$0] } ?? view.subviews.flatMap { fieldLabels($0) }
+            guard let view else {
+                return []
+            }
+            return (view as? FocusTextField).flatMap { $0.accessibilityLabel() }.map { [$0] } ?? view.subviews
+                .flatMap { fieldLabels($0) }
         }
         app.workspace.togglePalette()
         app.workspace.selectCommand(table)

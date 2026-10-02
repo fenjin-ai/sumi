@@ -1,7 +1,7 @@
-import LeftBlankTestSupport
 import Foundation
-import Testing
 @testable import LeftBlankCore
+import LeftBlankTestSupport
+import Testing
 
 @Test func actionLogPersistsDistinctSessions() throws {
     let directory = TestPaths.temporaryDirectory.appendingPathComponent("LeftBlank-log-\(UUID().uuidString)")
@@ -31,7 +31,9 @@ import Testing
     let directory = TestPaths.temporaryDirectory.appendingPathComponent("LeftBlank-log-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: directory) }
     let log = try ActionLog(directory: directory, maxBytes: 700, archivedFiles: 2)
-    for index in 0..<30 { #expect(log.record("key.down", fields: ["index": String(index), "key": "Return"])) }
+    for index in 0 ..< 30 {
+        #expect(log.record("key.down", fields: ["index": String(index), "key": "Return"]))
+    }
     let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
     #expect(Set(files.map(\.lastPathComponent)) == ["events.jsonl", "events.1.jsonl", "events.2.jsonl"])
     for file in files {
