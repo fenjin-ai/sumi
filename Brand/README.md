@@ -1,5 +1,9 @@
 # LeftBlank brand assets
 
+The official names, logos, and icons are covered by the
+[Brand Policy](../BRAND_POLICY.md). Brand artwork is excluded from the MIT License;
+the generator and documentation remain MIT-licensed.
+
 The approved mark is a continuous capital **Σ**, in ivory `#ECECE7` on charcoal `#24282D`. Every asset comes from one [geometry generator](../design/sigma/generate.py). The [construction notes](../design/sigma/README.md) describe the golden-ratio skeleton and pressure equation.
 
 The names and public taglines are fixed:

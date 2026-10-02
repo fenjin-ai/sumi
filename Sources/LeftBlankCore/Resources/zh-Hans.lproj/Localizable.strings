@@ -134,7 +134,6 @@
 "Document Needs Attention" = "文稿需要检查";
 "Document Preview" = "Typst 成稿预览";
 "Document Structure" = "文档结构";
-"Document path" = "子文稿路径";
 "Document title" = "文稿标题";
 "Documentation ↗" = "使用文档 ↗";
 "Documents" = "文件";
@@ -217,7 +216,6 @@
 "Horizontal Stack" = "横向排列";
 "Image" = "图片";
 "Image caption" = "图片说明";
-"Image path" = "图片路径";
 "Import Document" = "导入文稿";
 "Import Local Module" = "导入本地模块";
 "Import a document" = "导入文稿";
@@ -250,7 +248,6 @@
 "Insert a vector with vertically arranged entries." = "插入竖向排列的向量元素。";
 "Insert an $equation$ within a paragraph." = "在段落中插入 $公式$。";
 "Insert an arrow between two expressions." = "插入从一个表达式到另一个表达式的箭头。";
-"Insert an image with a caption." = "插入图片，并为它添加说明。";
 "Insert horizontal space within a line." = "在同一行中插入指定宽度的留白。";
 "Insert into Document" = "插入文稿";
 "Insert set membership and the real number field." = "插入集合属于关系与实数域。";
@@ -291,7 +288,6 @@
 "Matrices, cases and calculus" = "矩阵、分段函数与微积分";
 "Matrix" = "矩阵";
 "Minimize" = "最小化";
-"Module path" = "模块路径";
 "Move to Trash" = "移到废纸篓";
 "New Document" = "新建文稿";
 "New document" = "新建文稿";
@@ -336,7 +332,6 @@
 "Paragraph Spacing" = "段落间距";
 "Paragraph spacing · em" = "段落间距 · em";
 "Paste" = "粘贴";
-"Paste text at the caret." = "在光标处粘贴文本。";
 "Piecewise Function" = "分段函数";
 "Pin outline" = "固定文章脉络";
 "Please wait for the typesetting service to be ready." = "请等待排版服务准备就绪。";
@@ -425,7 +420,6 @@
 "Show source in Finder" = "在 Finder 中显示源码";
 "Show the selection literally without interpreting its Typst syntax." = "把选中内容按原样显示，不解释其中的 Typst 语法。";
 "Showing Last Preview · Check Source" = "保留上次成稿 · 请检查源码";
-"Showing the last successful preview while your changes are typeset" = "显示上次成功的成稿 · 等待当前修改完成排版";
 "Side-by-side Preview" = "并排预览";
 "Sign in to iCloud and enable iCloud Drive in System Settings before turning on sync." = "请先在系统设置中登录 iCloud 并开启 iCloud 云盘，再启用同步。";
 "Small Capitals" = "小型大写";
@@ -520,7 +514,6 @@
 "Vertical Space" = "垂直间距";
 "View" = "视图";
 "Waiting for Typesetting" = "等待排版服务";
-"Waiting for the first successful preview" = "等待文稿首次成功排版";
 "Welcome" = "欢迎";
 "What would you like to do?" = "此刻，你想做什么？";
 "Window" = "窗口";
@@ -780,3 +773,19 @@
 "Authors" = "作者";
 "License" = "许可";
 "This location is in an included file. Included-file editing is not available on iPad yet." = "这个位置位于被引用的文件中，iPad 暂不支持编辑被引用文件。";
+
+"Choose or import an image. Its copy stays with your document." = "选择或导入图片，副本会随文稿一起保存。";
+"Paste text or import an image at the caret." = "在光标处粘贴文本或导入图片。";
+"Choose an image, a bibliography file, or a Typst document. Audio and video cannot be embedded in a typeset page." = "请选择图片、参考文献文件或 Typst 文稿。排版页面暂不支持嵌入音频和视频。";
+"This document's resources are unavailable. Reopen the document and try again." = "此文稿的素材暂不可用，请重新打开文稿后重试。";
+"This image could not be read. Choose another image." = "无法读取此图片，请选择其他图片。";
+"Pasted image" = "粘贴的图片";
+"Import into Document" = "导入到文稿";
+"Choose" = "选择";
+"Import File…" = "导入文件…";
+"Document Resources" = "文稿素材";
+"Choose a file to insert." = "请选择要插入的文件。";
+"Imported files are saved with this document." = "导入的文件会随此文稿一起保存。";
+"You can also drop images here or paste a screenshot with ⌘V." = "也可以将图片拖入编辑区，或用 ⌘V 粘贴截图。";
+"Module" = "模块";
+"Document" = "文稿";

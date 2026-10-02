@@ -26,10 +26,15 @@ The new LeftBlank identity still requires CI-secret replacement, a release run a
 
 ## Verification and publication
 
+Stable tags now also build, upload and submit the Mac App Store release. Follow
+[Tag-driven releases](app-store-releases.md) to bump the versions, write the shared
+bilingual release message and retry a partial release. An empty-tag manual run
+continues to verify only Developer ID packaging.
+
 1. PR CI runs functional tests, coverage, large-book benchmarks and distribution-isolation checks without release credentials. After successful main CI, a separate job creates a Developer ID signed and notarized LeftBlank Preview package, uploads it for seven days, and publishes its signed update feed. See [Preview updates](preview-updates.md).
 2. A manual Release workflow on main verifies signing and notarization and saves an artifact without creating a public Release.
-3. Update the version and build number in `Resources/Info.plist`, then merge the verified commit into main.
-4. Push a matching version tag, such as `v0.3.0`. The workflow checks that main contains the tagged commit, runs functional tests and the 80% coverage gate, then signs, notarizes, staples and publishes.
+3. Run `release_metadata.py prepare` and finish the bilingual release message, then merge the verified commit into main.
+4. Push a matching version tag, such as `v0.6.0`. The workflow checks that main contains the tagged commit, runs functional tests and the 80% coverage gate, then signs, notarizes, staples and publishes.
 
 Missing credentials, invalid certificates, team mismatch, rejected notarization or timeout stop public publication. There is no fallback to development signing. The temporary signing keychain joins the search list so codesign can locate the identity and chain. Cleanup restores the old list and removes the temporary keychain, certificate and API key. Notarization submission results remain available for investigation; private keys are never uploaded as artifacts.
 
@@ -47,3 +52,53 @@ On 2026-10-01, before the LeftBlank rename, all release credentials were configu
 That run's `release-macos-15` artifact contains `Sumi-0.2.0-macOS-arm64.zip` and its `.sha256`. Actions artifacts expire after seven days; tagged public Releases use persistent downloadable attachments. This historical validation does not claim that every later development build is notarized.
 
 References: [Apple notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow), [App Store Connect API keys](https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api), [GitHub signing setup](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications).
+
+
+## Mac App Store
+
+Build and export from the repository root on an SSD-backed checkout:
+
+```sh
+export TMPDIR=/Volumes/SSD/Developer/Codex/tmp
+export TMP="$TMPDIR"
+export TEMP="$TMPDIR"
+LEFTBLANK_DISTRIBUTION=appstore scripts/build.sh release
+python3 scripts/export-appstore.py \
+  --profile /absolute/path/LeftBlank.provisionprofile \
+  --identity DISTRIBUTION_CERTIFICATE_SHA1 \
+  --installer-identity INSTALLER_CERTIFICATE_SHA1 \
+  --keychain /absolute/path/signing.keychain-db
+```
+
+Use an Apple Distribution certificate and a Mac Installer Distribution certificate.
+The export validates the current Mac App Store profile, app identifier, distribution
+certificate and iCloud permissions before embedding the profile. The app gets
+sandbox and production iCloud entitlements; its helper executables inherit the
+sandbox. Signing materials stay outside the repository. If codesign cannot find
+the intermediate certificate in a dedicated keychain, install Apple's WWDR G3
+intermediate in the user's login keychain without changing its trust settings.
+
+The default installer is `build/LeftBlank-AppStore.pkg`. Validate and upload it
+with Xcode's `altool` and an existing App Store Connect API key. Pass an explicit
+SSD `TMPDIR` or `-CDTempDir` to keep upload chunks on the external disk. Never put
+API private keys or keychain passwords in source control or command output.
+
+The initial 0.5.0 (9) installer passed Apple's validation on 2026-10-02 and
+processed as a valid, App Store eligible build. Its ad-hoc sandbox cold-launch
+check also verified bundled resources, document-library creation and Tinymist
+connection. App Store approval and actual cloud account behavior remain separate
+from these checks.
+
+
+The App Store bootstrap builds Tinymist 0.15.8 at pinned commit
+`32f908199ee17ea295512bbc27166e890c438175` with the checked-in native TLS
+patch and lockfile changes. Reqwest then uses macOS Security Framework instead
+of Rust TLS. The source checkout, Cargo cache and target directory live under
+`.tools/tinymist-appstore-source`; Rust 1.92.0 is required. The GitHub download
+and Preview editions continue using the verified upstream release binary.
+
+The native TLS engine compiled all fourteen marketing documents, downloaded
+CeTZ and its dependencies into an empty isolated package cache, and passed the
+sandbox cold-launch smoke check. App Store packaging declares exempt OS
+provided encryption; this declaration must be revisited if a dependency adds
+another encryption implementation.

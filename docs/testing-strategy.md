@@ -16,6 +16,50 @@ swift test --build-system native --scratch-path .build/native-validation \
 
 Keep the scratch path inside the SSD checkout. The hosted CI toolchain is deliberately older than the development machine, so local success is not a substitute for its result.
 
+## Main-only memory checks
+
+The `Memory safety` jobs run on main pushes and manual main runs, never on pull
+requests. They run independently of preview packaging and preserve diagnostics
+in `build/memory` for 14 days. Existing functional and book-performance PR gates
+remain enabled.
+
+- **Lifecycle and leaks:** after one AppKit/SwiftUI warm-up window, open, edit,
+  undo/redo and close ten more windows. Weak references must release each
+  Workspace, native editor and window within ten seconds. The test captures its
+  own process with Apple's `leaks`, before and after the ten cycles; CI checks
+  the final graph with `--diffFrom` to detect newly leaked allocations. This
+  avoids gating on existing framework startup leaks. Missing graphs, failed
+  tests and newly detected leaks fail the job. Logs and both `.memgraph` files
+  are retained for inspection in Instruments. Allocation stacks are enabled.
+- **Address Sanitizer:** run the core Swift Testing suite with
+  `swift test --sanitize address` in a separate scratch directory. This detects
+  invalid memory accesses such as use-after-free and buffer overruns;
+  [Apple explicitly notes that ASan does not detect leaks](https://developer.apple.com/documentation/xcode/diagnosing-memory-thread-and-crash-issues-early).
+  Native SwiftPM avoids the sanitizer/filter runner issue in the pinned Xcode
+  26.3 toolchain. Sanitizer results are never used as performance baselines.
+
+These checks deliberately use isolated local documents and do not start
+Tinymist in the lifecycle scenario. They do not establish leak freedom in
+Tinymist, WebKit child processes, real iCloud sessions or all user workflows.
+Weak checks also catch objects retained from live roots that a heap leak scan
+can consider reachable. The warm-up graph is a per-run reference, not a saved
+performance baseline, and leaks already present at warm-up are outside the
+differential gate.
+
+Run from an SSD checkout with `scripts/check-memory.sh leaks` or
+`scripts/check-memory.sh address`. Normal local/PR tests skip the lifecycle
+scenario unless explicitly enabled by the script.
+
+For further performance work, Apple's
+[XCTest memory metrics](https://developer.apple.com/documentation/xcode/preventing-memory-use-regressions)
+are appropriate when an Xcode UI-test target exists. The mature
+[ordo-one Benchmark package](https://github.com/ordo-one/benchmark) supports
+allocation/ARC/CPU metrics and baseline comparisons for focused SwiftPM
+benchmarks. Neither is added yet: current book tests already cover native
+interaction wall/CPU timings, and an end-of-run footprint is not a peak-memory
+or leak measurement. Release benchmarks and whole-process-tree memory budgets
+need separate representative workloads and measured runner baselines.
+
 ## Dependency maintenance
 
 Actions are pinned to full commit SHAs with readable version comments, so a

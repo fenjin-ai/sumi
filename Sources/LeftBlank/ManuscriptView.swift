@@ -30,6 +30,7 @@ struct ManuscriptView: NSViewRepresentable {
         editor.delegate = context.coordinator
         storage.delegate = context.coordinator
         editor.isRichText = false
+        editor.registerForDraggedTypes(ResourcePasteboard.types)
         editor.isEditable = true
         editor.isSelectable = true
         editor.allowsUndo = true
@@ -122,6 +123,77 @@ struct ManuscriptView: NSViewRepresentable {
 
 @MainActor
 final class ManuscriptTextView: NSTextView {
+    override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
+        ResourcePasteboard.types + super.readablePasteboardTypes
+    }
+
+    override func paste(_ sender: Any?) {
+        if !importResources(from: .general) {
+            super.paste(sender)
+        }
+    }
+
+    override func pasteAsPlainText(_ sender: Any?) {
+        if !importResources(from: .general) {
+            super.pasteAsPlainText(sender)
+        }
+    }
+
+    override func readSelection(from pasteboard: NSPasteboard, type: NSPasteboard.PasteboardType) -> Bool {
+        if importResources(from: pasteboard) {
+            return true
+        }
+        return super.readSelection(from: pasteboard, type: type)
+    }
+
+    func importResources(from pasteboard: NSPasteboard, at range: NSRange? = nil) -> Bool {
+        guard let resource = ResourcePasteboard(pasteboard) else {
+            return false
+        }
+        // Consume file/image payloads even when input is blocked. Falling back
+        // to NSTextView would turn the same payload into literal file paths.
+        guard isEditable, !hasMarkedText(), let workspace,
+              !workspace.applyingCommand, !workspace.documentTransitionInProgress
+        else {
+            return true
+        }
+        let range = range ?? selectedRange()
+        setSelectedRange(range)
+        workspace.insertResources(resource.inputs, kind: resource.kind, replacing: range)
+        return true
+    }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        if ResourcePasteboard.containsResources(sender.draggingPasteboard) {
+            return isEditable && !hasMarkedText() && workspace?.applyingCommand != true ? .copy : []
+        }
+        return super.draggingEntered(sender)
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        if ResourcePasteboard.containsResources(sender.draggingPasteboard) {
+            return draggingEntered(sender)
+        }
+        return super.draggingUpdated(sender)
+    }
+
+    override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        if ResourcePasteboard.containsResources(sender.draggingPasteboard) {
+            return !draggingEntered(sender).isEmpty
+        }
+        return super.prepareForDragOperation(sender)
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        if ResourcePasteboard.containsResources(sender.draggingPasteboard) {
+            prepareForPointerInteraction()
+            let point = convert(sender.draggingLocation, from: nil)
+            let range = NSRange(location: characterIndexForInsertion(at: point), length: 0)
+            return importResources(from: sender.draggingPasteboard, at: range)
+        }
+        return super.performDragOperation(sender)
+    }
+
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         // Dynamic colors already live in storage and TextKit's temporary runs.
@@ -268,7 +340,7 @@ final class ManuscriptTextView: NSTextView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
-        let inset = NSSize(width: max(36, (newSize.width - 740) / 2), height: 42)
+        let inset = NSSize(width: ManuscriptLayout.horizontalInset(for: newSize.width), height: 42)
         if textContainerInset != inset {
             textContainerInset = inset
         }

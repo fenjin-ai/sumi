@@ -13,15 +13,19 @@ public struct InsertionPlan: Sendable {
                 .substring(with: NSRange(location: offset - 1, length: 1)) != "\n" ? "\n" : ""
             self.snippet = snippet.padded(before: before, after: "\n")
         } else {
-            range = selection
             if command.placement == .block {
                 let before = source.substring(to: selection.location)
                 let after = source.substring(from: NSMaxRange(selection))
+                // Include the existing separator in this undoable replacement,
+                // so the caret lands in body text beyond the inserted block.
+                let separator = String(after.prefix(while: { $0 == "\n" || $0 == "\r\n" || $0 == "\r" }).prefix(2))
+                range = NSRange(location: selection.location, length: selection.length + separator.utf16.count)
                 self.snippet = snippet.padded(
                     before: before.isEmpty || before.hasSuffix("\n") ? "" : "\n\n",
-                    after: after.isEmpty || after.hasPrefix("\n") ? "" : "\n\n",
+                    after: "\n\n",
                 )
             } else {
+                range = selection
                 self.snippet = snippet
             }
         }

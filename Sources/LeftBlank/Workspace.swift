@@ -81,6 +81,9 @@ final class Workspace: ObservableObject {
     @Published var query = ""
     @Published var activeCommand: WritingCommand?
     @Published var fieldValues: [String: String] = [:]
+    @Published var resourceSelection: ResourceSelection?
+    @Published var availableResources: [DocumentResource] = []
+    let resourceStore = DocumentResourceStore()
     @Published var commandError: String?
     @Published var selectedCommandIndex = 0
     @Published var exporting = false
@@ -835,6 +838,8 @@ final class Workspace: ObservableObject {
         recordOperation("palette.close")
         paletteOpen = false
         activeCommand = nil
+        resourceSelection = nil
+        availableResources = []
         commandError = nil
         editor?.isEditable = layout != .preview && !documentTransitionInProgress
         if layout != .preview, let editor {
@@ -868,10 +873,13 @@ final class Workspace: ObservableObject {
         recordOperation("command.selected", ["command": command.id, "source": searchMode ? "search" : "group"])
         commandError = nil
         fieldValues = Dictionary(uniqueKeysWithValues: command.fields.map { ($0.id, $0.initial) })
+        resourceSelection = nil
+        availableResources = []
         if command.fields.isEmpty {
             execute(command)
         } else {
             activeCommand = command
+            loadResources(for: command)
         }
     }
 
@@ -1121,6 +1129,61 @@ final class Workspace: ObservableObject {
         recordOperation("package.imported", ["package": package.reference])
     }
 
+    func insertionContext(for command: WritingCommand, range: NSRange) async throws -> InsertionContext {
+        guard serviceReady else {
+            throw CommandError
+                .invalid(L10n
+                    .text(
+                        "The typesetting service is not ready to check the insertion position. You can still edit directly.",
+                    ))
+        }
+        try flushChanges()
+        var context = InsertionContext.markup
+        if command.placement != .preamble {
+            var offsets = [range.location]
+            if range
+                .length >
+                0
+            {
+                offsets
+                    .append((text as NSString).rangeOfComposedCharacterSequence(at: NSMaxRange(range) - 1)
+                        .location)
+            }
+            if range.location == text.utf16.count,
+               !text
+               .isEmpty
+            {
+                offsets
+                    .append((text as NSString).rangeOfComposedCharacterSequence(at: range.location - 1)
+                        .location)
+            }
+            let queries: [[String: Any]] = offsets.map { [
+                "kind": "modeAt",
+                "position": TextPosition(offset: $0, in: text).json,
+            ] }
+            let result = try await client.command(
+                "tinymist.interactCodeContext",
+                arguments: [["textDocument": ["uri": documentURL.absoluteString], "query": queries]],
+            )
+            let modes = result.array.compactMap { $0["mode"].string }
+            guard modes.count == queries.count, Set(modes).count == 1,
+                  modes.allSatisfy(command.acceptsContext)
+            else {
+                throw CommandError
+                    .invalid(command.supportsMath ? L10n
+                        .text(
+                            "Insert within body text or a single equation, without crossing code or comments.",
+                        ) :
+                        L10n
+                        .text(
+                            "This command works in body text. Move out of equations, code or comments and try again. Your text is unchanged.",
+                        ))
+            }
+            context = modes.first == "math" ? .math : .markup
+        }
+        return context
+    }
+
     private func insert(_ command: WritingCommand) {
         guard !applyingCommand, let editor, !editor.hasMarkedText() else {
             return
@@ -1135,56 +1198,19 @@ final class Workspace: ObservableObject {
         }
         let range = editor.selectedRange()
         let version = documentVersion, generation = serviceGeneration
-        let values = fieldValues
+        var values = fieldValues
+        let resourceSelection = resourceSelection
+        if command.fields.first?.resourceKind != nil, resourceSelection == nil {
+            chooseResource(for: command)
+            return
+        }
         applyingCommand = true
         recordOperation("insertion.begin", ["command": command.id])
         Task {
             defer { applyingCommand = false }
+            var imported: [DocumentResource] = []
             do {
-                try flushChanges()
-                var insertionContext = InsertionContext.markup
-                if command.placement != .preamble {
-                    var offsets = [range.location]
-                    if range
-                        .length >
-                        0
-                    {
-                        offsets
-                            .append((text as NSString).rangeOfComposedCharacterSequence(at: NSMaxRange(range) - 1)
-                                .location)
-                    }
-                    if range.location == text.utf16.count,
-                       !text
-                       .isEmpty
-                    {
-                        offsets
-                            .append((text as NSString).rangeOfComposedCharacterSequence(at: range.location - 1)
-                                .location)
-                    }
-                    let queries: [[String: Any]] = offsets.map { [
-                        "kind": "modeAt",
-                        "position": TextPosition(offset: $0, in: text).json,
-                    ] }
-                    let result = try await client.command(
-                        "tinymist.interactCodeContext",
-                        arguments: [["textDocument": ["uri": documentURL.absoluteString], "query": queries]],
-                    )
-                    let modes = result.array.compactMap { $0["mode"].string }
-                    guard modes.count == queries.count, Set(modes).count == 1,
-                          modes.allSatisfy(command.acceptsContext)
-                    else {
-                        throw CommandError
-                            .invalid(command.supportsMath ? L10n
-                                .text(
-                                    "Insert within body text or a single equation, without crossing code or comments.",
-                                ) :
-                                L10n
-                                .text(
-                                    "This command works in body text. Move out of equations, code or comments and try again. Your text is unchanged.",
-                                ))
-                    }
-                    insertionContext = modes.first == "math" ? .math : .markup
-                }
+                let insertionContext = try await insertionContext(for: command, range: range)
                 guard version == documentVersion, generation == serviceGeneration, paletteOpen,
                       editor.selectedRange() == range
                 else {
@@ -1193,6 +1219,19 @@ final class Workspace: ObservableObject {
                         ["command": command.id, "reason": "document, selection or panel changed"],
                     )
                     return
+                }
+                if let kind = command.fields.first?.resourceKind, let resourceSelection {
+                    let resources = try await resolveResource(resourceSelection, kind: kind)
+                    if case .file = resourceSelection {
+                        imported = resources
+                    }
+                    guard version == documentVersion, generation == serviceGeneration, paletteOpen,
+                          activeCommand?.id == command.id, editor.selectedRange() == range
+                    else {
+                        try await resourceStore.discardImport(imported)
+                        return
+                    }
+                    values["path"] = resources.first?.relativePath
                 }
                 let selected = (text as NSString).substring(with: range)
                 let snippet = try TypstInsertion.make(
@@ -1211,7 +1250,8 @@ final class Workspace: ObservableObject {
                     "insertion.finished",
                     ["command": command.id, "insertedUTF16": String(plan.snippet.text.utf16.count)],
                 )
-            } catch { recordOperation("insertion.failed", ["command": command.id, "error": error.localizedDescription])
+            } catch { try? await resourceStore.discardImport(imported)
+                recordOperation("insertion.failed", ["command": command.id, "error": error.localizedDescription])
                 commandError = error.localizedDescription
             }
         }

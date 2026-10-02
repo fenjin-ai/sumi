@@ -108,6 +108,7 @@ public struct CommandGroup: Identifiable, Sendable {
 
 public struct CommandField: Identifiable, Sendable {
     public let id: String
+    public let resourceKind: DocumentResourceKind?
     private let titleKey: String
     public var title: String {
         L10n.text(titleKey)
@@ -118,8 +119,9 @@ public struct CommandField: Identifiable, Sendable {
         L10n.text(initialValue)
     }
 
-    public init(_ id: String, _ title: String, _ initial: String) {
+    public init(_ id: String, _ title: String, _ initial: String, resourceKind: DocumentResourceKind? = nil) {
         self.id = id
+        self.resourceKind = resourceKind
         titleKey = title
         initialValue = initial
     }
@@ -387,10 +389,10 @@ public struct WritingCommand: Identifiable, Sendable {
             "insert",
             "i",
             "Image",
-            "Insert an image with a caption.",
-            "image figure 图片",
+            "Choose or import an image. Its copy stays with your document.",
+            "image figure photo picture media 图片 照片 素材",
             fields: [
-                .init("path", "Image path", "images/figure.png"),
+                .init("path", "Image", "", resourceKind: .image),
                 .init("caption", "Image caption", "Image caption"),
             ],
         ),
@@ -965,7 +967,7 @@ public struct WritingCommand: Identifiable, Sendable {
             "Bibliography",
             "Generate a bibliography from a BibLaTeX or Hayagriva file.",
             "bibliography references bib yaml 参考文献 书目",
-            fields: [.init("path", "Bibliography file · .bib / .yaml", "references.bib")],
+            fields: [.init("path", "Bibliography file · .bib / .yaml", "", resourceKind: .bibliography)],
             placement: .block,
             documentation: "model/bibliography/",
         ),
@@ -986,7 +988,7 @@ public struct WritingCommand: Identifiable, Sendable {
             "Include Document",
             "Include another .typ document at the current position.",
             "include chapter subdocument 包含 子文稿 章节",
-            fields: [.init("path", "Document path", "section.typ")],
+            fields: [.init("path", "Document", "", resourceKind: .document)],
             placement: .block,
             documentation: "scripting/#modules",
         ),
@@ -997,7 +999,7 @@ public struct WritingCommand: Identifiable, Sendable {
             "Import Local Module",
             "Import reusable local definitions at the top of the document.",
             "import module local 模块 导入",
-            fields: [.init("path", "Module path", "helpers.typ")],
+            fields: [.init("path", "Module", "", resourceKind: .module)],
             placement: .preamble,
             documentation: "scripting/#modules",
         ),
@@ -1115,7 +1117,15 @@ public struct WritingCommand: Identifiable, Sendable {
         .init("redo", "code", "y", "Redo", "Restore the edit you just undid.", "redo 重做", isInsertion: false),
         .init("cut", "code", "x", "Cut", "Cut the selected source text.", "cut 剪切", isInsertion: false),
         .init("copy", "code", "c", "Copy", "Copy the selected original Typst source.", "copy 复制", isInsertion: false),
-        .init("paste", "code", "p", "Paste", "Paste text at the caret.", "paste 粘贴", isInsertion: false),
+        .init(
+            "paste",
+            "code",
+            "p",
+            "Paste",
+            "Paste text or import an image at the caret.",
+            "paste 粘贴",
+            isInsertion: false,
+        ),
         .init(
             "selectAll",
             "code",

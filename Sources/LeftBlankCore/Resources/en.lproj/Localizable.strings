@@ -134,7 +134,6 @@
 "Document Needs Attention" = "Document Needs Attention";
 "Document Preview" = "Document Preview";
 "Document Structure" = "Document Structure";
-"Document path" = "Document path";
 "Document title" = "Document title";
 "Documentation ↗" = "Documentation ↗";
 "Documents" = "Documents";
@@ -217,7 +216,6 @@
 "Horizontal Stack" = "Horizontal Stack";
 "Image" = "Image";
 "Image caption" = "Image caption";
-"Image path" = "Image path";
 "Import Document" = "Import Document";
 "Import Local Module" = "Import Local Module";
 "Import a document" = "Import a document";
@@ -250,7 +248,6 @@
 "Insert a vector with vertically arranged entries." = "Insert a vector with vertically arranged entries.";
 "Insert an $equation$ within a paragraph." = "Insert an $equation$ within a paragraph.";
 "Insert an arrow between two expressions." = "Insert an arrow between two expressions.";
-"Insert an image with a caption." = "Insert an image with a caption.";
 "Insert horizontal space within a line." = "Insert horizontal space within a line.";
 "Insert into Document" = "Insert into Document";
 "Insert set membership and the real number field." = "Insert set membership and the real number field.";
@@ -291,7 +288,6 @@
 "Matrices, cases and calculus" = "Matrices, cases and calculus";
 "Matrix" = "Matrix";
 "Minimize" = "Minimize";
-"Module path" = "Module path";
 "Move to Trash" = "Move to Trash";
 "New Document" = "New Document";
 "New document" = "New document";
@@ -336,7 +332,6 @@
 "Paragraph Spacing" = "Paragraph Spacing";
 "Paragraph spacing · em" = "Paragraph spacing · em";
 "Paste" = "Paste";
-"Paste text at the caret." = "Paste text at the caret.";
 "Piecewise Function" = "Piecewise Function";
 "Pin outline" = "Pin outline";
 "Please wait for the typesetting service to be ready." = "Please wait for the typesetting service to be ready.";
@@ -425,7 +420,6 @@
 "Show source in Finder" = "Show source in Finder";
 "Show the selection literally without interpreting its Typst syntax." = "Show the selection literally without interpreting its Typst syntax.";
 "Showing Last Preview · Check Source" = "Showing Last Preview · Check Source";
-"Showing the last successful preview while your changes are typeset" = "Showing the last successful preview while your changes are typeset";
 "Side-by-side Preview" = "Side-by-side Preview";
 "Sign in to iCloud and enable iCloud Drive in System Settings before turning on sync." = "Sign in to iCloud and enable iCloud Drive in System Settings before turning on sync.";
 "Small Capitals" = "Small Capitals";
@@ -520,7 +514,6 @@
 "Vertical Space" = "Vertical Space";
 "View" = "View";
 "Waiting for Typesetting" = "Waiting for Typesetting";
-"Waiting for the first successful preview" = "Waiting for the first successful preview";
 "Welcome" = "Welcome";
 "What would you like to do?" = "What would you like to do?";
 "Window" = "Window";
@@ -780,3 +773,19 @@
 "Authors" = "Authors";
 "License" = "License";
 "This location is in an included file. Included-file editing is not available on iPad yet." = "This location is in an included file. Included-file editing is not available on iPad yet.";
+
+"Choose or import an image. Its copy stays with your document." = "Choose or import an image. Its copy stays with your document.";
+"Paste text or import an image at the caret." = "Paste text or import an image at the caret.";
+"Choose an image, a bibliography file, or a Typst document. Audio and video cannot be embedded in a typeset page." = "Choose an image, a bibliography file, or a Typst document. Audio and video cannot be embedded in a typeset page.";
+"This document's resources are unavailable. Reopen the document and try again." = "This document's resources are unavailable. Reopen the document and try again.";
+"This image could not be read. Choose another image." = "This image could not be read. Choose another image.";
+"Pasted image" = "Pasted image";
+"Import into Document" = "Import into Document";
+"Choose" = "Choose";
+"Import File…" = "Import File…";
+"Document Resources" = "Document Resources";
+"Choose a file to insert." = "Choose a file to insert.";
+"Imported files are saved with this document." = "Imported files are saved with this document.";
+"You can also drop images here or paste a screenshot with ⌘V." = "You can also drop images here or paste a screenshot with ⌘V.";
+"Module" = "Module";
+"Document" = "Document";
