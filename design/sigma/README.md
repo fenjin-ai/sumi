@@ -1,11 +1,11 @@
-# Sumi · Σ construction
+# LeftBlank · Σ construction
 
 Approved on 2026-10-01 for the app, repository and web assets. Python's standard library computes the shape without font outlines, stock logo artwork or an image-generation model. See [Brand](../../Brand/README.md) for exported assets and website integration.
 
 ## Meaning
 
 - **Σ** retains the recognizable outline and summation meaning of capital Sigma. The brand metaphor is separate thoughts coming together into writing; the mathematical symbol itself is not claimed to mean writing.
-- **S** connects Sigma's name with Sumi's initial. Viewers do not need to interpret the mark as a Latin S as well.
+- **S** connects Sigma's name with LeftBlank's initial. Viewers do not need to interpret the mark as a Latin S as well.
 - **Writing** is suggested by a continuous path from the upper right to the lower right, with a slight change in stroke pressure. No pen, caret or paper symbol is attached.
 
 The golden ratio provides an adjustable construction rule, not a guarantee of beauty. Distinctiveness, small-size recognition and stroke balance still require visual judgment.

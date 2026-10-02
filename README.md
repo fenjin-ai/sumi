@@ -1,14 +1,14 @@
-[![Sumi — Ink for your thoughts](Brand/social-preview.png)](https://sumi.fenjin.ai)
+[![LeftBlank — Ink for your thoughts](Brand/social-preview.png)](https://leftblank.app)
 
 <p align="center">
-  <a href="https://github.com/fenjin-ai/sumi/releases"><strong>Download Sumi Preview</strong></a>
+  <a href="https://github.com/leftblank-app/leftblank/releases"><strong>Download LeftBlank Preview</strong></a>
   &nbsp; · &nbsp;
-  <a href="https://sumi.fenjin.ai">Visit the website</a>
+  <a href="https://leftblank.app">Visit the website</a>
   &nbsp; · &nbsp;
-  <a href="https://github.com/fenjin-ai/sumi/issues">Share an idea</a>
+  <a href="https://github.com/leftblank-app/leftblank/issues">Share an idea</a>
 </p>
 
-Sumi is a quiet place to write, think, and shape a beautiful page. Start with a
+LeftBlank is a quiet place to write, think, and shape a beautiful page. Start with a
 thought. Follow it into an essay, a set of notes, or a whole book.
 
 A spacious editor keeps your words in focus. The finished page takes shape beside
@@ -26,17 +26,17 @@ purposeful templates and packages when a page needs a diagram, a table, or a new
 way to tell the story.
 
 **Make something worth sharing.** See your writing become carefully typeset
-pages as you work, then export a PDF. Begin with the included Sumi guide, a blank
+pages as you work, then export a PDF. Begin with the included LeftBlank guide, a blank
 page, or an editable copy of *Structure and Interpretation of Computer Programs*.
 
 ### Begin a new page
 
-[Download Sumi Preview →](https://github.com/fenjin-ai/sumi/releases)
+[Download LeftBlank Preview →](https://github.com/leftblank-app/leftblank/releases)
 
 For macOS 14 or later on a Mac with an Apple M-series chip. English and Simplified
 Chinese are included. Everything needed to write and preview comes with the app.
 
-Sumi is still taking shape. Preview builds have a separate local library and
+LeftBlank is still taking shape. Preview builds have a separate local library and
 receive signed updates; iCloud sync is not enabled in Preview.
 [About Preview](docs/preview-updates.md)
 
@@ -55,6 +55,6 @@ receive signed updates; iCloud sync is not enabled in Preview.
 </p>
 
 <p align="center">
-  <a href="https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml"><img src="https://github.com/fenjin-ai/sumi/actions/workflows/ci.yml/badge.svg" alt="build and test"></a>
-  <a href="https://app.codecov.io/github/fenjin-ai/sumi"><img src="https://codecov.io/gh/fenjin-ai/sumi/branch/main/graph/badge.svg" alt="Coverage"></a>
+  <a href="https://github.com/leftblank-app/leftblank/actions/workflows/ci.yml"><img src="https://github.com/leftblank-app/leftblank/actions/workflows/ci.yml/badge.svg" alt="build and test"></a>
+  <a href="https://app.codecov.io/github/leftblank-app/leftblank"><img src="https://codecov.io/gh/leftblank-app/leftblank/branch/main/graph/badge.svg" alt="Coverage"></a>
 </p>

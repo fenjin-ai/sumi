@@ -12,15 +12,15 @@ from pathlib import Path
 for name in ('war-and-peace.json', 'sicp.json', 'summary.md', 'book-preview-1.png', 'book-preview-224.png', 'book-preview-448.png'):
     (Path('build/benchmarks') / name).unlink(missing_ok=True)
 PYCLEAN
-SUMI_INTEGRATION=1 \
-  SUMI_LARGE_FIXTURE="$PWD/Examples/Books/WarAndPeace/war-and-peace-highlighted.typ" \
-  SUMI_PERFORMANCE_REPORT="$PWD/build/benchmarks/war-and-peace.json" \
+LEFTBLANK_INTEGRATION=1 \
+  LEFTBLANK_LARGE_FIXTURE="$PWD/Examples/Books/WarAndPeace/war-and-peace-highlighted.typ" \
+  LEFTBLANK_PERFORMANCE_REPORT="$PWD/build/benchmarks/war-and-peace.json" \
   swift test --skip-build --enable-code-coverage --filter realMultiMegabyteDocumentNavigationScrollingAndTyping || status=1
-SUMI_INTEGRATION=1 SUMI_CODE_WORD="define size" SUMI_SEARCH_WORD=procedure SUMI_BENCH_EXPORT=1 \
-  SUMI_LARGE_FIXTURE="$PWD/Examples/Books/SICP/main.typ" \
-  SUMI_PERFORMANCE_REPORT="$PWD/build/benchmarks/sicp.json" \
+LEFTBLANK_INTEGRATION=1 LEFTBLANK_CODE_WORD="define size" LEFTBLANK_SEARCH_WORD=procedure LEFTBLANK_BENCH_EXPORT=1 \
+  LEFTBLANK_LARGE_FIXTURE="$PWD/Examples/Books/SICP/main.typ" \
+  LEFTBLANK_PERFORMANCE_REPORT="$PWD/build/benchmarks/sicp.json" \
   swift test --skip-build --enable-code-coverage --filter realMultiMegabyteDocumentNavigationScrollingAndTyping || status=1
-SUMI_INTEGRATION=1 SUMI_BOOK_PREVIEW=1 \
+LEFTBLANK_INTEGRATION=1 LEFTBLANK_BOOK_PREVIEW=1 \
   swift test --skip-build --enable-code-coverage --filter completeBookPreviewRemainsUsableInLargeWindow || status=1
 python3 - <<'PY'
 import json

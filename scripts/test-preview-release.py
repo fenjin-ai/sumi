@@ -22,7 +22,7 @@ class PreviewReleaseTests(unittest.TestCase):
         key = base64.b64encode(os.urandom(32))
         public = subprocess.check_output(['swift', '-module-cache-path', str(ROOT / '.build/update-module-cache'),
                                           str(ROOT / 'scripts/verify-update.swift'), '--public-key'], input=key).decode().strip()
-        with tempfile.TemporaryDirectory(prefix='sumi-update-contract-', dir=os.environ['TMPDIR']) as temporary:
+        with tempfile.TemporaryDirectory(prefix='leftblank-update-contract-', dir=os.environ['TMPDIR']) as temporary:
             root = Path(temporary)
             (root / 'scripts').symlink_to(ROOT / 'scripts', target_is_directory=True)
             (root / '.tools').symlink_to(ROOT / '.tools', target_is_directory=True)
@@ -30,10 +30,10 @@ class PreviewReleaseTests(unittest.TestCase):
             info = plistlib.loads((ROOT / 'Resources/Preview-Info.plist').read_bytes())
             info['SUPublicEDKey'] = public
             (root / 'Resources/Preview-Info.plist').write_bytes(plistlib.dumps(info))
-            info.update(CFBundleVersion='91.1', CFBundleShortVersionString='0.5.0', SumiCommit='abcdef123456')
-            archive = root / 'Sumi-Preview-test.zip'
+            info.update(CFBundleVersion='91.1', CFBundleShortVersionString='0.5.0', LeftBlankCommit='abcdef123456')
+            archive = root / 'LeftBlank-Preview-test.zip'
             with zipfile.ZipFile(archive, 'w') as bundle:
-                bundle.writestr('Sumi Preview.app/Contents/Info.plist', plistlib.dumps(info))
+                bundle.writestr('LeftBlank Preview.app/Contents/Info.plist', plistlib.dumps(info))
             environment = {**os.environ, 'SPARKLE_PRIVATE_KEY': key.decode()}
             def generate(build='91.1', **extra):
                 return subprocess.run(['python3', str(ROOT / 'scripts/preview-feed.py'), str(archive), build],

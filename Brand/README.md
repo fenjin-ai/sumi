@@ -1,4 +1,4 @@
-# Sumi brand assets
+# LeftBlank brand assets
 
 The approved mark is a continuous capital **Σ**, in ivory `#ECECE7` on charcoal `#24282D`. Every asset comes from one [geometry generator](../design/sigma/generate.py). The [construction notes](../design/sigma/README.md) describe the golden-ratio skeleton and pressure equation.
 
@@ -6,17 +6,17 @@ The names and public taglines are fixed:
 
 | Language | Name | Tagline |
 |---|---|---|
-| English | Sumi | Ink for your thoughts |
+| English | LeftBlank | Ink for your thoughts |
 | Simplified Chinese | 留白 | 此中有真意，欲辨已忘言 |
 
 Use each language's own name and tagline together. Branding speaks to writing and thinking; implementation details belong in feature and developer documentation. The approved sigma geometry stays the same in both languages.
 
-![Sumi](logo-512.png)
+![LeftBlank](logo-512.png)
 
 | Asset | Use |
 |---|---|
 | `logo.svg`, `logo-512.png`, `logo-1024.png` | Approved mark on a rounded tile; PNG corners remain transparent |
-| `mark-light.svg`, `mark-dark.svg` | Transparent monochrome mark for dark or light backgrounds; the generator also copies the dark mark into the built-in welcome document and `Examples/sumi-mark.svg` |
+| `mark-light.svg`, `mark-dark.svg` | Transparent monochrome mark for dark or light backgrounds; the generator also copies the dark mark into the built-in welcome document and `Examples/leftblank-mark.svg` |
 | `social-preview.png`, `social-preview.svg` | 1280×640 English GitHub / Open Graph card |
 | `social-preview.zh-Hans.png`, `social-preview.zh-Hans.svg` | Simplified Chinese sharing card |
 | `../Resources/AppIconLight.svg`, `../Resources/AppIconLight.icns` | Light Dock tile: paper `#F4F4EF` and ink `#37474F`; identical Σ geometry |

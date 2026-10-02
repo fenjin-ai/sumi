@@ -11,14 +11,14 @@ See [the testing strategy](testing-strategy.md) for current integration coverage
 - PR and main CI upload coverage, including a generated report that fails the local threshold so failures can be investigated.
 - Same-repository builds use GitHub OIDC, without a long-lived `CODECOV_TOKEN`. Public fork PRs use Codecov's supported tokenless upload.
 - `codecov.yml` requires 80% project and patch coverage and updates one PR comment with overall changes, changed-line coverage and file details.
-- The README badge and [Codecov page](https://app.codecov.io/github/fenjin-ai/sumi) show main coverage. Raw data and HTML remain in the Actions `coverage-macos-15` artifact.
+- The README badge and [Codecov page](https://app.codecov.io/github/leftblank-app/leftblank) show main coverage. Raw data and HTML remain in the Actions `coverage-macos-15` artifact.
 
-The Codecov GitHub App is authorized only for `fenjin-ai/sumi` to read commits, update checks and comment on PRs. Installation and coverage upload are separate steps. Verification requires checking a real PR for both comments and statuses. A first PR without a main baseline may show onboarding information until a main upload establishes comparisons.
+The Codecov GitHub App must be authorized for `leftblank-app/leftblank` after the repository transfer to read commits, update checks and comment on PRs. Installation and coverage upload are separate steps. Verification requires checking a real PR for both comments and statuses. A first PR without a main baseline may show onboarding information until a main upload establishes comparisons.
 
 ## Verification record
 
-On 2026-10-01 the app installation was limited to `fenjin-ai/sumi`. [The initial PR](https://github.com/fenjin-ai/sumi/pull/1) uploaded through GitHub OIDC without a Codecov token. Independent comparison of the platform report and downloaded LCOV matched: 21 production files, 2,107 of 2,442 unique executable lines, **86.28%**. This validates those two outputs from that run; later coverage is specific to its commit.
+On 2026-10-01, before the LeftBlank rename, the app installation was limited to the original `fenjin-ai/sumi` repository. [The initial PR](https://github.com/leftblank-app/leftblank/pull/1) uploaded through GitHub OIDC without a Codecov token. Independent comparison of the platform report and downloaded LCOV matched: 21 production files, 2,107 of 2,442 unique executable lines, **86.28%**. This validates those two outputs from that run; later coverage is specific to its commit.
 
-After main established a baseline, subsequent PRs displayed numeric comparisons and checks. See [PR #2's coverage comment](https://github.com/fenjin-ai/sumi/pull/2#issuecomment-5926250299).
+After main established a baseline, subsequent PRs displayed numeric comparisons and checks. See [PR #2's coverage comment](https://github.com/leftblank-app/leftblank/pull/2#issuecomment-5926250299).
 
 References: [OIDC Action configuration](https://github.com/codecov/codecov-action#using-oidc), [public uploads](https://docs.codecov.com/docs/codecov-tokens), [status checks](https://docs.codecov.com/docs/commit-status), [PR comments](https://docs.codecov.com/docs/pull-request-comments).

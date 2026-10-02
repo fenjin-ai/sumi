@@ -20,8 +20,8 @@ def make_feed(archive, build):
     if not re.fullmatch(r'[1-9][0-9]*\.[1-9][0-9]*', build):
         raise ValueError('Expected run_number.run_attempt')
     with zipfile.ZipFile(archive) as bundle:
-        info = plistlib.loads(bundle.read('Sumi Preview.app/Contents/Info.plist'))
-    if info.get('CFBundleIdentifier') != 'app.sumi.writer.preview' or info.get('CFBundleVersion') != build:
+        info = plistlib.loads(bundle.read('LeftBlank Preview.app/Contents/Info.plist'))
+    if info.get('CFBundleIdentifier') != 'app.leftblank.writer.preview' or info.get('CFBundleVersion') != build:
         raise ValueError('Archive identity/build does not match the preview feed')
     expected = plistlib.loads(Path('Resources/Preview-Info.plist').read_bytes())
     if any(info.get(key) != value for key, value in expected.items()):
@@ -36,18 +36,18 @@ def make_feed(archive, build):
                     'scripts/verify-update.swift', info['SUPublicEDKey'], signature, str(archive)], check=True)
     root = ET.Element('rss', version='2.0')
     channel = ET.SubElement(root, 'channel')
-    ET.SubElement(channel, 'title').text = 'Sumi Preview'
-    ET.SubElement(channel, 'link').text = 'https://sumi.fenjin.ai'
+    ET.SubElement(channel, 'title').text = 'LeftBlank Preview'
+    ET.SubElement(channel, 'link').text = 'https://leftblank.app'
     item = ET.SubElement(channel, 'item')
-    ET.SubElement(item, 'title').text = f'Sumi Preview {info["CFBundleShortVersionString"]} ({build})'
+    ET.SubElement(item, 'title').text = f'LeftBlank Preview {info["CFBundleShortVersionString"]} ({build})'
     ET.SubElement(item, 'pubDate').text = format_datetime(datetime.now(timezone.utc))
     ET.SubElement(item, f'{{{SPARKLE}}}version').text = build
     ET.SubElement(item, f'{{{SPARKLE}}}shortVersionString').text = info['CFBundleShortVersionString']
     ET.SubElement(item, f'{{{SPARKLE}}}minimumSystemVersion').text = '14.0.0'
     ET.SubElement(item, f'{{{SPARKLE}}}hardwareRequirements').text = 'arm64'
-    ET.SubElement(item, 'description').text = f'Tested main build {build}. Commit {info["SumiCommit"][:12]}. Your writing and preferences stay on this Mac.'
+    ET.SubElement(item, 'description').text = f'Tested main build {build}. Commit {info["LeftBlankCommit"][:12]}. Your writing and preferences stay on this Mac.'
     ET.SubElement(item, 'enclosure', {
-        'url': f'https://github.com/fenjin-ai/sumi/releases/download/preview-{build}/{archive.name}',
+        'url': f'https://github.com/leftblank-app/leftblank/releases/download/preview-{build}/{archive.name}',
         'length': str(archive.stat().st_size), 'type': 'application/octet-stream',
         f'{{{SPARKLE}}}edSignature': signature,
     })

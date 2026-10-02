@@ -21,10 +21,10 @@ class ProfileValidation(unittest.TestCase):
             'ExpirationDate': datetime.datetime(2030, 1, 1), 'ProvisionsAllDevices': True,
             'DeveloperCertificates': [self.cert],
             'Entitlements': {
-                'com.apple.application-identifier': 'TESTPREFIX.app.sumi.writer',
+                'com.apple.application-identifier': 'TESTPREFIX.app.leftblank.writer',
                 'com.apple.developer.team-identifier': 'TESTTEAM',
-                'com.apple.developer.icloud-container-identifiers': ['iCloud.app.sumi.writer'],
-                'com.apple.developer.ubiquity-container-identifiers': ['iCloud.app.sumi.writer'],
+                'com.apple.developer.icloud-container-identifiers': ['iCloud.app.leftblank.writer'],
+                'com.apple.developer.ubiquity-container-identifiers': ['iCloud.app.leftblank.writer'],
                 'com.apple.developer.icloud-services': '*',
                 'com.apple.developer.icloud-container-environment': 'Production',
                 'com.apple.developer.ubiquity-kvstore-identifier': 'TESTPREFIX.*',
@@ -34,9 +34,9 @@ class ProfileValidation(unittest.TestCase):
     def validate(self, profile):
         return module.entitlements(profile, 'TESTTEAM', self.identity, self.now)
 
-    def test_valid_profile_scopes_wildcards_to_sumi(self):
+    def test_valid_profile_scopes_wildcards_to_leftblank(self):
         result = self.validate(self.profile)
-        self.assertEqual(result['com.apple.developer.ubiquity-kvstore-identifier'], 'TESTPREFIX.app.sumi.writer')
+        self.assertEqual(result['com.apple.developer.ubiquity-kvstore-identifier'], 'TESTPREFIX.app.leftblank.writer')
         self.assertEqual(result['com.apple.developer.icloud-services'], ['CloudDocuments'])
         self.assertNotIn('keychain-access-groups', result)
 

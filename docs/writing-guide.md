@@ -1,8 +1,8 @@
-# Writing with Sumi
+# Writing with LeftBlank
 
-Sumi is a development preview for Macs with an Apple M-series chip, running macOS 14 or later.
+LeftBlank is a development preview for Macs with an Apple M-series chip, running macOS 14 or later.
 
-Open Sumi from your Applications folder. The app includes its typesetting service; no separate installation of Typst, Rust or Homebrew is needed to use it. Try the [welcome document](../Examples/Welcome.typ).
+Open LeftBlank from your Applications folder. The app includes its typesetting service; no separate installation of Typst, Rust or Homebrew is needed to use it. Try the [welcome document](../Examples/Welcome.typ).
 
 The app supports English and Simplified Chinese, with the localized name **留白** and tagline **此中有真意，欲辨已忘言**. Choose **Settings → App Language** to follow your system or use either language immediately. Changing the interface language never translates or rewrites your documents.
 
@@ -35,11 +35,11 @@ Editor styling gently emphasizes headings, bold, italics and inline code. Moving
 
 The preview shows real typeset pages. Double-click a page to reveal the source; source selection can locate the corresponding preview position. Zoom is relative to the preview pane's fitted width. Dark preview changes screen colors only; images retain their colors and exported PDFs are unchanged.
 
-While syntax is incomplete or invalid, Sumi retains the last successful preview and marks it as out of date. Rendering only visible page regions reduces display work; it does not mean every invalid document can compile partially. Export fails on a compilation error instead of silently exporting an old PDF.
+While syntax is incomplete or invalid, LeftBlank retains the last successful preview and marks it as out of date. Rendering only visible page regions reduces display work; it does not mean every invalid document can compile partially. Export fails on a compilation error instead of silently exporting an old PDF.
 
 **Universe** searches the official package index by name, purpose and category. Browse drawing or diagram packages, check their documentation, and insert a pinned version. The index is cached for 24 hours and remains available offline. Packages that need a newer typesetting engine cannot be imported through the browser.
 
-The library presents document titles and searchable content without requiring you to manage source filenames. Import a document or an entire project folder, rename it, or move it to the recoverable Trash. Source projects remain exportable. Command-N opens Templates, with an offline blank page and an original Sumi guide featuring equations, a diagram, a table and numbered code. The guide’s pinned packages are included; code is displayed, not executed. New writing and existing files autosave after a short pause and retain a local recovery copy. Sumi preserves the current draft before switching documents, and refuses to silently overwrite a file changed by another application. **Documents → Recover Draft Copy** reopens preserved drafts.
+The library presents document titles and searchable content without requiring you to manage source filenames. Import a document or an entire project folder, rename it, or move it to the recoverable Trash. Source projects remain exportable. Command-N opens Templates, with an offline blank page and an original LeftBlank guide featuring equations, a diagram, a table and numbered code. The guide’s pinned packages are included; code is displayed, not executed. New writing and existing files autosave after a short pause and retain a local recovery copy. LeftBlank preserves the current draft before switching documents, and refuses to silently overwrite a file changed by another application. **Documents → Recover Draft Copy** reopens preserved drafts.
 
 **Documents → Document History** compares and restores the latest seven source snapshots. Edited documents create checkpoints hourly by default, or daily in Settings; unchanged documents create none. Restoration first preserves current writing and remains undoable. History stays on this Mac and covers the current source file. See [document history](document-history.md).
 
@@ -49,7 +49,7 @@ iCloud support is under development. It requires a properly provisioned release 
 
 ## Diagnostic logs
 
-Use **View → Open Diagnostic Logs** or `⌘J → v → g` to reveal `~/Library/Application Support/Sumi/Logs/events.jsonl`. The current log rotates at about 1 MiB and retains three archives.
+Use **View → Open Diagnostic Logs** or `⌘J → v → g` to reveal `~/Library/Application Support/LeftBlank/Logs/events.jsonl`. The current log rotates at about 1 MiB and retains three archives.
 
 Logs record sessions, versions, event order, command/navigation keys, insertion and save/export outcomes, selection ranges and service failures. Ordinary typing is recorded only as a `text` event. Document text, clipboard contents, search terms and field values are not logged. System error messages may contain file paths. Logs stay on the Mac; keep them alongside a macOS crash report when investigating a problem.
 

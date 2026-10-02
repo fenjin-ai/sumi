@@ -19,7 +19,7 @@ jobs:
     runs-on: macos-15
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-      SUMI_DISTRIBUTION: preview
+      LEFTBLANK_DISTRIBUTION: preview
     timeout-minutes: 25
     permissions:
       contents: read
@@ -46,7 +46,7 @@ jobs:
       - name: Agent bridge with one cooperative worker
         run: |
           source scripts/environment.sh
-          export SUMI_MCP_HELPER="$(swift build --show-bin-path)/SumiMCP"
+          export LEFTBLANK_MCP_HELPER="$(swift build --show-bin-path)/LeftBlankMCP"
           python3 scripts/test-cooperative-pool.py
       - name: Upload application coverage to Codecov
         if: ${{ !cancelled() && hashFiles('build/coverage/codecov.lcov') != '' }}
@@ -72,11 +72,11 @@ jobs:
           retention-days: 14
       - name: Verify App Store build excludes the updater
         env:
-          SUMI_DISTRIBUTION: appstore
+          LEFTBLANK_DISTRIBUTION: appstore
         run: |
           source scripts/environment.sh
-          SUMI_INTEGRATION=1 swift test --filter distributionUsesMatchingAppAndAgentIdentity
-          binary="$(swift build --show-bin-path)/Sumi"
+          LEFTBLANK_INTEGRATION=1 swift test --filter distributionUsesMatchingAppAndAgentIdentity
+          binary="$(swift build --show-bin-path)/LeftBlank"
           if otool -L "$binary" | grep -q Sparkle; then
             echo 'App Store binary unexpectedly links Sparkle.' >&2
             exit 1
@@ -113,12 +113,12 @@ jobs:
       artifact-name: ${{ steps.package-name.outputs.name }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-      SUMI_DISTRIBUTION: preview
-      SUMI_BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+      LEFTBLANK_DISTRIBUTION: preview
+      LEFTBLANK_BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
     steps:
       - name: Identify this package
         id: package-name
-        run: echo "name=Sumi-Preview-${SUMI_BUILD_NUMBER}-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+        run: echo "name=LeftBlank-Preview-${LEFTBLANK_BUILD_NUMBER}-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -143,7 +143,7 @@ jobs:
       - name: Cold-launch the signed package
         run: |
           source scripts/environment.sh
-          python3 scripts/smoke-app.py --app 'build/Sumi Preview.app' --development-resources "$(swift build -c release --show-bin-path)/Sumi_SumiCore.bundle"
+          python3 scripts/smoke-app.py --app 'build/LeftBlank Preview.app' --development-resources "$(swift build -c release --show-bin-path)/LeftBlank_LeftBlankCore.bundle"
       - name: Upload runnable app
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

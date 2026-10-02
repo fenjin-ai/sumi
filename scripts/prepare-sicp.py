@@ -24,11 +24,11 @@ COMMIT = "bda03f79d6e2e8899ac2b5ca6a3732210e290a79"
 ARCHIVE_URL = f"https://codeload.github.com/sarabander/sicp/zip/{COMMIT}"
 ARCHIVE_SHA256 = "0cf3220c848fa74b90e3235ef352694df772839f96f459e5fbe8eb6dc78417a9"
 SSD = Path("/Volumes/SSD")
-DEFAULT_OUTPUT = SSD / "Developer/Codex/tmp/sumi-sicp"
+DEFAULT_OUTPUT = SSD / "Developer/Codex/tmp/leftblank-sicp"
 EXPECTED_COUNTS = {"code_blocks": 1122, "scheme_blocks": 1098, "math_expressions": 1356, "source_figures": 84, "footnotes": 339, "headings": 282}
 PRELUDE = r'''// SICP, second edition: a reading and editor-performance fixture.
 // Abelson and Sussman with Julie Sussman. HTML/figures by Andres Raba and
-// the Unofficial Texinfo contributors. Adapted to Typst by the Sumi project.
+// the Unofficial Texinfo contributors. Adapted to Typst by the LeftBlank project.
 // CC BY-SA 4.0: see ATTRIBUTION.md, LICENSE and manifest.json beside this file.
 #import "styles/book.typ": book, horizontalRule, divider
 #show: book
@@ -76,7 +76,7 @@ def sha256(data):
 
 def download_archive(cache):
     if not cache.exists():
-        request = urllib.request.Request(ARCHIVE_URL, headers={"User-Agent": "Sumi-fixture/1"})
+        request = urllib.request.Request(ARCHIVE_URL, headers={"User-Agent": "LeftBlank-fixture/1"})
         with urllib.request.urlopen(request, timeout=60) as response:
             data = response.read(32 * 1024 * 1024 + 1)
         if len(data) > 32 * 1024 * 1024:
@@ -309,7 +309,7 @@ Unofficial Texinfo edition and the original MIT Press HTML edition.
 - Contributors to the source edition include Lytha Ayth, Neil Van Dyke,
   Gavrie Philipson, Li Xuanji, J. E. Johnson, Matt Iversen and Eugene Sharygin.
 
-Changes by the Sumi project: converted HTML/MathML to Typst using Pandoc;
+Changes by the LeftBlank project: converted HTML/MathML to Typst using Pandoc;
 converted web endnotes into page footnotes; joined cross-page references;
 removed web navigation and source syntax-highlight spans; labeled Scheme
 blocks; removed source-only prose line wrapping; adapted figure dimensions and added book typography and an outline.

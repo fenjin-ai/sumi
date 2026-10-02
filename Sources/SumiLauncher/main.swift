@@ -1,3 +1,0 @@
-import SumiApp
-
-SumiApplication.main()
