@@ -268,7 +268,7 @@ final class ManuscriptTextView: NSTextView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
-        let inset = NSSize(width: max(36, (newSize.width - 740) / 2), height: 42)
+        let inset = NSSize(width: ManuscriptLayout.horizontalInset(for: newSize.width), height: 42)
         if textContainerInset != inset {
             textContainerInset = inset
         }
