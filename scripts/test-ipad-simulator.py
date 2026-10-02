@@ -3,6 +3,7 @@
 
 import contextlib
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -46,6 +47,63 @@ class SimulatorContracts(unittest.TestCase):
                     runner.main(arguments)
                 self.assertEqual(error.exception.code, 2)
             inventory.assert_not_called()
+
+    def prepare_bundle(self):
+        bundle = self.root / 'build/iPad/Build/Products/test.xctestrun'
+        bundle.parent.mkdir(parents=True)
+        bundle.touch()
+        return bundle
+
+    def test_cold_discovery_waits_past_old_limit_then_runs_requested_suite(self):
+        bundle = self.prepare_bundle()
+        devices = {'com.apple.CoreSimulator.SimRuntime.iOS-26-2': [device for _, device in DEVICES]}
+
+        def command(args, timeout, **_options):
+            if args[:3] == ['xcrun', 'simctl', 'list']:
+                # Model a cold service that cannot return within the old limit.
+                if timeout < 90:
+                    raise subprocess.TimeoutExpired(args, timeout)
+                self.assertLessEqual(timeout, 180)
+                return subprocess.CompletedProcess(args, 0, stdout=json.dumps({'devices': devices}))
+            return subprocess.CompletedProcess(args, 0)
+
+        with patch.object(runner, '__file__', str(self.root / 'scripts/ipad_simulator.py')), \
+             patch.object(runner, 'run', side_effect=command), \
+             patch.object(runner, 'test_device', return_value=True) as tests:
+            self.assertEqual(runner.main(['--size', '13-inch']), 0)
+        tests.assert_called_once_with('13-inch', DEVICES[1][1], bundle, self.root / 'build/iPad-writing')
+
+    def test_discovery_failure_saves_diagnostics_without_booting_or_testing(self):
+        self.prepare_bundle()
+        for error in (subprocess.TimeoutExpired(['xcrun', 'simctl'], 180),
+                      subprocess.CalledProcessError(1, ['xcrun', 'simctl']),
+                      RuntimeError('No available iOS runtime with a 11-inch iPad')):
+            with self.subTest(error=error), \
+                 patch.object(runner, '__file__', str(self.root / 'scripts/ipad_simulator.py')), \
+                 patch.object(runner, 'run'), patch.object(runner, 'inventory', side_effect=error), \
+                 patch.object(runner, 'test_device') as tests, \
+                 patch.object(runner, 'diagnostics') as diagnostics:
+                self.assertEqual(runner.main(['--size', '11-inch']), 1)
+                tests.assert_not_called()
+                diagnostics.assert_called_once_with(
+                    self.root / 'build/iPad-writing/11-inch-discovery-diagnostics.log')
+
+    def test_diagnostics_remain_bounded_when_simulator_service_hangs(self):
+        calls = []
+
+        def command(args, timeout, **options):
+            calls.append(args)
+            self.assertEqual(timeout, 10)
+            self.assertEqual(options, {'capture': True, 'check': False})
+            if args[:2] == ['xcrun', 'simctl']:
+                raise subprocess.TimeoutExpired(args, timeout)
+            return subprocess.CompletedProcess(args, 0, stdout='diagnostic output\n')
+
+        path = self.root / 'diagnostics.log'
+        with patch.object(runner, 'run', side_effect=command):
+            runner.diagnostics(path)
+        self.assertIn('Diagnostic command timed out after 10 seconds.', path.read_text())
+        self.assertEqual(calls[-1][0], 'tail', 'Service logs must survive a hung inventory query')
 
     def exercise(self, failure=None, size='11-inch'):
         active = set()

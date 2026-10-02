@@ -117,11 +117,16 @@ same build without resolving or rebuilding packages. Each invocation of
 `scripts/ipad_simulator.py --size <11-inch|13-inch>` selects and boots only its
 requested size on the newest available iOS runtime, then shuts it down after
 testing. The two sizes cannot compete for resources on the same machine.
+Each UI runner selects Xcode 26.3 system-wide as well as through `DEVELOPER_DIR`
+before contacting CoreSimulator. Its first device query has a three-minute
+limit for service initialization and runtime mounting; later inventory checks
+retain a 30-second limit. This is an upper bound, not a fixed wait.
 Boot readiness is limited to four minutes, UI execution to twelve minutes per
-device, and shutdown to one minute. Each UI step is limited to 19 minutes and
-its job to 30 minutes, including artifact transfer and result upload.
+device, and shutdown to one minute. Each UI step is limited to 23 minutes and
+its job to 35 minutes, including artifact transfer and result upload.
 Boot monitoring prints migration progress. Failures include bounded device,
-memory and process diagnostics; test results are saved separately for each size.
+memory, process, Xcode and CoreSimulator service diagnostics, including failures
+during initial device discovery; results are saved separately for each size.
 Shutdown failure fails that job. Timeouts kill the command's process group before
 cleanup. Offline lifecycle contracts run in the engine job.
 Tests retain 150/180-second default/maximum per-test allowances, stop at their
@@ -151,10 +156,17 @@ timed out during concurrent 11/13-inch simulator boot, before UI tests started.
 After requesting the second boot, `simctl boot` took almost three minutes; even
 artifact and cleanup commands slowed down. Resource contention is the likely
 cause, though that run did not collect memory diagnostics. The workflow now
-isolates the two sizes on separate runners. Seven offline lifecycle contracts
+isolates the two sizes on separate runners. Ten offline lifecycle contracts
 passed, and a real compiled Products archive was relocated and verified for
 `.xctestrun` paths, executable permissions, binary checksums and the bundled font.
-The unified parallel CI still needs hosted-runner verification.
+GitHub run 37018624799 passed Mac regression and all three iPad build jobs.
+Both independent UI runners timed out on their first `simctl list` after
+30 seconds, before booting or executing tests. Cold CoreSimulator initialization
+is a likely cause; that run did not collect discovery diagnostics. The UI jobs
+now align the system Xcode selection with the build version and allow up to
+three minutes for initial discovery. Offline contracts cover a slow initial
+query, failure propagation and bounded diagnostics. Hosted-runner verification
+of the complete parallel suite remains pending.
 
 The shared catalog/gallery refactor and source-navigation callback also passed
 simulator and device compilation, including the expanded UI test target. GitHub

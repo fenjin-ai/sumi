@@ -31,9 +31,9 @@ def run(command, timeout, *, capture=False, check=True):
     return subprocess.CompletedProcess(command, process.returncode, stdout=output)
 
 
-def inventory():
+def inventory(*, timeout=30):
     return json.loads(run(['xcrun', 'simctl', 'list', 'devices', 'available', '-j'],
-                          30, capture=True).stdout)['devices']
+                          timeout, capture=True).stdout)['devices']
 
 
 def select_device(devices, size):
@@ -52,10 +52,13 @@ def select_device(devices, size):
 
 def diagnostics(path):
     commands = [
+        ['xcode-select', '-p'],
+        ['xcodebuild', '-version'],
         ['sysctl', 'hw.memsize', 'hw.ncpu', 'vm.swapusage'],
         ['vm_stat'],
         ['ps', '-axo', 'pid,ppid,%cpu,%mem,rss,comm'],
         ['xcrun', 'simctl', 'list', 'devices'],
+        ['tail', '-n', '200', str(Path.home() / 'Library/Logs/CoreSimulator/CoreSimulator.log')],
     ]
     with path.open('w') as output:
         for command in commands:
@@ -113,7 +116,18 @@ def main(argv=None):
     results = root / 'build/iPad-writing'
     results.mkdir(parents=True, exist_ok=True)
     run(['sysctl', 'hw.memsize', 'hw.ncpu'], 10)
-    device = select_device(inventory(), args.size)
+    print(f'::group::{args.size}: initialize simulator service and discover device', flush=True)
+    try:
+        # A fresh UI runner has not warmed CoreSimulator through compilation.
+        # Allow its first query to initialize services and mount runtimes;
+        # subsequent inventory checks retain their short timeout.
+        device = select_device(inventory(timeout=180), args.size)
+    except (RuntimeError, subprocess.SubprocessError, json.JSONDecodeError) as error:
+        print(f'::error::{args.size}: simulator discovery failed: {error}', flush=True)
+        diagnostics(results / f'{args.size}-discovery-diagnostics.log')
+        return 1
+    finally:
+        print('::endgroup::', flush=True)
     return 0 if test_device(args.size, device, bundles[0], results) else 1
 
 
