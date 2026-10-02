@@ -22,16 +22,17 @@ final class LibraryController: ObservableObject {
     private let locationURL: URL
     var onSyncChange: ((Bool) -> Void)?
 
-    init(workspace: Workspace) {
+    init(workspace: Workspace, cloudResolver: @escaping DocumentLibrary.CloudResolver = { try LibraryCloudEnvironment.containerURL() }) {
         self.workspace = workspace
         locationURL = workspace.stateDirectory.appendingPathComponent("library-location.json")
-        store = DocumentLibrary(rootURL: workspace.stateDirectory.appendingPathComponent("Library"))
+        store = DocumentLibrary(rootURL: workspace.stateDirectory.appendingPathComponent("Library"), cloudResolver: cloudResolver)
     }
 
     func start() async {
         guard !started else { return }
         started = true
-        if (try? Data(contentsOf: locationURL)) == Data("icloud".utf8) {
+        let savedLocation = try? Data(contentsOf: locationURL)
+        if savedLocation == Data("icloud".utf8) {
             do { _ = try await store.resumeICloud(); cloudEnabled = true; onSyncChange?(true) }
             catch {
                 self.error = error.localizedDescription
@@ -56,6 +57,10 @@ final class LibraryController: ObservableObject {
                 try await create(title: L10n.text("Welcome"), text: workspace.text, assets: assets)
             }
             catch { self.error = error.localizedDescription }
+        }
+        if savedLocation == nil {
+            do { try await setCloudEnabled(true) }
+            catch { syncMessage = error.localizedDescription }
         }
         await observeRoot()
         accountMonitor = LibraryAccountMonitor { [weak self] in
@@ -293,7 +298,11 @@ final class LibraryController: ObservableObject {
     }
 
     func setCloudEnabled(_ enabled: Bool) async throws {
-        guard let workspace, enabled != cloudEnabled else { return }
+        guard let workspace else { return }
+        if enabled == cloudEnabled {
+            try Data(enabled ? "icloud".utf8 : "local".utf8).write(to: locationURL, options: .atomic)
+            return
+        }
         if workspace.fileURL != nil { workspace.save() }
         guard workspace.fileURL == nil || workspace.text == workspace.savedText else { throw LibraryInteractionError.saveFirst }
         let currentID = workspace.managedDocumentID

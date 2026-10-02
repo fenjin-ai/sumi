@@ -37,7 +37,8 @@ For macOS 14 or later on a Mac with an Apple M-series chip. English and Simplifi
 Chinese are included. Everything needed to write and preview comes with the app.
 
 LeftBlank is still taking shape. Preview builds have a separate local library and
-receive signed updates; iCloud sync is not enabled in Preview.
+receive signed updates. Both editions default to iCloud sync when the signed app
+and your iCloud account support it; otherwise writing stays local.
 [About Preview](docs/preview-updates.md)
 
 ---

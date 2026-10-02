@@ -139,6 +139,7 @@ jobs:
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          ICLOUD_PREVIEW_PROVISIONING_PROFILE: ${{ secrets.ICLOUD_PREVIEW_PROVISIONING_PROFILE }}
         run: scripts/release.sh
       - name: Cold-launch the signed package
         run: |

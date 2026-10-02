@@ -736,4 +736,9 @@
 "Quit %@" = "Quit %@";
 "Check for Updates…" = "Check for Updates…";
 "Automatically Check for Updates" = "Automatically Check for Updates";
-"Preview keeps its own library on this Mac. Import a copy to try your writing; iCloud sync is available in LeftBlank." = "Preview keeps its own library on this Mac. Import a copy to try your writing; iCloud sync is available in LeftBlank.";
+
+"Print…" = "Print…";
+"Services" = "Services";
+"Hide Others" = "Hide Others";
+"Show All" = "Show All";
+"Toggle Full Screen" = "Toggle Full Screen";
