@@ -425,7 +425,6 @@
 "Show source in Finder" = "在 Finder 中显示源码";
 "Show the selection literally without interpreting its Typst syntax." = "把选中内容按原样显示，不解释其中的 Typst 语法。";
 "Showing Last Preview · Check Source" = "保留上次成稿 · 请检查源码";
-"Showing the last successful preview while your changes are typeset" = "显示上次成功的成稿 · 等待当前修改完成排版";
 "Side-by-side Preview" = "并排预览";
 "Sign in to iCloud and enable iCloud Drive in System Settings before turning on sync." = "请先在系统设置中登录 iCloud 并开启 iCloud 云盘，再启用同步。";
 "Small Capitals" = "小型大写";
@@ -520,7 +519,6 @@
 "Vertical Space" = "垂直间距";
 "View" = "视图";
 "Waiting for Typesetting" = "等待排版服务";
-"Waiting for the first successful preview" = "等待文稿首次成功排版";
 "Welcome" = "欢迎";
 "What would you like to do?" = "此刻，你想做什么？";
 "Window" = "窗口";
