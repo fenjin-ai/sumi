@@ -83,3 +83,17 @@ processed as a valid, App Store eligible build. Its ad-hoc sandbox cold-launch
 check also verified bundled resources, document-library creation and Tinymist
 connection. App Store approval and actual cloud account behavior remain separate
 from these checks.
+
+
+The App Store bootstrap builds Tinymist 0.15.8 at pinned commit
+`32f908199ee17ea295512bbc27166e890c438175` with the checked-in native TLS
+patch and lockfile changes. Reqwest then uses macOS Security Framework instead
+of Rust TLS. The source checkout, Cargo cache and target directory live under
+`.tools/tinymist-appstore-source`; Rust 1.92.0 is required. The GitHub download
+and Preview editions continue using the verified upstream release binary.
+
+The native TLS engine compiled all fourteen marketing documents, downloaded
+CeTZ and its dependencies into an empty isolated package cache, and passed the
+sandbox cold-launch smoke check. App Store packaging declares exempt OS
+provided encryption; this declaration must be revisited if a dependency adds
+another encryption implementation.
