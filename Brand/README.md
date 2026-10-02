@@ -19,6 +19,7 @@ Use each language's own name and tagline together. Branding speaks to writing an
 | `mark-light.svg`, `mark-dark.svg` | Transparent monochrome mark for dark or light backgrounds; the generator also copies the dark mark into the built-in welcome document and `Examples/sumi-mark.svg` |
 | `social-preview.png`, `social-preview.svg` | 1280×640 English GitHub / Open Graph card |
 | `social-preview.zh-Hans.png`, `social-preview.zh-Hans.svg` | Simplified Chinese sharing card |
+| `../Resources/AppIconLight.svg`, `../Resources/AppIconLight.icns` | Light Dock tile: paper `#F4F4EF` and ink `#37474F`; identical Σ geometry |
 | `../Resources/AppIcon.svg`, `../Resources/AppIcon.icns` | macOS application icon, with ICNS representations from 16 to 1024 pixels |
 | `web/favicon.svg`, `web/favicon.ico` | Website favicon; ICO contains 16, 32 and 48 pixel frames |
 | `web/favicon-16x16.png`, `web/favicon-32x32.png`, `web/favicon-48x48.png` | PNG favicons |
@@ -51,4 +52,4 @@ Copy the contents of `web/` to the website's `public/` directory, then add:
 
 Adjust paths for a site deployed below the domain root. Use `social-preview.png` for sharing, with its deployed absolute HTTPS URL in `og:image`. The manifest declares brand assets only; a future website must choose its own installation behavior, start URL and scope.
 
-GitHub **Settings → General → Social preview** uses `social-preview.png`. The repository README uses `logo.svg`. These assets do not replace the organization avatar.
+GitHub **Settings → General → Social preview** uses `social-preview.png`. The repository README uses the full English social preview card. These assets do not replace the organization avatar.

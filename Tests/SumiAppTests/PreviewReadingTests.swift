@@ -269,9 +269,13 @@ extension WritingFlowTests {
         for (appearance, canvas) in [(AppAppearance.light, "rgb(250, 250, 250)"), (.dark, "rgb(34, 38, 43)")] {
             app.workspace.appearance = appearance
             await app.layout()
-            try await waitForJavaScript(web, condition: "document.body.style.backgroundColor === '\(canvas)'")
+            try await waitForJavaScript(web, condition: "getComputedStyle(document.body).backgroundColor === '\(canvas)'")
             #expect(try await web.evaluateJavaScript("document.getElementById('typst-app').classList.contains('invert-colors')") as? Bool == true)
             #expect(try await web.evaluateJavaScript("document.querySelectorAll('#typst-app .typst-doc > g').length") as? Int == before)
+            for selector in ["html", "body", "#typst-container-main", "#typst-app"] {
+                #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('\(selector)')).backgroundColor") as? String == canvas)
+            }
+            #expect(resolvedHex(web.underPageBackgroundColor, appearance: web.effectiveAppearance) == (appearance == .dark ? 0x22262B : 0xFAFAFA))
             #expect(app.workspace.previewURL == initialURL)
         }
         app.workspace.previewZoom = 1.4
@@ -293,6 +297,34 @@ extension WritingFlowTests {
         app.workspace.previewDark = false
         await app.layout()
         try await waitForJavaScript(web, condition: "!document.getElementById('typst-app').classList.contains('invert-colors')")
+        app.workspace.appearance = .light
+        await app.layout()
+        try await waitForJavaScript(web, condition: "getComputedStyle(document.getElementById('typst-app')).backgroundColor === 'rgb(250, 250, 250)'")
+        // Query the actual hit-tested gap between two rendered pages, rather
+        // than merely checking the inline body style (which CSS can override).
+        let gapColor = try await web.evaluateJavaScript("""
+        (() => {
+            const pages = document.querySelectorAll('.typst-doc > rect.typst-page-inner');
+            const scroll = document.getElementById('typst-container-main');
+            const first = pages[0].getBoundingClientRect();
+            const second = pages[1].getBoundingClientRect();
+            scroll.scrollTop += (first.bottom + second.top) / 2 - innerHeight / 2;
+            const a = pages[0].getBoundingClientRect(), b = pages[1].getBoundingClientRect();
+            const x = Math.min(a.right, innerWidth) / 2, y = (a.bottom + b.top) / 2;
+            if (b.top <= a.bottom) return 'missing page gap';
+            let element = document.elementFromPoint(x, y);
+            while (element) {
+                const background = getComputedStyle(element).backgroundColor;
+                if (background !== 'rgba(0, 0, 0, 0)') return background;
+                element = element.parentElement;
+            }
+            return 'missing background';
+        })()
+        """) as? String
+        #expect(gapColor == "rgb(250, 250, 250)")
+        #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.typst-page-outer')).fill") as? String == "none")
+        #expect(try await web.evaluateJavaScript("getComputedStyle(document.querySelector('.typst-page-inner')).fill") as? String == "rgb(255, 255, 255)")
+
     }
 }
 

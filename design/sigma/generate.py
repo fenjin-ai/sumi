@@ -95,12 +95,13 @@ def mark(weight=WEIGHT, ink=INK):
     return f'<path d="{path}" fill="{ink}"/>'
 
 
-def tile(compact=False, full_bleed=False):
-    background = (f'<rect width="1024" height="1024" fill="{PAPER}"/>' if full_bleed else
-                  f'<rect x="56" y="56" width="912" height="912" rx="206" fill="{PAPER}"/>')
+def tile(compact=False, full_bleed=False, light=False):
+    paper, ink = ("#F4F4EF", "#37474F") if light else (PAPER, INK)
+    background = (f'<rect width="1024" height="1024" fill="{paper}"/>' if full_bleed else
+                  f'<rect x="56" y="56" width="912" height="912" rx="206" fill="{paper}"/>')
     # At 16–32px the original stroke is less than half a pixel wide. Preserve
     # the same skeleton, with a modest optical weight/size correction.
-    symbol = mark(weight=WEIGHT * (1.55 if compact else 1))
+    symbol = mark(weight=WEIGHT * (1.55 if compact else 1), ink=ink)
     if compact:
         symbol = f'<g transform="translate(512 512) scale(1.12) translate(-512 -512)">{symbol}</g>'
     return background + symbol
@@ -147,14 +148,17 @@ def export_rasters(root, brand):
     # Explicit repository-local scratch keeps all development artifacts on SSD.
     with tempfile.TemporaryDirectory(prefix="brand-", dir=scratch) as temporary:
         temporary = Path(temporary)
-        iconset = temporary / "Sumi.iconset"
-        iconset.mkdir()
-        for size in (16, 32, 128, 256, 512):
-            for scale in (1, 2):
-                pixels = size * scale
-                source = brand / ("web/favicon.svg" if pixels <= 32 else "logo.svg")
-                render(source, iconset / f"icon_{size}x{size}{'@2x' if scale == 2 else ''}.png", pixels)
-        subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(root / "Resources/AppIcon.icns")], check=True)
+        for light in (False, True):
+            name = "AppIconLight" if light else "AppIcon"
+            iconset = temporary / f"{name}.iconset"
+            iconset.mkdir()
+            for size in (16, 32, 128, 256, 512):
+                for scale in (1, 2):
+                    pixels = size * scale
+                    source = temporary / "tile.svg"
+                    source.write_text(svg(tile(compact=pixels <= 32, light=light)))
+                    render(source, iconset / f"icon_{size}x{size}{'@2x' if scale == 2 else ''}.png", pixels)
+            subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(root / f"Resources/{name}.icns")], check=True)
         for size in (512, 1024):
             render(brand / "logo.svg", brand / f"logo-{size}.png", size)
         for suffix in ("", ".zh-Hans"):
@@ -185,6 +189,7 @@ def main():
     logo = svg(tile())
     (brand / "logo.svg").write_text(logo)
     (root / "Resources/AppIcon.svg").write_text(logo)
+    (root / "Resources/AppIconLight.svg").write_text(svg(tile(light=True)))
     (brand / "mark-light.svg").write_text(svg(mark()))
     (brand / "mark-dark.svg").write_text(svg(mark(ink=PAPER)))
     for destination in [root / "Examples/sumi-mark.svg", root / "Sources/SumiCore/Resources/Templates/sumi-mark.svg"]:
