@@ -1,0 +1,1 @@
+typst,editor,essay,math,equation,code,outline,manuscript,book,diagram,slide,poster,chart
