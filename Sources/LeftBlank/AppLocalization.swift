@@ -44,7 +44,9 @@ struct LanguageSettingsSection: View {
                 L10n.text("App Language"),
                 selection: Binding(get: { localization.language }, set: { localization.select($0) }),
             ) {
-                ForEach(AppLanguage.allCases) { language in Text(language.displayName).tag(language) }
+                Text(L10n.text("Follow System")).tag(AppLanguage.system)
+                Text("English").tag(AppLanguage.english)
+                Text("简体中文").tag(AppLanguage.simplifiedChinese)
             }.accessibilityIdentifier("settings.language")
             Text(L10n.text("Changes apply immediately. Your writing stays in its original language."))
                 .font(.footnote).foregroundStyle(Theme.secondary)
