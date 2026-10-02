@@ -21,6 +21,9 @@ def package(binary_dir, distribution):
     resources = contents / 'Resources'
     shutil.copytree('Resources', resources, symlinks=True)
     (resources / 'Preview-Info.plist').unlink()
+    (resources / 'Info.plist').unlink()
+    for signing_file in resources.glob('*.entitlements*'):
+        signing_file.unlink()
     for directory in ('MacOS', 'Helpers'):
         (contents / directory).mkdir(parents=True)
     shutil.copy2(binary_dir / 'LeftBlank', contents / 'MacOS/LeftBlank')
