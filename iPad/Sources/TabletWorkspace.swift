@@ -79,6 +79,7 @@ final class TabletWorkspace: ObservableObject {
                 let item = try await library.create(
                     title: BuiltInTemplate.welcome.title,
                     text: BuiltInTemplate.welcome.source,
+                    assets: WelcomeDocument.assets(),
                 )
                 try await reloadLibrary()
                 await open(item)
@@ -117,6 +118,13 @@ final class TabletWorkspace: ObservableObject {
         }
         do {
             let result = try await library.read(item.id)
+            // Repair starter documents created before iPad copied their mark.
+            // Keep user edits and any existing asset intact.
+            if result.text.hasPrefix("// A LeftBlank original."),
+               result.text.contains("image(\"" + WelcomeDocument.markFilename + "\"")
+            {
+                try WelcomeDocument.prepareAssets(in: result.document.folderURL)
+            }
             generation = UUID()
             debounce?.cancel()
             client.stop()
@@ -330,7 +338,11 @@ final class TabletWorkspace: ObservableObject {
             return
         }
         do {
-            let item = try await library.create(title: template.title, text: template.source)
+            let item = try await library.create(
+                title: template.title,
+                text: template.source,
+                assets: template == .welcome ? WelcomeDocument.assets() : [:],
+            )
             try await reloadLibrary()
             await open(item)
         } catch { message = error.localizedDescription }
@@ -601,6 +613,7 @@ extension TabletWorkspace {
             )
             try await reloadLibrary()
             busy = false
+            panel = nil
             await open(item)
         } catch { busy = false
             message = error.localizedDescription

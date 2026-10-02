@@ -91,28 +91,41 @@ jobs:
                   break
           if not devices:
               raise SystemExit('No available iPad simulator for native UI tests')
-          device = sorted(devices, key=lambda entry: ('13-inch' not in entry['name'], entry['name']))[0]
-          print(f"Using {device['name']} on {runtime}", flush=True)
-          if device['state'] != 'Booted':
-              subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True)
-          subprocess.run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b'], check=True)
+          selected = {}
+          for size, label in [('small', '11-inch'), ('large', '13-inch')]:
+              matches = [entry for entry in devices if label in entry['name']]
+              if not matches:
+                  raise SystemExit(f'No available {label} iPad simulator on {runtime}')
+              device = sorted(matches, key=lambda entry: entry['name'])[0]
+              print(f"Using {device['name']} on {runtime}", flush=True)
+              if device['state'] != 'Booted':
+                  subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True)
+              selected[size] = device['udid']
+          for udid in selected.values():
+              subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], check=True)
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f"device={device['udid']}\n")
+              for size, udid in selected.items():
+                  output.write(f"{size}={udid}\n")
           PY
       - name: Native writing, preview navigation, catalog and PDF sharing
         if: matrix.platform == 'simulator'
         timeout-minutes: 12
         env:
-          IPAD_SIMULATOR_ID: ${{ steps.simulator.outputs.device }}
+          IPAD_SMALL_SIMULATOR_ID: ${{ steps.simulator.outputs.small }}
+          IPAD_LARGE_SIMULATOR_ID: ${{ steps.simulator.outputs.large }}
         run: |
           source scripts/environment.sh
-          xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
-            -destination "platform=iOS Simulator,id=$IPAD_SIMULATOR_ID" -destination-timeout 30 \
-            -derivedDataPath build/iPad -parallel-testing-enabled NO \
+          test_bundles=(build/iPad/Build/Products/*.xctestrun)
+          test "${#test_bundles[@]}" -eq 1
+          test -f "${test_bundles[0]}"
+          xcodebuild -xctestrun "${test_bundles[0]}" \
+            -destination "platform=iOS Simulator,id=$IPAD_SMALL_SIMULATOR_ID" \
+            -destination "platform=iOS Simulator,id=$IPAD_LARGE_SIMULATOR_ID" -destination-timeout 30 \
+            -parallel-testing-enabled NO \
+            -maximum-concurrent-test-simulator-destinations 1 \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 150 \
             -maximum-test-execution-time-allowance 180 \
-            -clonedSourcePackagesDirPath .build/xcode-packages \
-            -resultBundlePath build/iPad-writing.xcresult CODE_SIGNING_ALLOWED=NO test
+            -resultBundlePath build/iPad-writing.xcresult test-without-building
       - name: Upload native iPad test results
         if: always() && matrix.platform == 'simulator'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

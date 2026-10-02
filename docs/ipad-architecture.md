@@ -72,7 +72,8 @@ not a substitute for these measurements.
 
 The iPad workflow runs engine integration, simulator build/UI tests, and device
 build in parallel jobs with independent engine caches. Mac CI still validates
-shared code and the Mac app. Shared changes trigger both workflows. CI device
+shared code and the Mac app. Shared changes trigger both workflows. The simulator
+job runs the UI suite on both 11-inch and 13-inch devices. CI device
 builds are unsigned; simulator tests do not establish physical-device performance.
 
 The current main-branch ruleset requires `build and test` and 80% coverage, but
@@ -95,7 +96,7 @@ values with release inputs. Development signing does not validate that pipeline.
 | Local typesetting and PDF | Live preview and native PDF sharing; fallback/system fonts supplied | Matching fonts/assets required for equal pagination; large-book performance unmeasured |
 | Preview to source | A preview tap reveals the main `.typ` file's UTF-16 source position; split view stays split | Included-file editing/navigation is missing and reports that limitation |
 | Source to preview | Live updates and outline-to-editor navigation | Explicit caret-to-preview reveal is missing |
-| Templates/packages | Shared bilingual search, categories, offline catalog, downloads and installation; native gallery/details | Physical community-template creation and broad package compatibility need verification |
+| Templates/packages | Shared bilingual search, distinct category icons, offline catalog, downloads and installation; window-sized adaptive gallery with catalog/detail panes; built-in documents and SICP within discovery | Physical community-template creation and broad package compatibility need verification |
 | Editor assistance | Syntax styling, checks, outline, command insertion, formatting, native undo/find | Completion, signature-help and hover UI are missing |
 | Projects | Built-in/community templates and folder import | Folder import expects `main.typ`; only the entry file can be edited |
 | History and recovery | Shared snapshots, version restore and conflict-aware saves | Mac's full history diff UI is missing; background/relaunch recovery needs stress testing |

@@ -27,7 +27,7 @@ func realTinymistRoundTrip() async throws {
     try Data("= Saved sentinel\n".utf8).write(to: file)
     try Data("Included content.".utf8).write(to: root.appendingPathComponent("section.typ"))
     let source = """
-    #set text(font: "PingFang SC")
+    #set text(font: "Noto Sans SC")
     = Unsaved 文稿
     中文😀 Body
     $ x^2 $
@@ -63,6 +63,9 @@ func realTinymistRoundTrip() async throws {
     #expect(rendered.contains("Unsaved"))
     #expect(rendered.contains("文稿"))
     #expect(rendered.contains("Included content"))
+    #expect(!diagnosticEvents.contains {
+        $0["diagnostics"].array.contains { $0["message"].string == "unknown font family: noto sans sc" }
+    })
     #expect(!rendered.contains("Saved sentinel"))
     #expect(try String(contentsOf: file, encoding: .utf8) == "= Saved sentinel\n")
 

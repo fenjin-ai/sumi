@@ -55,11 +55,32 @@ enum TabletTheme {
 struct TabletIcon: View {
     let name: String
     var size: CGFloat = 18
+
+    /// Native menus require an Image label, without the decorative view's
+    /// accessibility hiding modifier, to expose their title and action.
+    static func menuImage(_ name: String, title: String) -> Image {
+        guard let rendered = TabletIconStore.image(name, size: 18), let pixels = rendered.cgImage else {
+            return Image("Icons/" + name, label: Text(title))
+        }
+        return Image(pixels, scale: rendered.scale, label: Text(title)).renderingMode(.template)
+    }
+
     var body: some View {
         if let image = TabletIconStore.image(name, size: size) {
             Image(uiImage: image).renderingMode(.template).resizable().frame(width: size, height: size)
                 .accessibilityHidden(true)
         }
+    }
+}
+
+struct TabletBackButton: View {
+    let title: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Button { dismiss() } label: {
+            TabletIcon(name: "arrow-left", size: 18).frame(width: 44, height: 44)
+        }.buttonStyle(.plain).accessibilityLabel(title)
     }
 }
 

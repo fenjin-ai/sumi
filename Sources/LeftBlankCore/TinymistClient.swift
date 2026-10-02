@@ -107,6 +107,9 @@ public final class TinymistClient {
         try transport.start(root: root)
         let packageCache = outputDirectory.deletingLastPathComponent().appendingPathComponent("PackageCache")
         try BundledPackages.prepare(in: packageCache)
+        // iPad's PingFang UI collection uses Apple-specific glyph tables that
+        // Typst cannot parse. Supply the same portable CJK fallback on both platforms.
+        let bundledFont = L10n.resourceBundle.url(forResource: "NotoSansSC", withExtension: "ttf")
         let response = try await request("initialize", [
             "processId": ProcessInfo.processInfo.processIdentifier,
             "rootUri": root.absoluteString,
@@ -133,7 +136,7 @@ public final class TinymistClient {
                 ],
             ],
             "initializationOptions": [
-                "fontPaths": fontPaths.map(\.path),
+                "fontPaths": (fontPaths + [bundledFont].compactMap(\.self)).map(\.path),
                 "exportPdf": "never",
                 "outputPath": outputDirectory.appendingPathComponent("$name").path,
                 "compileStatus": "enable",

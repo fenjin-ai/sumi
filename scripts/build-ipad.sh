@@ -5,8 +5,8 @@ source scripts/environment.sh
 
 platform="${1:-simulator}"
 case "$platform" in
-  simulator) target=aarch64-apple-ios-sim; destination='generic/platform=iOS Simulator' ;;
-  device) target=aarch64-apple-ios; destination='generic/platform=iOS' ;;
+  simulator) target=aarch64-apple-ios-sim; destination='generic/platform=iOS Simulator'; action=build-for-testing ;;
+  device) target=aarch64-apple-ios; destination='generic/platform=iOS'; action=build ;;
   *) echo 'Usage: scripts/build-ipad.sh [simulator|device]' >&2; exit 2 ;;
 esac
 # Cargo keeps build outputs in this SSD workspace; dependency sources also stay
@@ -22,4 +22,4 @@ cargo +1.92.0 build --locked --manifest-path Engine/TinymistBridge/Cargo.toml --
 xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
   -destination "$destination" -derivedDataPath build/iPad \
   -clonedSourcePackagesDirPath .build/xcode-packages \
-  CODE_SIGNING_ALLOWED=NO build
+  CODE_SIGNING_ALLOWED=NO "$action"

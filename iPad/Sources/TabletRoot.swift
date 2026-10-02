@@ -7,6 +7,7 @@ struct TabletRoot: View {
     @State private var column: NavigationSplitViewColumn = .sidebar
     @State private var visibility: NavigationSplitViewVisibility = .all
     @State private var detailWidth: CGFloat = 0
+    @State private var windowSize: CGSize = .zero
     @State private var query = ""
     @State private var importing = false
     @State private var importingProject = false
@@ -41,49 +42,20 @@ struct TabletRoot: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(TabletTheme.background)
-            .navigationTitle(L10n.text("Your writing"))
-            .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query, prompt: L10n.text("Search"))
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text(L10n.text("Your writing")).font(.system(size: 15, weight: .medium))
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        ForEach(BuiltInTemplate.allCases) { template in
-                            Button(template.title) { Task { await workspace.create(template)
-                                column = .detail
-                            } }
-                        }
-                        Button(L10n.text("Import a document…")) { importing = true }
-                        Button(L10n.text("Import Project…")) { importingProject = true }
-                        Button(L10n.text("Templates & Packages")) { workspace.showUniverse() }
-                        Button(SampleBook.sicp.title) { Task { await workspace.addSampleBook() } }
-                    } label: {
-                        TabletIcon(name: "file-plus").frame(width: 44, height: 44)
-                            .accessibilityLabel(L10n.text("New Document"))
-                    }
-                    .disabled(workspace.busy).accessibilityIdentifier("new-document")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button(L10n.text("Settings")) { workspace.panel = .settings }
-                        Button(L10n.text("Trash")) { Task { await workspace.showTrash() } }
-                    } label: {
-                        TabletIcon(name: "dots-three-vertical").frame(width: 44, height: 44)
-                            .accessibilityLabel(L10n.text("Settings"))
-                    }
-                }
-            }
+            .safeAreaInset(edge: .top, spacing: 0) { libraryHeader }
+            .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+            .toolbar(.hidden, for: .navigationBar)
         } detail: {
             if workspace.document != nil {
-                writing
+                writing.background { TabletSidebarConfiguration() }
             } else {
                 TabletEmptyState(
                     title: L10n.text("Your writing"),
                     icon: "book-open-text",
                     detail: L10n.text("Choose a document to begin writing."),
                 )
+                .toolbar { ToolbarItem(placement: .topBarLeading) { sidebarToggle } }
+                .background { TabletSidebarConfiguration() }
             }
         }
         .tint(TabletTheme.accent)
@@ -116,9 +88,22 @@ struct TabletRoot: View {
             case let .failure(error): workspace.message = error.localizedDescription
             }
         }
-        .sheet(item: $workspace.panel) { panel in
-            TabletPanel(workspace: workspace, panel: panel)
-                .presentationDetents(panel == .commands || panel == .universe ? [.large] : [.medium, .large])
+        .background {
+            GeometryReader { geometry in
+                Color.clear.onChange(of: geometry.size, initial: true) { _, size in windowSize = size }
+            }
+        }
+        .sheet(item: panelBinding) { panel in
+            if panel == .universe, #available(iOS 18.0, *) {
+                TabletPanel(workspace: workspace, panel: panel)
+                    .presentationSizing(TabletUniverseSizing(windowSize: windowSize))
+            } else {
+                TabletPanel(workspace: workspace, panel: panel)
+                    .presentationDetents(panel == .commands ? [.large] : [.medium, .large])
+            }
+        }
+        .fullScreenCover(isPresented: legacyUniverseBinding) {
+            TabletPanel(workspace: workspace, panel: .universe)
         }
         .sheet(isPresented: Binding(get: { workspace.shareURL != nil }, set: {
             if !$0 {
@@ -144,6 +129,96 @@ struct TabletRoot: View {
             Button(L10n.text("Save")) { Task { await workspace.rename(title) } }
             Button(L10n.text("Cancel"), role: .cancel) {}
         }
+    }
+
+    private var libraryHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.text("Your writing")).font(.system(size: 23, weight: .medium, design: .serif))
+                .foregroundStyle(Color(uiColor: TabletTheme.nativeText))
+                .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("library-title")
+            HStack(spacing: 4) {
+                HStack(spacing: 8) {
+                    TabletIcon(name: "magnifying-glass", size: 15).foregroundStyle(TabletTheme.secondary)
+                    TextField(L10n.text("Search"), text: $query).font(.system(size: 13))
+                        .textFieldStyle(.plain).autocorrectionDisabled()
+                        .accessibilityIdentifier("library-search")
+                }.padding(.horizontal, 10).frame(height: 44)
+                    .background(Color(uiColor: TabletTheme.nativeEditor), in: RoundedRectangle(cornerRadius: 8))
+                Button { workspace.showUniverse() } label: {
+                    TabletIcon(name: "grid-four").frame(width: 44, height: 44)
+                }.buttonStyle(.plain).disabled(workspace.busy)
+                    .accessibilityLabel(L10n.text("Browse templates")).accessibilityIdentifier("new-document")
+                Menu {
+                    Button { importing = true } label: {
+                        Label { Text(L10n.text("Import a document…")) } icon: { TabletIcon.menuImage(
+                            "file-text",
+                            title: L10n.text("Import a document…"),
+                        ) }
+                    }
+                    Button { importingProject = true } label: {
+                        Label { Text(L10n.text("Import Project…")) } icon: { TabletIcon.menuImage(
+                            "folder-open",
+                            title: L10n.text("Import Project…"),
+                        ) }
+                    }
+                    Divider()
+                    Button { workspace.panel = .settings } label: {
+                        Label { Text(L10n.text("Settings")) } icon: { TabletIcon.menuImage(
+                            "gear",
+                            title: L10n.text("Settings"),
+                        ) }
+                    }
+                    Button { Task { await workspace.showTrash() } } label: {
+                        Label { Text(L10n.text("Trash")) } icon: { TabletIcon.menuImage(
+                            "trash",
+                            title: L10n.text("Trash"),
+                        ) }
+                    }
+                } label: {
+                    TabletIcon(name: "dots-three-vertical").frame(width: 44, height: 44)
+                }.buttonStyle(.plain).accessibilityLabel(L10n.text("Library actions"))
+                    .accessibilityIdentifier("library-actions")
+            }
+        }.padding(16).foregroundStyle(TabletTheme.secondary).background(TabletTheme.background)
+            .overlay(alignment: .bottom) { Rectangle().fill(TabletTheme.border).frame(height: 0.5) }
+    }
+
+    private var sidebarToggle: some View {
+        Button {
+            withAnimation {
+                if windowSize.width < 700 {
+                    column = .sidebar
+                    visibility = .all
+                } else {
+                    visibility = visibility == .all ? .detailOnly : .all
+                }
+            }
+        } label: {
+            TabletIcon(name: "sidebar-simple").frame(width: 44, height: 44)
+        }.buttonStyle(.plain).foregroundStyle(TabletTheme.secondary)
+            .accessibilityLabel(L10n.text("Browse Library")).accessibilityIdentifier("sidebar-toggle")
+    }
+
+    private var panelBinding: Binding<TabletWorkspace.Panel?> {
+        Binding(get: {
+            if #available(iOS 18.0, *) {
+                return workspace.panel
+            }
+            return workspace.panel == .universe ? nil : workspace.panel
+        }, set: { workspace.panel = $0 })
+    }
+
+    private var legacyUniverseBinding: Binding<Bool> {
+        Binding(get: {
+            if #available(iOS 18.0, *) {
+                return false
+            }
+            return workspace.panel == .universe
+        }, set: { presented in
+            if !presented, workspace.panel == .universe {
+                workspace.panel = nil
+            }
+        })
     }
 
     private var writing: some View {
@@ -199,6 +274,7 @@ struct TabletRoot: View {
                         TabletIcon(name: workspace.diagnostics.isEmpty ? "check" : "warning-circle", size: 14)
                     }
                     .accessibilityLabel(L10n.text("Check Source")).frame(minWidth: 44, minHeight: 44)
+                    .accessibilityIdentifier("check-source")
                 }.font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 14)
                     .background(TabletTheme.background)
                     .overlay(alignment: .top) { Rectangle().fill(TabletTheme.border).frame(height: 0.5) }
@@ -223,9 +299,11 @@ struct TabletRoot: View {
         }
         .navigationTitle(workspace.document?.title ?? L10n.text("Untitled"))
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden()
         .toolbarBackground(TabletTheme.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) { sidebarToggle }
             ToolbarItem(placement: .principal) {
                 Text(workspace.document?.title ?? L10n.text("Untitled")).font(.system(size: 15, weight: .medium))
                     .lineLimit(1)
@@ -246,10 +324,11 @@ struct TabletRoot: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Menu(L10n.text("New Document")) {
-                        ForEach(BuiltInTemplate.allCases) { template in
-                            Button(template.title) { Task { await workspace.create(template) } }
-                        }
+                    Button { workspace.showUniverse() } label: {
+                        Label { Text(L10n.text("New Document")) } icon: { TabletIcon.menuImage(
+                            "grid-four",
+                            title: L10n.text("New Document"),
+                        ) }
                     }.accessibilityIdentifier("new-document")
                     Button(L10n.text("Outline")) { workspace.panel = .outline }.keyboardShortcut("4")
                     Button(L10n.text("Document History…")) { Task { await workspace.showHistory() } }
@@ -297,5 +376,33 @@ struct TabletRoot: View {
         }.buttonStyle(.plain).accessibilityLabel(L10n.text(title)).accessibilityIdentifier("layout-" + layout.rawValue)
             .accessibilityAddTraits(workspace.layout == layout ? .isSelected : [])
             .keyboardShortcut(key)
+    }
+}
+
+/// UIKit can still supply a split-view button when SwiftUI's sidebar is hidden.
+/// Keep native sidebar gestures while presenting only our Phosphor control.
+private struct TabletSidebarConfiguration: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller {
+        Controller()
+    }
+
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.configure()
+    }
+
+    final class Controller: UIViewController {
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+            configure()
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            configure()
+        }
+
+        func configure() {
+            splitViewController?.displayModeButtonVisibility = .never
+        }
     }
 }

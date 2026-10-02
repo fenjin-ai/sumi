@@ -22,11 +22,37 @@ initialization, so package-cache options cannot replace the font search path.
 Typst's default fonts are also embedded as a fallback. Identical pagination still requires the same fonts and assets on both
 platforms; platform system font sets may differ.
 
+The shared core also bundles Noto Sans SC as a portable Chinese fallback.
+On the physical iPad, `PingFangUI.ttc` contains Apple-specific `cidg` / `hvgl`
+glyph tables without standard TrueType/CFF outlines, so Typst cannot use it.
+The welcome template retains Libertinus Serif and PingFang SC first, with Noto
+last. Existing Mac typography and app interface fonts remain unchanged; iPad
+Chinese text can use Noto offline. An unavailable explicitly named system font
+can still produce a warning. Older manuscripts retain their font declarations.
+The welcome document now copies its relative SVG asset during both first launch
+and template creation. Opening an older LeftBlank starter repairs a missing mark
+without replacing an existing asset or rewriting the manuscript.
+
 The UIKit editor preserves native selection, IME composition, undo, find,
 keyboard and trackpad behavior. Wide detail panes offer writing and preview side
 by side; narrow multitasking windows and portrait layouts switch between them.
 The library uses native navigation, menus, document pickers, sheets and sharing.
 Keyboard shortcuts include save, command discovery, outline and PDF export.
+
+The library header keeps its title on a separate line and uses the shared
+Phosphor assets for search, discovery, library actions and the sidebar toggle.
+Built-in documents and the SICP sample book live inside template discovery.
+Search hints follow the template/package mode, and category icons come from the
+shared Mac/iPad definitions. Native menu labels use image values so their action
+titles remain available to accessibility.
+
+On iPadOS 18 and later, discovery presentation sizing follows the actual app
+window, capped at 1120 points wide and 1100 points high. iPadOS 17 uses a full-screen
+presentation. Gallery columns adapt to the available width. At 1000 points or
+wider, selecting a template or package opens a 360-point detail pane beside the
+catalog; narrower windows show detail with a back-to-results action. Selection
+and search survive rotation across this breakpoint. The action bar stays visible
+below the scrollable detail content.
 
 ## Build and validation
 
@@ -52,7 +78,8 @@ transport behavior, but does not replace iPad runtime testing.
 
 The UI test target checks editing, autosave, preview switching, rotation, command
 insertion, preview-to-source navigation, template discovery, package import and
-PDF sharing. Run it with an available iPad simulator:
+PDF sharing, plus English and Chinese welcome rendering. Run it with an available
+iPad simulator:
 
 ```sh
 xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
@@ -67,7 +94,9 @@ tests remain in `scripts/test.sh`. Platform build/release boundaries, engine
 tradeoffs and the feature-gap inventory are in [ipad-architecture.md](ipad-architecture.md).
 
 Successful compilation is cached before UI testing, so a failed UI test does not
-discard the Rust build. Cache uploads are bounded and optional. CI boots an iPad
+discard the Rust build. Cache uploads are bounded and optional. The simulator
+build produces an `.xctestrun` bundle; UI testing consumes that bundle without
+resolving or rebuilding packages again. CI boots both 11-inch and 13-inch iPads
 on the newest available iOS runtime explicitly, with a three-minute boot limit.
 UI execution is serial, with a twelve-minute step limit and 150/180-second
 default/maximum per-test allowances. Test cases stop at their first failure and
@@ -75,16 +104,24 @@ terminate the app after each case.
 
 ## Current evidence and remaining work
 
-On October 2, 2026, the Mac regression suite passed with 85.89% coverage after
-merging the current main branch. The embedded-engine integration passed, and both
-simulator and device builds succeeded. All four expanded UI tests passed on a
-physical iPad Air 13-inch (M4), iPadOS 26.6.1, in 119 seconds. They verified
+On October 2, 2026, the complete Mac regression suite passed with 85.88% coverage
+after the shared font and discovery changes. A focused Tinymist round trip also
+verified that the bundled Noto family is recognized and exports Chinese text. The embedded-engine integration passed, and both
+simulator and device builds succeeded. The earlier four-test suite passed on a
+physical iPad Air 13-inch (M4), iPadOS 26.6.1, in 119 seconds. It verified
 full-selection replacement, autosave, live preview, rotation, command insertion,
 undo/redo, preview-to-source navigation, template discovery, package import and
 the native PDF sharing sheet. Earlier runs also verified blank-page preview.
-The rendered preview
-was visually inspected, and the physical-device PDF was checked for actual text
-drawing commands. UI tests use local storage with iCloud disabled.
+The final six-test suite passed in 194 seconds on the same physical iPad. It also
+verified English and Chinese welcome rendering, absence of compilation errors,
+welcome PDF sharing, native menu accessibility, full library title, mode-specific
+search hints, removal of the system sidebar button in collapsed/expanded states,
+and catalog/detail selection retained across portrait/landscape rotation.
+Screenshots were inspected for glyphs and the final layout. The welcome PDF is a
+two-page A4 document with embedded font mappings and text drawing commands.
+Simulator and signed device test builds passed. UI tests use local storage with
+iCloud disabled. No local 10.9-inch runtime result is claimed; SSD simulator
+creation failed, and the new 11/13-inch CI destinations have not yet been run.
 
 The shared catalog/gallery refactor and source-navigation callback also passed
 simulator and device compilation, including the expanded UI test target. GitHub

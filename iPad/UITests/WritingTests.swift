@@ -13,26 +13,79 @@ final class WritingTests: XCTestCase {
         super.tearDown()
     }
 
-    private func startWriting() -> XCUIApplication {
+    private func startWriting(template: String = "blank", language: String = "en") -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-iPadCloudEnabled", "NO"]
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-appLanguage", language,
+                               "-iPadCloudEnabled", "NO"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
         let create = app.buttons["new-document"]
-        if !create.waitForExistence(timeout: 3), app.buttons["document-actions"].exists {
-            app.buttons["document-actions"].tap()
+        if !create.waitForExistence(timeout: 3) || !create.isHittable {
+            let sidebar = app.buttons["sidebar-toggle"]
+            expect(sidebar.waitForExistence(timeout: 60)) == true
+            sidebar.tap()
         }
         expect(create.waitForExistence(timeout: 60)) == true
         let enabled = NSPredicate { _, _ in create.isEnabled && create.isHittable }
         expectation(for: enabled, evaluatedWith: app)
         waitForExpectations(timeout: 60)
         create.tap()
-        app.buttons["Blank page"].tap()
+        app.buttons["universe.builtin." + template].tap()
         expect(app.textViews["manuscript"].waitForExistence(timeout: 60)) == true
         let settled = NSPredicate { _, _ in !app.progressIndicators["document-loading"].exists }
         expectation(for: settled, evaluatedWith: app)
         waitForExpectations(timeout: 60)
+        expect(app.buttons["Show Sidebar"].exists) == false
+        expect(app.buttons["Hide Sidebar"].exists) == false
         return app
+    }
+
+    private func capture(_ name: String) {
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = name
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    func testWelcomePreviewAndPDFExport() {
+        let app = startWriting(template: "welcome")
+        expect((app.textViews["manuscript"].value as? String)?.contains("leftblank-mark.svg")) == true
+        app.buttons["layout-preview"].tap()
+        expectation(
+            for: NSPredicate(format: "value == %@", "Preview Updated"),
+            evaluatedWith: app.staticTexts["engine-status"],
+        )
+        waitForExpectations(timeout: 60)
+        expect(app.buttons["preview-error"].exists) == false
+        capture("Welcome rendered")
+        app.buttons["check-source"].tap()
+        expect(app.navigationBars["Check Source"].waitForExistence(timeout: 10)) == true
+        expect(app.buttons.matching(NSPredicate(format: "value == %@", "error")).count) == 0
+        expect(app.buttons["unknown font family: noto sans sc"].exists) == false
+        capture("Welcome diagnostics")
+        app.buttons["Done"].tap()
+        app.buttons["document-actions"].tap()
+        app.buttons["Export PDF…"].tap()
+        expect(app.descendants(matching: .any)["Save to Files"].firstMatch.waitForExistence(timeout: 30)) == true
+        capture("Welcome PDF sharing")
+    }
+
+    func testChineseWelcomePreview() {
+        let app = startWriting(template: "welcome", language: "zh-Hans")
+        expect((app.textViews["manuscript"].value as? String)?.contains("此中有真意")) == true
+        app.buttons["layout-preview"].tap()
+        expectation(
+            for: NSPredicate(format: "value == %@", "排版已更新"),
+            evaluatedWith: app.staticTexts["engine-status"],
+        )
+        waitForExpectations(timeout: 60)
+        expect(app.buttons["preview-error"].exists) == false
+        capture("Chinese welcome rendered")
+        app.buttons["check-source"].tap()
+        expect(app.navigationBars["检查源码"].waitForExistence(timeout: 10)) == true
+        expect(app.buttons.matching(NSPredicate(format: "value == %@", "error")).count) == 0
+        expect(app.buttons["unknown font family: noto sans sc"].exists) == false
+        capture("Chinese welcome diagnostics")
     }
 
     func testEditingPersistsAcrossPreviewAndRotation() {
@@ -142,20 +195,50 @@ final class WritingTests: XCTestCase {
     func testTemplateDiscoveryAndPackageImport() {
         let app = startWriting()
         let original = app.textViews["manuscript"].value as? String
-        app.buttons["document-actions"].tap()
-        app.buttons["Templates & Packages"].tap()
+        app.buttons["sidebar-toggle"].tap()
+        expect(app.staticTexts["library-title"].waitForExistence(timeout: 10)) == true
+        expect(app.staticTexts["library-title"].label) == "Your writing"
+        capture("Library landscape")
+        expect(app.buttons["Show Sidebar"].exists) == false
+        app.buttons["library-actions"].tap()
+        expect(app.buttons["Settings"].waitForExistence(timeout: 10)) == true
+        capture("Library actions")
+        app.buttons["Settings"].tap()
+        expect(app.navigationBars["Settings"].waitForExistence(timeout: 10)) == true
+        app.buttons["Done"].tap()
+        app.buttons["new-document"].tap()
         expect(app.navigationBars["Templates & Packages"].waitForExistence(timeout: 10)) == true
-        let search = app.searchFields.firstMatch
+        expect(app.navigationBars["Templates & Packages"].frame.width) > app.frame.width * 0.7
+        capture("Templates landscape")
+        let search = app.textFields["universe.search"]
         expect(search.waitForExistence(timeout: 10)) == true
+        expect(search.placeholderValue) == "Find a resume, paper, presentation…"
         search.tap()
         search.typeText("basic-resume")
         let resume = app.descendants(matching: .any)["universe.result.basic-resume"].firstMatch
         expect(resume.waitForExistence(timeout: 20)) == true
-        let gallery = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        gallery.lifetime = .keepAlways
-        add(gallery)
-        search.buttons["Clear text"].tap()
+        search.typeText("\n")
+        XCUIDevice.shared.orientation = .portrait
+        expect(resume.waitForExistence(timeout: 10)) == true
+        expect(search.value as? String) == "basic-resume"
+        capture("Templates portrait")
+        resume.tap()
+        let templateApply = app.buttons["universe.apply"]
+        expect(templateApply.waitForExistence(timeout: 10)) == true
+        expect(templateApply.isHittable) == true
+        capture("Template details portrait")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        expect(templateApply.isHittable) == true
+        expect(search.isHittable) == true
+        expect(resume.isHittable) == true
+        capture("Template details landscape")
+        app.buttons["universe.back-results"].tap()
+        expect(search.waitForExistence(timeout: 10)) == true
+        expect(search.value as? String) == "basic-resume"
+        app.buttons["universe.clear-search"].tap()
         app.buttons["Writing tools"].tap()
+        expect(search.placeholderValue) == "Try diagrams, plots, code blocks…"
+        capture("Packages landscape")
         search.tap()
         search.typeText("cetz")
         let package = app.descendants(matching: .any)["universe.result.cetz"].firstMatch
@@ -164,6 +247,9 @@ final class WritingTests: XCTestCase {
         let apply = app.buttons["universe.apply"]
         expect(apply.waitForExistence(timeout: 10)) == true
         expect(apply.label) == "Insert Import"
+        expect(search.isHittable) == true
+        expect(package.isHittable) == true
+        capture("Package details landscape")
         apply.tap()
         let editor = app.textViews["manuscript"]
         let imported = NSPredicate { _, _ in

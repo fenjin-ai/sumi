@@ -85,7 +85,7 @@ public struct UniverseDiscoveryGroup: Identifiable, Sendable {
         .init(
             id: "books",
             titleKey: "Books & writing",
-            symbolName: "notebook",
+            symbolName: "books",
             categories: ["book"],
             terms: ["book", "novel", "notes", "journal", "书籍", "笔记"],
         ),

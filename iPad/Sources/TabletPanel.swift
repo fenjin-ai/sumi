@@ -1,6 +1,19 @@
 import LeftBlankCore
 import SwiftUI
 
+@available(iOS 18.0, *)
+struct TabletUniverseSizing: PresentationSizing {
+    let windowSize: CGSize
+
+    func proposedSize(for _: PresentationSizingRoot, context _: PresentationSizingContext) -> ProposedViewSize {
+        let margin: CGFloat = windowSize.width >= 700 ? 64 : 0
+        return ProposedViewSize(
+            width: min(1120, max(320, windowSize.width - margin)),
+            height: min(1100, max(320, windowSize.height - 32)),
+        )
+    }
+}
+
 struct TabletPanel: View {
     @ObservedObject var workspace: TabletWorkspace
     let panel: TabletWorkspace.Panel
@@ -26,7 +39,7 @@ struct TabletPanel: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { dismiss() } } }
-        }
+        }.tint(TabletTheme.accent)
     }
 
     private var title: String {
@@ -110,7 +123,7 @@ struct TabletPanel: View {
             }
         }.overlay {
             if workspace.outline.isEmpty {
-                ContentUnavailableView(L10n.text("Outline"), systemImage: "list.bullet")
+                TabletEmptyState(title: L10n.text("Outline"), icon: "list-bullets")
             }
         }
     }
@@ -132,11 +145,13 @@ struct TabletPanel: View {
                         character: position["character"].int ?? 0,
                     ))
                 } label: {
-                    Label(item["message"].string ?? "", systemImage: "exclamationmark.circle").foregroundStyle(.primary)
+                    Label { Text(item["message"].string ?? "") } icon: { TabletIcon(name: "warning-circle") }
+                        .foregroundStyle(.primary)
                 }
+                .accessibilityValue(item["severity"].int == 1 ? "error" : "warning")
             }
             if workspace.diagnostics.isEmpty {
-                Label(L10n.text("No issues found"), systemImage: "checkmark.circle")
+                Label { Text(L10n.text("No issues found")) } icon: { TabletIcon(name: "check") }
             }
         }
     }
@@ -154,7 +169,7 @@ struct TabletPanel: View {
             }
         }.overlay {
             if workspace.revisions.isEmpty {
-                ContentUnavailableView(L10n.text("No history yet"), systemImage: "clock")
+                TabletEmptyState(title: L10n.text("No history yet"), icon: "clock-counter-clockwise")
             }
         }
     }
@@ -213,5 +228,7 @@ private struct TabletRevision: View {
         }.confirmationDialog(L10n.text("Restore this version?"), isPresented: $confirming) {
             Button(L10n.text("Restore")) { Task { await workspace.restore(revision) } }
         }
+        .navigationBarBackButtonHidden()
+        .toolbar { ToolbarItem(placement: .topBarLeading) { TabletBackButton(title: L10n.text("Back")) } }
     }
 }
