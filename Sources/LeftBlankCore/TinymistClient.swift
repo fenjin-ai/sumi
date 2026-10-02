@@ -141,6 +141,7 @@ public final class TinymistClient {
                 ],
             ],
             "initializationOptions": [
+                "rootPath": root.path,
                 "exportPdf": "never",
                 "outputPath": outputDirectory.appendingPathComponent("$name").path,
                 "compileStatus": "enable",

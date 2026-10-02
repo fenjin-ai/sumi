@@ -37,7 +37,11 @@ LeftBlank saves its own copy with the document and inserts the reference for you
 
 PNG, JPEG, GIF, SVG, PDF and WebP keep their original format. Other macOS-readable image formats, such as HEIC and TIFF, are converted to PNG. Audio and video are not embedded in typeset pages; dropping them shows an explanation and leaves the text unchanged.
 
-Bibliography, Include Document and Import Local Module use the same resource picker. You can also drop or paste bibliography files and self-contained `.typ` documents. For a Typst document with relative dependencies, import its whole project through the library first, then choose its existing resources.
+Bibliography, Include Document and Import Local Module use the same resource picker. You can also drop or paste bibliography files and self-contained `.typ` documents. For a Typst document with relative dependencies, import its whole project through the library first.
+
+To assemble a book, open a library document, choose **Include Document → Library Documents**, and select a chapter. LeftBlank inserts a standard Typst `#include` pointing to the original article. The chapter keeps its own images and modules; changes to it appear in the book, and renaming its library title preserves the reference. **Import Local Module → Library Documents** works the same way for shared Typst definitions. Each insertion is undoable.
+
+PDF export compiles the whole book. Source-project export currently exports only the selected article's directory; it does not bundle other library articles referenced by the book.
 
 ## Writing and preview
 
@@ -62,4 +66,3 @@ iCloud support is under development. It requires a properly provisioned release 
 Use **View → Open Diagnostic Logs** or `⌘J → v → g` to reveal `~/Library/Application Support/LeftBlank/Logs/events.jsonl`. The current log rotates at about 1 MiB and retains three archives.
 
 Logs record sessions, versions, event order, command/navigation keys, insertion and save/export outcomes, selection ranges and service failures. Ordinary typing is recorded only as a `text` event. Document text, clipboard contents, search terms and field values are not logged. System error messages may contain file paths. Logs stay on the Mac; keep them alongside a macOS crash report when investigating a problem.
-
