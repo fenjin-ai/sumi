@@ -35,6 +35,13 @@ final class WritingTests: XCTestCase {
         let settled = NSPredicate { _, _ in !app.progressIndicators["document-loading"].exists }
         expectation(for: settled, evaluatedWith: app)
         waitForExpectations(timeout: 60)
+        if app.buttons["Show Sidebar"].exists || app.buttons["Hide Sidebar"].exists {
+            capture("Duplicate sidebar controls")
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Duplicate sidebar hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
         expect(app.buttons["Show Sidebar"].exists) == false
         expect(app.buttons["Hide Sidebar"].exists) == false
         return app
@@ -243,6 +250,7 @@ final class WritingTests: XCTestCase {
         search.typeText("cetz")
         let package = app.descendants(matching: .any)["universe.result.cetz"].firstMatch
         expect(package.waitForExistence(timeout: 20)) == true
+        search.typeText("\n")
         package.tap()
         let apply = app.buttons["universe.apply"]
         expect(apply.waitForExistence(timeout: 10)) == true

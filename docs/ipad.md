@@ -44,7 +44,9 @@ Phosphor assets for search, discovery, library actions and the sidebar toggle.
 Built-in documents and the SICP sample book live inside template discovery.
 Search hints follow the template/package mode, and category icons come from the
 shared Mac/iPad definitions. Native menu labels use image values so their action
-titles remain available to accessibility.
+titles remain available to accessibility. Both split-view columns declaratively
+remove the default sidebar toolbar item, leaving the shared Phosphor control
+through document creation and layout changes.
 
 On iPadOS 18 and later, discovery presentation sizing follows the actual app
 window, capped at 1120 points wide and 1100 points high. iPadOS 17 uses a full-screen
@@ -129,73 +131,59 @@ memory, process, Xcode and CoreSimulator service diagnostics, including failures
 during initial device discovery; results are saved separately for each size.
 Shutdown failure fails that job. Timeouts kill the command's process group before
 cleanup. Offline lifecycle contracts run in the engine job.
-Tests retain 150/180-second default/maximum per-test allowances, stop at their
-first failure, and terminate the app after each case.
+Xcode verbose test diagnostics are disabled because automatic sysdiagnose can
+add a ten-minute wait after a failure. Test reports, recordings and attachments
+remain in the result bundle; the helper collects the bounded diagnostics above.
+Tests retain 150/180-second default/maximum per-test allowances. Each case stops
+at its first failure; the suite still runs all six cases and terminates the app
+after each one.
 
 ## Current evidence and remaining work
 
-On October 2, 2026, the complete Mac regression suite passed with 85.88% coverage
-after the shared font and discovery changes. A focused Tinymist round trip also
-verified that the bundled Noto family is recognized and exports Chinese text. The embedded-engine integration passed, and both
-simulator and device builds succeeded. The earlier four-test suite passed on a
-physical iPad Air 13-inch (M4), iPadOS 26.6.1, in 119 seconds. It verified
-full-selection replacement, autosave, live preview, rotation, command insertion,
-undo/redo, preview-to-source navigation, template discovery, package import and
-the native PDF sharing sheet. Earlier runs also verified blank-page preview.
-The final six-test suite passed in 194 seconds on the same physical iPad. It also
-verified English and Chinese welcome rendering, absence of compilation errors,
-welcome PDF sharing, native menu accessibility, full library title, mode-specific
-search hints, removal of the system sidebar button in collapsed/expanded states,
-and catalog/detail selection retained across portrait/landscape rotation.
-Screenshots were inspected for glyphs and the final layout. The welcome PDF is a
-two-page A4 document with embedded font mappings and text drawing commands.
-Simulator and signed device test builds passed. UI tests use local storage with
-iCloud disabled. No local 10.9-inch runtime result is claimed; SSD simulator
-creation failed. GitHub run 37011166516 passed engine and device compilation but
-timed out during concurrent 11/13-inch simulator boot, before UI tests started.
-After requesting the second boot, `simctl boot` took almost three minutes; even
-artifact and cleanup commands slowed down. Resource contention is the likely
-cause, though that run did not collect memory diagnostics. The workflow now
-isolates the two sizes on separate runners. Ten offline lifecycle contracts
-passed, and a real compiled Products archive was relocated and verified for
-`.xctestrun` paths, executable permissions, binary checksums and the bundled font.
-GitHub run 37018624799 passed Mac regression and all three iPad build jobs.
-Both independent UI runners timed out on their first `simctl list` after
-30 seconds, before booting or executing tests. Cold CoreSimulator initialization
-is a likely cause; that run did not collect discovery diagnostics. The UI jobs
-now align the system Xcode selection with the build version and allow up to
-three minutes for initial discovery. Offline contracts cover a slow initial
-query, failure propagation and bounded diagnostics. Hosted-runner verification
-of the complete parallel suite remains pending.
+GitHub [run 37021201574](https://github.com/leftblank-app/leftblank/actions/runs/37021201574)
+passed Mac regression and all three iPad engine/simulator/device build jobs.
+Both independent iOS 26.2 UI runners completed six cases, with five passing.
+Only the Chinese welcome case failed: after the first document creation, the
+system sidebar button appeared beside the custom Phosphor button. The failure
+recording confirmed the duplicate. The former UIKit lifecycle configuration was
+replaced with SwiftUI's `toolbar(removing: .sidebarToggle)` on both columns.
+The test retains its absence assertions and now attaches a screenshot and view
+hierarchy when duplicate controls appear.
 
-Run 37020341577 merged main's language-settings fix (#36), which removed
-`AppLanguage.displayName`. The iPad picker still used that property, so both
-platform builds failed before the UI jobs could run. The picker now uses the
-same explicit language labels as Mac, including the localized Follow System
-option. After integrating that main commit, local simulator test compilation,
-device compilation, the Mac language-switch regression and strict lint passed.
-This run did not exercise the simulator-discovery fix.
+Earlier failures had separate causes: run 37018624799 exceeded the old 30-second
+cold simulator discovery limit; run 37020341577 could not compile the iPad picker
+after main #36 removed `AppLanguage.displayName`. Both were corrected, and the
+latest hosted run successfully discovered devices and compiled both platforms.
+A complete passing hosted run with the sidebar fix remains pending.
 
-The shared catalog/gallery refactor and source-navigation callback also passed
-simulator and device compilation, including the expanded UI test target. GitHub
-CI's iOS 18.5 simulator passed preview-to-source navigation and command/PDF tests.
-It exposed selection instability after switching layouts and typographic quotes
-in programmatic package insertion. The editor now avoids changing typing
-attributes on selection-only updates and inserts code verbatim through text
-storage, with undo/redo registration. The package test waits for visible inserted
-source and checks preservation around the preamble insertion point. The expanded
-physical suite passed with these fixes. GitHub run 37004640328 subsequently
-passed all four tests on an iOS 26.2 13-inch simulator; its boot completed in
-about 83 seconds. The later six-test suite still needs the revised CI run.
+Local simulator verification uses Xcode 27.0 / iOS 27.0, rather than hosted CI's
+Xcode 26.3 / iOS 26.2. CoreSimulator rejected device creation on the external SSD
+with Cocoa error 513 / POSIX `Operation not permitted`. The user authorized only
+simulator runtime/device data on the internal disk; source, dependencies, builds,
+logs and results remain on the SSD. On October 2, 2026, fresh, task-owned iPad Air
+(M3) simulators each passed all six cases: 11-inch in 217.5 seconds and 13-inch in
+225.6 seconds (12 executions, zero failures or skips). These are test execution
+times, excluding simulator boot and test-runner setup. On the 11-inch device, the package
+search test initially tried to tap a card obscured by the software keyboard;
+it now submits the search before selection, matching the template search flow.
 
-The initial blank preview was traced to missing fallback fonts and initialization
-options replacing the CoreText font directory. Both are corrected. iPad now uses
-the Mac Phosphor resources and syntax palette, with compact titles, rows and view
-controls. Preview chrome and WebKit rendering setup are shared with Mac.
+The complete Mac regression previously passed with 85.99% application source-line
+coverage. A focused Tinymist round trip verified the bundled Noto family and
+Chinese PDF text. Embedded-engine integration, simulator build-for-testing,
+device compilation, strict Swift lint, actionlint and ten offline simulator
+lifecycle contracts passed. A real compiled Products archive was relocated and
+verified for test paths, executable permissions, checksums and the bundled font.
+Seven aggregate-gate outcomes passed, including the expected PR skip, required
+main validation and failure propagation.
 
-The local simulator could not be created on the external SSD: CoreSimulator
-reported Cocoa error 513 and POSIX `Operation not permitted`. No internal-disk
-simulator fallback was used; runtime evidence comes from the physical iPad.
+The six-test suite previously passed on a physical iPad Air 13-inch (M4), iPadOS
+26.6.1, in 194 seconds. It covers selection replacement, autosave, live preview,
+rotation, command insertion, undo/redo, preview-to-source navigation, template
+and package discovery, package import, native menu accessibility, library title,
+mode-specific search hints, catalog/detail state and native PDF sharing. English
+and Chinese welcome screenshots were inspected for glyphs and layout. The
+welcome PDF is two A4 pages with embedded font mappings and text drawing commands.
+Tests disable iCloud and use local document storage.
 
 Before shipping, manually verify Chinese IMEs, VoiceOver, Dynamic Type,
 keyboard/trackpad editing, large books, background/relaunch recovery, preview

@@ -86,12 +86,15 @@ def test_device(size, device, bundle, results):
     try:
         # bootstatus also initiates the boot and reports migration progress.
         run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b', '-d'], 240)
+        # Xcode's verbose sysdiagnose can spend ten minutes after a test failure.
+        # Keep the test report and attachments, then collect our bounded diagnostics.
         run(['xcodebuild', '-xctestrun', str(bundle),
              '-destination', f"platform=iOS Simulator,id={device['udid']}",
              '-destination-timeout', '30', '-parallel-testing-enabled', 'NO',
              '-maximum-concurrent-test-simulator-destinations', '1',
              '-test-timeouts-enabled', 'YES', '-default-test-execution-time-allowance', '150',
              '-maximum-test-execution-time-allowance', '180',
+             '-collect-test-diagnostics', 'never',
              '-resultBundlePath', str(results / f'{size}.xcresult'), 'test-without-building'], 720)
         return True
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:

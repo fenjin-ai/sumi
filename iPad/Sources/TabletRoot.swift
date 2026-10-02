@@ -44,19 +44,21 @@ struct TabletRoot: View {
             .background(TabletTheme.background)
             .safeAreaInset(edge: .top, spacing: 0) { libraryHeader }
             .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+            .toolbar(removing: .sidebarToggle)
             .toolbar(.hidden, for: .navigationBar)
         } detail: {
-            if workspace.document != nil {
-                writing.background { TabletSidebarConfiguration() }
-            } else {
-                TabletEmptyState(
-                    title: L10n.text("Your writing"),
-                    icon: "book-open-text",
-                    detail: L10n.text("Choose a document to begin writing."),
-                )
-                .toolbar { ToolbarItem(placement: .topBarLeading) { sidebarToggle } }
-                .background { TabletSidebarConfiguration() }
-            }
+            Group {
+                if workspace.document != nil {
+                    writing
+                } else {
+                    TabletEmptyState(
+                        title: L10n.text("Your writing"),
+                        icon: "book-open-text",
+                        detail: L10n.text("Choose a document to begin writing."),
+                    )
+                    .toolbar { ToolbarItem(placement: .topBarLeading) { sidebarToggle } }
+                }
+            }.toolbar(removing: .sidebarToggle)
         }
         .tint(TabletTheme.accent)
         .onChange(of: workspace.document?.id) { _, id in
@@ -376,33 +378,5 @@ struct TabletRoot: View {
         }.buttonStyle(.plain).accessibilityLabel(L10n.text(title)).accessibilityIdentifier("layout-" + layout.rawValue)
             .accessibilityAddTraits(workspace.layout == layout ? .isSelected : [])
             .keyboardShortcut(key)
-    }
-}
-
-/// UIKit can still supply a split-view button when SwiftUI's sidebar is hidden.
-/// Keep native sidebar gestures while presenting only our Phosphor control.
-private struct TabletSidebarConfiguration: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> Controller {
-        Controller()
-    }
-
-    func updateUIViewController(_ controller: Controller, context: Context) {
-        controller.configure()
-    }
-
-    final class Controller: UIViewController {
-        override func didMove(toParent parent: UIViewController?) {
-            super.didMove(toParent: parent)
-            configure()
-        }
-
-        override func viewWillAppear(_ animated: Bool) {
-            super.viewWillAppear(animated)
-            configure()
-        }
-
-        func configure() {
-            splitViewController?.displayModeButtonVisibility = .never
-        }
     }
 }
