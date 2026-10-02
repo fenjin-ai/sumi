@@ -48,6 +48,12 @@ jobs:
       - name: In-process engine integration
         if: matrix.platform == 'engine'
         run: scripts/test-ipad-engine.sh
+      - name: Simulator lifecycle contracts
+        if: matrix.platform == 'engine'
+        timeout-minutes: 2
+        run: |
+          source scripts/environment.sh
+          python3 scripts/test-ipad-simulator.py
       - name: Build native iPad app
         if: matrix.platform != 'engine'
         run: scripts/build-ipad.sh "${{ matrix.platform }}"
@@ -71,66 +77,18 @@ jobs:
         with:
           path: .build/xcode-packages
           key: ${{ steps.swift-cache.outputs.cache-primary-key }}
-      - name: Boot iPad simulator
-        id: simulator
+      - name: Native UI tests on 11-inch then 13-inch iPads
         if: matrix.platform == 'simulator'
-        timeout-minutes: 3
+        timeout-minutes: 38
         run: |
           source scripts/environment.sh
-          python3 - <<'PY'
-          import json
-          import os
-          import subprocess
-          inventory = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '-j']))
-          runtimes = sorted((runtime for runtime in inventory['devices'] if '.iOS-' in runtime),
-                            key=lambda runtime: tuple(map(int, runtime.split('.iOS-')[1].split('-'))), reverse=True)
-          devices = []
-          for runtime in runtimes:
-              devices = [entry for entry in inventory['devices'][runtime] if 'iPad' in entry['name']]
-              if devices:
-                  break
-          if not devices:
-              raise SystemExit('No available iPad simulator for native UI tests')
-          selected = {}
-          for size, label in [('small', '11-inch'), ('large', '13-inch')]:
-              matches = [entry for entry in devices if label in entry['name']]
-              if not matches:
-                  raise SystemExit(f'No available {label} iPad simulator on {runtime}')
-              device = sorted(matches, key=lambda entry: entry['name'])[0]
-              print(f"Using {device['name']} on {runtime}", flush=True)
-              if device['state'] != 'Booted':
-                  subprocess.run(['xcrun', 'simctl', 'boot', device['udid']], check=True)
-              selected[size] = device['udid']
-          for udid in selected.values():
-              subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], check=True)
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              for size, udid in selected.items():
-                  output.write(f"{size}={udid}\n")
-          PY
-      - name: Native writing, preview navigation, catalog and PDF sharing
-        if: matrix.platform == 'simulator'
-        timeout-minutes: 12
-        env:
-          IPAD_SMALL_SIMULATOR_ID: ${{ steps.simulator.outputs.small }}
-          IPAD_LARGE_SIMULATOR_ID: ${{ steps.simulator.outputs.large }}
-        run: |
-          source scripts/environment.sh
-          test_bundles=(build/iPad/Build/Products/*.xctestrun)
-          test "${#test_bundles[@]}" -eq 1
-          test -f "${test_bundles[0]}"
-          xcodebuild -xctestrun "${test_bundles[0]}" \
-            -destination "platform=iOS Simulator,id=$IPAD_SMALL_SIMULATOR_ID" \
-            -destination "platform=iOS Simulator,id=$IPAD_LARGE_SIMULATOR_ID" -destination-timeout 30 \
-            -parallel-testing-enabled NO \
-            -maximum-concurrent-test-simulator-destinations 1 \
-            -test-timeouts-enabled YES -default-test-execution-time-allowance 150 \
-            -maximum-test-execution-time-allowance 180 \
-            -resultBundlePath build/iPad-writing.xcresult test-without-building
+          python3 scripts/ipad_simulator.py
       - name: Upload native iPad test results
         if: always() && matrix.platform == 'simulator'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        timeout-minutes: 3
         with:
           name: ipad-writing
-          path: build/iPad-writing.xcresult
+          path: build/iPad-writing
           if-no-files-found: warn
           retention-days: 14

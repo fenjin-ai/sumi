@@ -96,11 +96,18 @@ tradeoffs and the feature-gap inventory are in [ipad-architecture.md](ipad-archi
 Successful compilation is cached before UI testing, so a failed UI test does not
 discard the Rust build. Cache uploads are bounded and optional. The simulator
 build produces an `.xctestrun` bundle; UI testing consumes that bundle without
-resolving or rebuilding packages again. CI boots both 11-inch and 13-inch iPads
-on the newest available iOS runtime explicitly, with a three-minute boot limit.
-UI execution is serial, with a twelve-minute step limit and 150/180-second
-default/maximum per-test allowances. Test cases stop at their first failure and
-terminate the app after each case.
+resolving or rebuilding packages again. `scripts/ipad_simulator.py` selects the
+newest available iOS runtime with both 11-inch and 13-inch iPads. Each device is
+booted, tested and shut down before the next starts; serial test execution alone
+does not prevent two prebooted devices from competing for runner resources.
+Boot readiness is limited to four minutes, UI execution to twelve minutes per
+device, and shutdown to one minute. The combined step is limited to 38 minutes.
+Boot monitoring prints migration progress. Failures include bounded device,
+memory and process diagnostics; test results are saved separately for each size.
+Shutdown failure prevents starting another device. Timeouts kill the command's
+process group before cleanup. Offline lifecycle contracts run in the engine job.
+Tests retain 150/180-second default/maximum per-test allowances, stop at their
+first failure, and terminate the app after each case.
 
 ## Current evidence and remaining work
 
@@ -121,7 +128,13 @@ Screenshots were inspected for glyphs and the final layout. The welcome PDF is a
 two-page A4 document with embedded font mappings and text drawing commands.
 Simulator and signed device test builds passed. UI tests use local storage with
 iCloud disabled. No local 10.9-inch runtime result is claimed; SSD simulator
-creation failed, and the new 11/13-inch CI destinations have not yet been run.
+creation failed. GitHub run 37011166516 passed engine and device compilation but
+timed out during concurrent 11/13-inch simulator boot, before UI tests started.
+After requesting the second boot, `simctl boot` took almost three minutes; even
+artifact and cleanup commands slowed down. Resource contention is the likely
+cause, though that run did not collect memory diagnostics. The workflow now
+runs complete device lifecycles sequentially; the revised CI has not yet been
+verified on a hosted runner.
 
 The shared catalog/gallery refactor and source-navigation callback also passed
 simulator and device compilation, including the expanded UI test target. GitHub
@@ -131,8 +144,9 @@ in programmatic package insertion. The editor now avoids changing typing
 attributes on selection-only updates and inserts code verbatim through text
 storage, with undo/redo registration. The package test waits for visible inserted
 source and checks preservation around the preamble insertion point. The expanded
-physical suite passed with these fixes; the updated GitHub simulator run has not
-yet been verified.
+physical suite passed with these fixes. GitHub run 37004640328 subsequently
+passed all four tests on an iOS 26.2 13-inch simulator; its boot completed in
+about 83 seconds. The later six-test suite still needs the revised CI run.
 
 The initial blank preview was traced to missing fallback fonts and initialization
 options replacing the CoreText font directory. Both are corrected. iPad now uses

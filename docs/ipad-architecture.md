@@ -73,7 +73,10 @@ not a substitute for these measurements.
 The iPad workflow runs engine integration, simulator build/UI tests, and device
 build in parallel jobs with independent engine caches. Mac CI still validates
 shared code and the Mac app. Shared changes trigger both workflows. The simulator
-job runs the UI suite on both 11-inch and 13-inch devices. CI device
+job runs the UI suite on both 11-inch and 13-inch devices, completing boot,
+testing and shutdown for one device before starting the other. Each command has
+a timeout; failed boot/test operations save resource diagnostics, and failed
+shutdown stops the suite to avoid overlapping simulators. CI device
 builds are unsigned; simulator tests do not establish physical-device performance.
 
 The current main-branch ruleset requires `build and test` and 80% coverage, but
