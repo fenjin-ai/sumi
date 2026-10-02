@@ -21,11 +21,15 @@ def package(binary_dir, distribution):
     resources = contents / 'Resources'
     shutil.copytree('Resources', resources, symlinks=True)
     (resources / 'Preview-Info.plist').unlink()
+    (resources / 'Info.plist').unlink()
+    for signing_file in resources.glob('*.entitlements*'):
+        signing_file.unlink()
     for directory in ('MacOS', 'Helpers'):
         (contents / directory).mkdir(parents=True)
     shutil.copy2(binary_dir / 'LeftBlank', contents / 'MacOS/LeftBlank')
     shutil.copy2(binary_dir / 'LeftBlankMCP', contents / 'Helpers/LeftBlankMCP')
-    shutil.copy2('.tools/tinymist', contents / 'Helpers/tinymist')
+    engine = '.tools/tinymist-appstore' if distribution == 'appstore' else '.tools/tinymist'
+    shutil.copy2(engine, contents / 'Helpers/tinymist')
     # Native SwiftPM embeds its PackageFrameworks path ahead of the app's rpath.
     # Remove build-machine paths so cold-launch checks exercise bundled code.
     for executable in (contents / 'MacOS/LeftBlank', contents / 'Helpers/LeftBlankMCP'):
@@ -37,6 +41,9 @@ def package(binary_dir, distribution):
         shutil.copytree(bundle, resources / bundle.name, symlinks=True)
     info = plistlib.loads(Path('Resources/Info.plist').read_bytes())
     info['LeftBlankDistribution'] = distribution
+    if distribution == 'appstore':
+        # The App Store engine uses Apple's Security Framework for HTTPS.
+        info['ITSAppUsesNonExemptEncryption'] = False
     info['LeftBlankCommit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
     if preview:
         info.update(plistlib.loads(Path('Resources/Preview-Info.plist').read_bytes()))

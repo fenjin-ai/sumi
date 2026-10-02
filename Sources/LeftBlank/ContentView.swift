@@ -41,7 +41,7 @@ struct ContentView: View {
                                 if workspace.layout != .preview {
                                     FloatingOutline(
                                         workspace: workspace,
-                                        availableMargin: max(36, (editorWidth - 740) / 2),
+                                        availableMargin: ManuscriptLayout.horizontalInset(for: editorWidth),
                                     )
                                     .padding(.leading, 6).padding(.top, 64)
                                 }
@@ -142,26 +142,13 @@ struct ContentView: View {
                 }.padding(8)
             }
             .overlay(alignment: .bottomLeading) {
-                VStack(alignment: .leading, spacing: 6) {
-                    if let main = workspace.mainFileURL {
-                        Button { workspace.open(main) } label: {
-                            Label(L10n.text("Return to Main Document"), systemImage: "arrow.uturn.backward")
-                        }.buttonStyle(.plain).font(.system(size: 10))
-                    }
-                    if workspace.previewStale, workspace.previewURL != nil {
-                        Button { workspace.checksOpen = true } label: {
-                            HStack(spacing: 6) {
-                                Circle().fill(Theme.accent).frame(width: 4, height: 4)
-                                Text(workspace.hasSuccessfulPreview ? L10n
-                                    .text("Showing the last successful preview while your changes are typeset") : L10n
-                                    .text("Waiting for the first successful preview"))
-                                    .font(.system(size: 10)).lineLimit(2)
-                            }
-                        }.buttonStyle(.plain).learningHelp(L10n.text("Check Source"))
-                    }
-                }.foregroundStyle(Theme.secondary).padding(8)
-                    .background(Theme.panel.opacity(0.94), in: RoundedRectangle(cornerRadius: 7)).padding(8)
-                    .opacity(workspace.previewStale || workspace.mainFileURL != nil ? 1 : 0)
+                if let main = workspace.mainFileURL {
+                    Button { workspace.open(main) } label: {
+                        Label(L10n.text("Return to Main Document"), systemImage: "arrow.uturn.backward")
+                    }.buttonStyle(.plain).font(.system(size: 10))
+                        .foregroundStyle(Theme.secondary).padding(8)
+                        .background(Theme.panel.opacity(0.94), in: RoundedRectangle(cornerRadius: 7)).padding(8)
+                }
             }
     }
 
