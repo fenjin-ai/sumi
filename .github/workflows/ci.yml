@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   integration:
@@ -19,6 +19,7 @@ jobs:
     runs-on: macos-15
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      SUMI_DISTRIBUTION: preview
     timeout-minutes: 25
     permissions:
       contents: read
@@ -33,6 +34,7 @@ jobs:
           path: |
             .build/repositories
             .build/checkouts
+            .build/artifacts
           key: swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('Package.resolved') }}
       - name: Toolchain
         run: |
@@ -68,25 +70,21 @@ jobs:
           path: build/benchmarks
           if-no-files-found: warn
           retention-days: 14
-      - name: Release build and signature validation
-        if: github.event_name != 'pull_request'
+      - name: Verify App Store build excludes the updater
+        env:
+          SUMI_DISTRIBUTION: appstore
         run: |
-          scripts/build.sh release
-          codesign --verify --deep --strict build/Sumi.app
-          build/Sumi.app/Contents/Helpers/tinymist --version
           source scripts/environment.sh
-          python3 scripts/smoke-app.py --development-resources "$(swift build -c release --show-bin-path)/Sumi_SumiCore.bundle"
-      - name: Package manual test build
-        if: github.event_name == 'workflow_dispatch'
-        run: ditto -c -k --sequesterRsrc --keepParent build/Sumi.app build/Sumi-CI.zip
-      - name: Upload runnable app
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: app-macos-15
-          path: build/Sumi-CI.zip
-          if-no-files-found: error
-          retention-days: 7
+          SUMI_INTEGRATION=1 swift test --filter distributionUsesMatchingAppAndAgentIdentity
+          binary="$(swift build --show-bin-path)/Sumi"
+          if otool -L "$binary" | grep -q Sparkle; then
+            echo 'App Store binary unexpectedly links Sparkle.' >&2
+            exit 1
+          fi
+      - name: Release automation contracts
+        run: |
+          source scripts/environment.sh
+          python3 scripts/test-preview-release.py
       - name: Coverage summary
         if: always()
         run: |
@@ -104,11 +102,80 @@ jobs:
           path: build/coverage
           if-no-files-found: warn
           retention-days: 14
-      - name: Packaged launch diagnostics
-        if: ${{ always() && github.event_name != 'pull_request' }}
+  preview:
+    name: Signed preview
+    needs: integration
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      SUMI_DISTRIBUTION: preview
+      SUMI_BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Cache Swift package sources
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .build/repositories
+            .build/checkouts
+            .build/artifacts
+          key: preview-swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('Package.resolved') }}
+      - name: Sign, notarize and prepare the update
+        env:
+          SIGNING_CERTIFICATE_P12: ${{ secrets.SIGNING_CERTIFICATE_P12 }}
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: scripts/release.sh
+      - name: Cold-launch the signed package
+        run: |
+          source scripts/environment.sh
+          python3 scripts/smoke-app.py --app 'build/Sumi Preview.app' --development-resources "$(swift build -c release --show-bin-path)/Sumi_SumiCore.bundle"
+      - name: Upload runnable app
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: launch-smoke-macos-15
-          path: build/launch-smoke
+          name: Sumi-Preview-${{ github.run_number }}.${{ github.run_attempt }}-${{ github.sha }}
+          path: |
+            build/release/*.zip
+            build/release/*.sha256
+            build/release/appcast.xml
+          if-no-files-found: error
+          retention-days: 7
+      - name: Release diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: preview-diagnostics
+          path: |
+            build/notarization
+            build/launch-smoke
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7
+  publish-preview:
+    name: Publish preview update
+    needs: preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: preview-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: Sumi-Preview-${{ github.run_number }}.${{ github.run_attempt }}-${{ github.sha }}
+          path: build/release
+      - name: Publish versioned package and signed feed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish-preview.py

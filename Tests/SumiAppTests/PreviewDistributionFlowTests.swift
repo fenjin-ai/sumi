@@ -52,6 +52,17 @@ extension WritingFlowTests {
         let automatic = updater.makeAutomaticChecksMenuItem()
         #expect(updater.validateMenuItem(automatic))
         #expect(automatic.state == (updater.controller.updater.automaticallyChecksForUpdates ? .on : .off))
+        let original = updater.controller.updater.automaticallyChecksForUpdates
+        defer { updater.controller.updater.automaticallyChecksForUpdates = original }
+        let action = try #require(automatic.action)
+        #expect(NSApp.sendAction(action, to: automatic.target, from: automatic))
+        #expect(updater.controller.updater.automaticallyChecksForUpdates != original)
+        #expect(updater.validateMenuItem(automatic))
+        #expect(automatic.state == (original ? .off : .on))
+        #expect(NSApp.sendAction(action, to: automatic.target, from: automatic))
+        #expect(updater.controller.updater.automaticallyChecksForUpdates == original)
+        updater.start()
+        #expect(!updater.controller.updater.sessionInProgress)
         #expect(!updater.validateMenuItem(check))
     }
     #endif

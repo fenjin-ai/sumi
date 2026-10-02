@@ -41,7 +41,8 @@ def main():
         try:
             with (artifacts / 'process.log').open('wb') as output:
                 process = subprocess.Popen(
-                    [str(relocated / 'Contents/MacOS/Sumi'), '-appLanguage', 'zh-Hans'],
+                    [str(relocated / 'Contents/MacOS/Sumi'), '-appLanguage', 'zh-Hans',
+                     '-SUEnableAutomaticChecks', 'NO'],
                     cwd=root, env={**os.environ, 'SUMI_STATE_DIR': str(state)},
                     stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT,
                     start_new_session=True,
