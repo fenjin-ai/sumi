@@ -1,5 +1,7 @@
 # Implementation and verification record
 
+Historical validation entries below describe testing before the LeftBlank rename. The renamed application identity and transferred repository require fresh signing/provisioning and CI validation before release.
+
 Date: 2026-10-01. This record preserves evidence from each development iteration. New feature acceptance is recorded separately; historical counts and measurements refer to the stated version.
 
 ## 0.5.0 (9) follow-up · Real books and visual discovery
@@ -57,7 +59,7 @@ Hosted CI exposed a Swift 6.2.4 compiler crash and a case-sensitive localized-re
 - A fixed command-panel height and guide position keep the editor stable through search, keyboard selection and parameter forms. Hover no longer causes a selection/scroll feedback loop.
 - Repeated whole-document metrics, icon decoding, queries and full-buffer style refreshes were removed from command navigation. A roughly 100,000-character benchmark is documented in [interaction and performance](interaction.md).
 - **43 tests passed**: 23 core and 20 app functional tests. Production line coverage was **88.97% (2404/2702)**. Added checks cover native window geometry, narrow forms, icon resources, shortcut aliases, tooltip size, Unicode caches and long-document performance.
-- The signing workflow passed real Apple notarization and Gatekeeper verification. Codecov uses GitHub OIDC, a main badge, numeric PR comments and 80% project/patch checks. See [PR #2's coverage report](https://github.com/fenjin-ai/sumi/pull/2#issuecomment-5926250299).
+- The signing workflow passed real Apple notarization and Gatekeeper verification. Codecov uses GitHub OIDC, a main badge, numeric PR comments and 80% project/patch checks. See [PR #2's coverage report](https://github.com/leftblank-app/leftblank/pull/2#issuecomment-5926250299).
 - The approved identity is a continuous Sigma generated from a golden-ratio skeleton and sine pressure envelope. App icons, README, social previews and favicons share its source and documented generation process. Development build 5 includes the icon.
 
 ## 0.2.0 · Discovery, reading and engineering
@@ -68,7 +70,7 @@ Hosted CI exposed a Swift 6.2.4 compiler crash and a case-sensitive localized-re
 - Reading styles for headings, emphasis and inline code reveal source in the active paragraph. Indentation, comments, formatting and native undo are available. Integration testing found and fixed a workspace/editor mismatch after insertion undo.
 - **36 tests passed**: 22 core/protocol/compilation cases and 14 native app flows. They use `NSTextView`, Workspace, `WKWebView`, Tinymist and PDF content checks. Hidden WebKit windows drive animation frames with a timer while still running the real WASM renderer and asserting retained pages and page-count changes.
 - Production line coverage was **88.65% (2163/2440)**. CI requires 80% without excluding interface files and retains LCOV, LLVM JSON and HTML.
-- The public repository is [fenjin-ai/sumi](https://github.com/fenjin-ai/sumi). Release publication requires Developer ID, notarization, stapling and Gatekeeper success. Configuration and real release validation are documented in [signing](signing.md).
+- The public repository is [leftblank-app/leftblank](https://github.com/leftblank-app/leftblank). Release publication requires Developer ID, notarization, stapling and Gatekeeper success. Configuration and real release validation are documented in [signing](signing.md).
 
 User edits to an existing local example were preserved and excluded from implementation commits.
 
@@ -97,7 +99,7 @@ Verification used macOS 27, Xcode Swift 6.4 and an arm64 Mac, targeting macOS 14
 |---|---|
 | `scripts/build.sh release` | Passed; app includes arm64 Tinymist |
 | `scripts/test.sh` | 11 tests passed, none failed |
-| `codesign --verify --deep --strict --verbose=2 build/Sumi.app` | Development signature passed |
+| `codesign --verify --deep --strict --verbose=2 build/LeftBlank.app` | Development signature passed |
 | `git diff --check` | No whitespace errors |
 
 Ten core tests covered UTF-16/emoji/CRLF positions, byte-boundary framing, malformed headers, parameter validation, string escaping, literal preservation, code fences, paragraph separation, preamble order, external modification/deletion protection, discovery and recovery data.

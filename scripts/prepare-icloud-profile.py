@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a Developer ID profile and derive only Sumi's required entitlements."""
+"""Validate a Developer ID profile and derive only LeftBlank's required entitlements."""
 import argparse
 import datetime
 import hashlib
@@ -9,8 +9,8 @@ import subprocess
 
 
 def entitlements(profile, team, identity, now):
-    app = 'app.sumi.writer'
-    container = 'iCloud.app.sumi.writer'
+    app = 'app.leftblank.writer'
+    container = 'iCloud.app.leftblank.writer'
     if profile.get('TeamIdentifier') != [team]:
         raise ValueError('Provisioning profile team does not match signing team.')
     if profile.get('ExpirationDate', datetime.datetime.min) <= now:
@@ -58,7 +58,7 @@ def main():
     profile = plistlib.loads(decoded)
     result = entitlements(profile, args.team, args.identity, datetime.datetime.utcnow())
     args.output.write_bytes(plistlib.dumps(result))
-    print('Validated Developer ID profile for Sumi iCloud Documents and preferences.')
+    print('Validated Developer ID profile for LeftBlank iCloud Documents and preferences.')
 
 
 if __name__ == '__main__':

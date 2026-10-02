@@ -16,10 +16,10 @@ environment = os.environ | {
     "LIBDISPATCH_COOPERATIVE_POOL_STRICT": "1",
     "LLVM_PROFILE_FILE": str(output.resolve() / "%p.profraw"),
 }
-binary_directory = Path(os.environ["SUMI_MCP_HELPER"]).parent
-bundle = binary_directory / "SumiAutomationTests.xctest"
+binary_directory = Path(os.environ["LEFTBLANK_MCP_HELPER"]).parent
+bundle = binary_directory / "LeftBlankAutomationTests.xctest"
 if not bundle.is_dir():
-    bundle = binary_directory / "SumiPackageTests.xctest"
+    bundle = binary_directory / "LeftBlankPackageTests.xctest"
 test_binary = bundle / "Contents/MacOS" / bundle.stem
 if not test_binary.is_file():
     sys.exit(f"Built automation tests not found: {test_binary}")

@@ -19,17 +19,17 @@ args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 binary_dir = Path(subprocess.check_output(["swift", "build", "--show-bin-path"], cwd=root, text=True).strip())
 profile_directory = binary_dir / "codecov"
-profile = profile_directory / "sumi.profdata"
+profile = profile_directory / "leftblank.profdata"
 raw_profiles = sorted(profile_directory.glob("*.profraw"))
 if not raw_profiles:
     sys.exit("No test coverage profiles were produced.")
 subprocess.run(["xcrun", "llvm-profdata", "merge", "-sparse", *map(str, raw_profiles), "-o", str(profile)], check=True)
 # Swift 6.4's swiftbuild backend creates one bundle per test target; older
-# SwiftPM produces SumiPackageTests. Merge all bundles into one app report.
+# SwiftPM produces LeftBlankPackageTests. Merge all bundles into one app report.
 binaries = sorted(p for p in binary_dir.glob("*.xctest/Contents/MacOS/*") if p.is_file())
 if not binaries:
     sys.exit("No Swift test bundles found.")
-helper = binary_dir / "SumiMCP"
+helper = binary_dir / "LeftBlankMCP"
 if helper.exists():
     binaries.append(helper)
 objects = [str(binaries[0])]
@@ -48,7 +48,7 @@ for record in lcov.split("end_of_record"):
         if line.startswith("DA:"):
             number, hits, *_ = line[3:].split(",")
             entries[int(number)] = max(entries.get(int(number), 0), int(hits))
-expected = {p.resolve() for folder in ("Sources/SumiCore", "Sources/Sumi", "Sources/SumiAutomation", "Sources/SumiMCPServer") for p in (root / folder).glob("**/*.swift")}
+expected = {p.resolve() for folder in ("Sources/LeftBlankCore", "Sources/LeftBlank", "Sources/LeftBlankAutomation", "Sources/LeftBlankMCPServer") for p in (root / folder).glob("**/*.swift")}
 by_path = {Path(entry["filename"]).resolve(): entry for data in report["data"] for entry in data["files"] if Path(entry["filename"]).resolve() in expected}
 files = list(by_path.values())
 missing = expected - {Path(entry["filename"]).resolve() for entry in files}
@@ -82,7 +82,7 @@ rows = ["| File | Covered lines | Coverage |", "|---|---:|---:|"]
 for entry in sorted(files, key=lambda f: f["filename"]):
     lines = entry["sourceLineCoverage"]
     rows.append(f"| {Path(entry['filename']).relative_to(root)} | {lines['covered']}/{lines['count']} | {lines['percent']:.1f}% |")
-summary = f"Application source-line coverage: **{percent:.2f}%** ({covered}/{total}), required **{args.minimum:g}%**.\n\nEvery executable implementation line under `Sources/SumiCore`, `Sources/Sumi`, `Sources/SumiAutomation`, and `Sources/SumiMCPServer` is counted once using LCOV DA records. Only the two minimal process launchers are outside the gate. No UI exclusions.\n\n" + "\n".join(rows) + "\n"
+summary = f"Application source-line coverage: **{percent:.2f}%** ({covered}/{total}), required **{args.minimum:g}%**.\n\nEvery executable implementation line under `Sources/LeftBlankCore`, `Sources/LeftBlank`, `Sources/LeftBlankAutomation`, and `Sources/LeftBlankMCPServer` is counted once using LCOV DA records. Only the two minimal process launchers are outside the gate. No UI exclusions.\n\n" + "\n".join(rows) + "\n"
 (output / "summary.md").write_text(summary)
 print(summary)
 subprocess.run(["xcrun", "llvm-cov", "show", *objects, f"-instr-profile={profile}", "-format=html", f"-output-dir={output / 'html'}", *map(str, sorted(expected))], check=True, stdout=subprocess.DEVNULL)

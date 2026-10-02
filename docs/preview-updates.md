@@ -1,17 +1,17 @@
 # Preview updates
 
-Sumi Preview (留白预览版) is the main-branch testing channel. It can coexist with
-Sumi, including the future App Store edition. The marketing version changes with
-releases; the build number identifies each CI build. About Sumi Preview also
+LeftBlank Preview (留白预览版) is the main-branch testing channel. It can coexist with
+LeftBlank, including the future App Store edition. The marketing version changes with
+releases; the build number identifies each CI build. About LeftBlank Preview also
 shows the source commit.
 
 ## Writing and preferences stay separate
 
-| | Sumi | Sumi Preview |
+| | LeftBlank | LeftBlank Preview |
 | --- | --- | --- |
-| Bundle identifier and preferences domain | `app.sumi.writer` | `app.sumi.writer.preview` |
-| Application Support directory | `Sumi` | `Sumi Preview` |
-| Codex connection name | `sumi` | `sumi-preview` |
+| Bundle identifier and preferences domain | `app.leftblank.writer` | `app.leftblank.writer.preview` |
+| Application Support directory | `LeftBlank` | `LeftBlank Preview` |
+| Codex connection name | `leftblank` | `leftblank-preview` |
 | iCloud | Available when provisioned | Disabled |
 
 Each directory contains its own library, history, recovery copies, exports,
@@ -19,12 +19,12 @@ logs and local agent socket. Preview does not migrate or open the production
 library automatically. Import a document or project to test a separate copy.
 Opening an external file deliberately still edits that file. Preview's MCP
 helper is compiled with the same distribution identity as its app, so agents
-connect to the matching library. `SUMI_STATE_DIR` remains an explicit development
+connect to the matching library. `LEFTBLANK_STATE_DIR` remains an explicit development
 and test override for both executables.
 
 ## Update experience
 
-Only a build made with `SUMI_DISTRIBUTION=preview` resolves and links Sparkle.
+Only a build made with `LEFTBLANK_DISTRIBUTION=preview` resolves and links Sparkle.
 Direct and App Store builds have no Sparkle dependency, update menu or feed.
 The App Store handles its own updates.
 
@@ -48,7 +48,7 @@ Preview uses Sparkle 2's native update flow:
   are checked before extraction, and archives contain signed, notarized apps.
   No analytics or system-profile collection is enabled.
 
-The package script supplies `SUFeedURL`, `SUPublicEDKey`, `SumiCommit` and the
+The package script supplies `SUFeedURL`, `SUPublicEDKey`, `LeftBlankCommit` and the
 internal build number. Signing and publishing credentials are CI secrets; no
 private key belongs in the app or repository. A feed always points to an
 immutable versioned archive, preserving the bytes covered by its signature.
@@ -91,7 +91,7 @@ To check a local development package:
 
 ```sh
 source scripts/environment.sh
-SUMI_DISTRIBUTION=preview scripts/build.sh release
+LEFTBLANK_DISTRIBUTION=preview scripts/build.sh release
 python3 scripts/test-preview-release.py
 ```
 

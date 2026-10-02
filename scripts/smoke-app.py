@@ -18,22 +18,22 @@ import uuid
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--app', type=Path, default=Path('build/Sumi.app'))
+    parser.add_argument('--app', type=Path, default=Path('build/LeftBlank.app'))
     parser.add_argument('--development-resources', type=Path, required=True)
     parser.add_argument('--artifacts', type=Path, default=Path('build/launch-smoke'))
     args = parser.parse_args()
     app = args.app.resolve(strict=True)
     resources = args.development_resources.resolve(strict=True)
-    if resources.name != 'Sumi_SumiCore.bundle':
-        parser.error('Expected the SwiftPM Sumi_SumiCore.bundle directory')
+    if resources.name != 'LeftBlank_LeftBlankCore.bundle':
+        parser.error('Expected the SwiftPM LeftBlank_LeftBlankCore.bundle directory')
     artifacts = args.artifacts.resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
     # Require an explicitly configured temporary directory (SSD locally).
     temp_root = Path(os.environ['TMPDIR']).resolve(strict=True)
     hidden = resources.with_name(resources.name + '.smoke-' + uuid.uuid4().hex)
-    with tempfile.TemporaryDirectory(prefix='sumi-launch-', dir=temp_root) as temporary:
+    with tempfile.TemporaryDirectory(prefix='leftblank-launch-', dir=temp_root) as temporary:
         root = Path(temporary)
-        relocated = root / 'Sumi.app'
+        relocated = root / 'LeftBlank.app'
         shutil.copytree(app, relocated, symlinks=True)
         state = root / 'State'
         process = None
@@ -41,9 +41,9 @@ def main():
         try:
             with (artifacts / 'process.log').open('wb') as output:
                 process = subprocess.Popen(
-                    [str(relocated / 'Contents/MacOS/Sumi'), '-appLanguage', 'zh-Hans',
+                    [str(relocated / 'Contents/MacOS/LeftBlank'), '-appLanguage', 'zh-Hans',
                      '-SUEnableAutomaticChecks', 'NO'],
-                    cwd=root, env={**os.environ, 'SUMI_STATE_DIR': str(state)},
+                    cwd=root, env={**os.environ, 'LEFTBLANK_STATE_DIR': str(state)},
                     stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT,
                     start_new_session=True,
                 )

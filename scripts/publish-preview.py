@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import xml.etree.ElementTree as ET
 
-REPO = 'fenjin-ai/sumi'
+REPO = 'leftblank-app/leftblank'
 FEED_TAG = 'preview-latest'
 
 
@@ -33,14 +33,14 @@ def main():
     # GITHUB_SHA must be the commit that passed the dependency job, never a fresh checkout of main.
     subprocess.run(['git', 'merge-base', '--is-ancestor', commit, 'origin/main'], check=True)
     notes = directory / 'notes.md'
-    notes.write_text(f'Tested main build **{build}**, commit `{commit}`.\n\nDownload the ZIP, unzip and drag **Sumi Preview.app** to Applications. Preview uses its own local library and offers signed updates. It does not access the stable app\'s iCloud library.\n')
+    notes.write_text(f'Tested main build **{build}**, commit `{commit}`.\n\nDownload the ZIP, unzip and drag **LeftBlank Preview.app** to Applications. Preview uses its own local library and offers signed updates. It does not access the stable app\'s iCloud library.\n')
     if not release_exists(tag):
         gh('release', 'create', tag, *map(str, directory.glob('*.zip')), *map(str, directory.glob('*.sha256')),
            str(directory / 'appcast.xml'), '--target', commit, '--prerelease', '--latest=false',
-           '--title', f'Sumi Preview {build}', '--notes-file', str(notes))
+           '--title', f'LeftBlank Preview {build}', '--notes-file', str(notes))
     if not release_exists(FEED_TAG):
         gh('release', 'create', FEED_TAG, '--target', commit, '--prerelease', '--latest=false',
-           '--title', 'Sumi Preview updates', '--notes', 'Signed update feed for Sumi Preview. The feed tag stays fixed; each app archive has its own immutable build tag.')
+           '--title', 'LeftBlank Preview updates', '--notes', 'Signed update feed for LeftBlank Preview. The feed tag stays fixed; each app archive has its own immutable build tag.')
     # GitHub concurrency prevents simultaneous writes. Also reject an old rerun
     # so it can never make a previously published newer build disappear.
     current = directory / 'current-feed'
@@ -53,7 +53,7 @@ def main():
             print(f'Feed already points to {previous}; preserving it.')
             return
     gh('release', 'upload', FEED_TAG, str(directory / 'appcast.xml'), '--clobber')
-    print(f'Published Sumi Preview {build}.')
+    print(f'Published LeftBlank Preview {build}.')
 
 
 if __name__ == '__main__':

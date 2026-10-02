@@ -1,4 +1,4 @@
-# Sumi architecture
+# LeftBlank architecture
 
 The architecture prioritizes native input, maintainability, offline writing and reuse of Tinymist. Integrations follow the observed behavior of pinned versions rather than assumptions about undocumented protocols.
 
@@ -117,7 +117,7 @@ Functional tests use production windows, text views, workspace, WebKit and Tinym
 
 Coverage merges test-bundle profiles and deduplicates LCOV file/line records. All first-party production Swift must be accounted for; missing files fail the report, and overall coverage must reach 80%. Raw LLVM JSON, LCOV, file summaries and HTML remain available. Coverage does not replace behavioral assertions or real visual checks.
 
-Local scripts keep downloads, build outputs and test data on the SSD checkout. `build/Sumi.app` has a development signature. Release scripts import a Developer ID identity into a temporary keychain, sign helpers and the app, notarize, staple and validate with Gatekeeper. Release commits must already belong to main, and version tags must match `Info.plist`. Missing credentials or failed validation stop publication. See [signing](signing.md).
+Local scripts keep downloads, build outputs and test data on the SSD checkout. `build/LeftBlank.app` has a development signature. Release scripts import a Developer ID identity into a temporary keychain, sign helpers and the app, notarize, staple and validate with Gatekeeper. Release commits must already belong to main, and version tags must match `Info.plist`. Missing credentials or failed validation stop publication. See [signing](signing.md).
 
 GitHub Actions uses macOS 15 arm64 runners, pinned action commits and pinned dependency checksums. PR/main jobs run functional tests, coverage and release builds. Version tags rerun verification, produce an arm64 ZIP plus SHA-256, and publish a GitHub Release. Permissions are limited to each job's needs.
 
@@ -138,7 +138,7 @@ An opt-in, same-user socket connects the app to a separate official-SDK MCP help
 The pinned Tinymist 0.15.8 frontend combines partial SVG pages with an optional
 canvas fallback inside SVG foreignObjects. With SICP this creates hundreds of
 canvas surfaces under a root SVG over a million CSS pixels tall at wide-window
-zoom. Real-window acceptance exposed incorrect/blank composition. Sumi disables
+zoom. Real-window acceptance exposed incorrect/blank composition. LeftBlank disables
 that optional `feat$canvas` mixin on registered preview documents and retains
 Tinymist's viewport-driven SVG patches, source mapping and continuous scrolling.
 This is a version-specific frontend adapter; the complete-book preview integration

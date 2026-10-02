@@ -4,10 +4,10 @@ set -euo pipefail
 set +x
 cd "$(dirname "$0")/.."
 source scripts/environment.sh
-distribution=${SUMI_DISTRIBUTION:-direct}
+distribution=${LEFTBLANK_DISTRIBUTION:-direct}
 required=(SIGNING_CERTIFICATE_P12 SIGNING_CERTIFICATE_PASSWORD APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_PRIVATE_KEY APPLE_TEAM_ID)
 if [ "$distribution" = preview ]; then
-  required+=(SUMI_BUILD_NUMBER SPARKLE_PRIVATE_KEY)
+  required+=(LEFTBLANK_BUILD_NUMBER SPARKLE_PRIVATE_KEY)
 elif [ "$distribution" = direct ]; then
   required+=(ICLOUD_PROVISIONING_PROFILE)
 else
@@ -18,7 +18,7 @@ for variable in "${required[@]}"; do
 done
 test "$(uname -m)" = arm64 || { echo 'Public releases support Apple Silicon only.' >&2; exit 1; }
 umask 077
-signing_dir=$(mktemp -d "$TMPDIR/sumi-signing.XXXXXX")
+signing_dir=$(mktemp -d "$TMPDIR/leftblank-signing.XXXXXX")
 keychain="$signing_dir/signing.keychain-db"
 security list-keychains -d user > "$signing_dir/keychains.txt"
 set_keychain_search_list() {
@@ -58,10 +58,10 @@ unset SIGNING_CERTIFICATE_P12 SIGNING_CERTIFICATE_PASSWORD APP_STORE_CONNECT_PRI
 identities=$(security find-identity -v -p codesigning "$keychain" | awk '/"Developer ID Application:/ {print $2}')
 test "$(printf '%s\n' "$identities" | awk 'NF {n++} END {print n+0}')" = 1 || { echo 'Expected exactly one valid Developer ID Application identity.' >&2; exit 1; }
 scripts/build.sh release
-app=build/Sumi.app
+app=build/LeftBlank.app
 entitlements=""
 if [ "$distribution" = preview ]; then
-  app="build/Sumi Preview.app"
+  app="build/LeftBlank Preview.app"
 else
   python3 scripts/prepare-icloud-profile.py --profile "$signing_dir/icloud.provisionprofile" --team "$APPLE_TEAM_ID" --identity "$identities" --output "$signing_dir/icloud.entitlements"
   cp "$signing_dir/icloud.provisionprofile" "$app/Contents/embedded.provisionprofile"
@@ -110,13 +110,13 @@ xcrun stapler validate "$app"
 codesign --verify --deep --strict "$app"
 spctl --assess --type execute --verbose=2 "$app"
 version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)
-archive="Sumi-${version}-macOS-arm64.zip"
+archive="LeftBlank-${version}-macOS-arm64.zip"
 if [ "$distribution" = preview ]; then
-  archive="Sumi-Preview-${version}-${SUMI_BUILD_NUMBER}-macOS-arm64.zip"
+  archive="LeftBlank-Preview-${version}-${LEFTBLANK_BUILD_NUMBER}-macOS-arm64.zip"
 fi
 ditto -c -k --sequesterRsrc --keepParent "$app" "build/release/$archive"
 (cd build/release && shasum -a 256 "$archive" > "$archive.sha256")
 if [ "$distribution" = preview ]; then
-  python3 scripts/preview-feed.py "build/release/$archive" "$SUMI_BUILD_NUMBER"
+  python3 scripts/preview-feed.py "build/release/$archive" "$LEFTBLANK_BUILD_NUMBER"
 fi
 echo "Signed, notarized and stapled: build/release/$archive"

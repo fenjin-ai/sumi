@@ -81,4 +81,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "$GITHUB_REF_NAME" release/* --verify-tag --title "Sumi $GITHUB_REF_NAME" --generate-notes --notes 'Download, unzip and drag Sumi.app to Applications. Requires a Mac with an Apple M-series chip and macOS 14 or later.'
+          gh release create "$GITHUB_REF_NAME" release/* --verify-tag --title "LeftBlank $GITHUB_REF_NAME" --generate-notes --notes 'Download, unzip and drag LeftBlank.app to Applications. Requires a Mac with an Apple M-series chip and macOS 14 or later.'

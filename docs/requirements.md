@@ -1,4 +1,4 @@
-# Sumi product requirements
+# LeftBlank product requirements
 
 Established 2026-10-01. This document records the first release's product contract; later enhancements are documented separately.
 

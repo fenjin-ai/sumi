@@ -3,7 +3,7 @@ import Foundation
 import Testing
 @testable import TextDiffing
 
-@Suite(.serialized) struct SumiEvaluationTests {
+@Suite(.serialized) struct LeftBlankEvaluationTests {
     @Test func roundTripsWritingEdits() {
         let cases = [
             ("macOS 26 Fedora 44", "#macOS 26 #Fedora44"),
@@ -28,12 +28,12 @@ import Testing
             let new = (0..<count).map { "omega\($0)" }.joined(separator: " ")
             let start = ContinuousClock.now
             let result = TextDiffer.diff(old, and: new, style: style)
-            print("SUMI_DIFF rewritten bytes=\(old.utf8.count) duration=\(start.duration(to: .now)) changes=\(result.changeCount)")
+            print("LEFTBLANK_DIFF rewritten bytes=\(old.utf8.count) duration=\(start.duration(to: .now)) changes=\(result.changeCount)")
         }
         let book = (0..<40_000).map { "Line \($0): 思考与书写 $alpha + beta$.\n" }.joined()
         let edited = book.replacingOccurrences(of: "Line 20000:", with: "Edited 20000:")
         let start = ContinuousClock.now
         let result = TextDiffer.diff(book, and: edited, style: style)
-        print("SUMI_DIFF book bytes=\(book.utf8.count) duration=\(start.duration(to: .now)) changes=\(result.changeCount)")
+        print("LEFTBLANK_DIFF book bytes=\(book.utf8.count) duration=\(start.duration(to: .now)) changes=\(result.changeCount)")
     }
 }

@@ -6,7 +6,7 @@ mkdir -p .tools
 version=0.15.8
 case "$(uname -m)" in
   arm64) arch=aarch64; expected=c3e8673fe4b7d8d21ad6d90e3c0684317191e1350758f7eaa02b5bde84339885 ;;
-  *) echo 'Sumi supports Apple Silicon (arm64) only' >&2; exit 1 ;;
+  *) echo 'LeftBlank supports Apple Silicon (arm64) only' >&2; exit 1 ;;
 esac
 archive="tinymist-${arch}-apple-darwin.tar.gz"
 base="https://github.com/Myriad-Dreamin/tinymist/releases/download/v${version}"

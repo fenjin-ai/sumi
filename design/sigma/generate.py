@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Sumi's approved Σ identity from golden-ratio geometry.
+"""Generate LeftBlank's approved Σ identity from golden-ratio geometry.
 
 python3 design/sigma/generate.py           # SVG and web manifest; stdlib only
 python3 design/sigma/generate.py --raster  # Also PNG, ICO and ICNS; macOS + librsvg
@@ -112,7 +112,7 @@ def svg(body, width=1024, height=1024):
 
 
 def social_preview(chinese=False):
-    name = "留白" if chinese else "Sumi"
+    name = "留白" if chinese else "LeftBlank"
     tagline = "此中有真意，欲辨已忘言" if chinese else "Ink for your thoughts"
     return svg(
         '<rect width="1280" height="640" fill="#191C20"/>'
@@ -192,13 +192,13 @@ def main():
     (root / "Resources/AppIconLight.svg").write_text(svg(tile(light=True)))
     (brand / "mark-light.svg").write_text(svg(mark()))
     (brand / "mark-dark.svg").write_text(svg(mark(ink=PAPER)))
-    for destination in [root / "Examples/sumi-mark.svg", root / "Sources/SumiCore/Resources/Templates/sumi-mark.svg"]:
+    for destination in [root / "Examples/leftblank-mark.svg", root / "Sources/LeftBlankCore/Resources/Templates/leftblank-mark.svg"]:
         destination.write_text(svg(mark(ink=PAPER)))
     (brand / "social-preview.svg").write_text(social_preview())
     (brand / "social-preview.zh-Hans.svg").write_text(social_preview(chinese=True))
     (web / "favicon.svg").write_text(svg(tile(compact=True)))
     manifest = {
-        "name": "Sumi", "short_name": "Sumi", "description": "Ink for your thoughts",
+        "name": "LeftBlank", "short_name": "LeftBlank", "description": "Ink for your thoughts",
         "theme_color": PAPER, "background_color": PAPER,
         "icons": [
             {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
@@ -209,7 +209,7 @@ def main():
     (web / "site.webmanifest").write_text(json.dumps(manifest, indent=2) + "\n")
     if options.raster:
         export_rasters(root, brand)
-    print(f"Generated Sumi Σ assets in {brand}")
+    print(f"Generated LeftBlank Σ assets in {brand}")
 
 
 if __name__ == "__main__":

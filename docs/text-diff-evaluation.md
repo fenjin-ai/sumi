@@ -1,6 +1,6 @@
 # History diff presentation
 
-Evaluated on 2026-10-01. Sumi keeps its bounded, background comparison and uses
+Evaluated on 2026-10-01. LeftBlank keeps its bounded, background comparison and uses
 Swift's standard-library `CollectionDifference` for highlights. TextDiffing is
 not a production dependency.
 
@@ -37,7 +37,7 @@ and explicit colors on the development Mac:
 These are individual local measurements, not portable latency guarantees. The
 public API does not provide a work budget or cancellation, so putting an
 unbounded call on a background task would still consume CPU and delay results.
-Pre-trimming and limiting inputs could make the package useful, but Sumi still
+Pre-trimming and limiting inputs could make the package useful, but LeftBlank still
 needs those policies and its own two-column mapping. Its core algorithm already
 uses `CollectionDifference`, which is available without an extra dependency.
 
@@ -64,10 +64,10 @@ above, and copy both `Benchmarks/Diffing/*Tests.swift` files into its
 
 ```sh
 swift test -c release --filter generatedEditsRoundTrip
-swift test -c release --filter SumiEvaluationTests
+swift test -c release --filter LeftBlankEvaluationTests
 ```
 
 The benchmark files are evaluation inputs for the upstream package, not targets
-of Sumi's normal test suite. Sumi's own tests cover multi-edit highlighting,
+of LeftBlank's normal test suite. LeftBlank's own tests cover multi-edit highlighting,
 Typst punctuation, Chinese/emoji/combining characters, empty inputs, bounded
 book rewrites, and native history selection, restoration and Undo.

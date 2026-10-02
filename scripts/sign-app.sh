@@ -18,7 +18,7 @@ if [ -d "$framework" ]; then
   codesign "${args[@]}" "$framework"
 fi
 codesign "${args[@]}" "$app/Contents/Helpers/tinymist"
-codesign "${args[@]}" "$app/Contents/Helpers/SumiMCP"
+codesign "${args[@]}" "$app/Contents/Helpers/LeftBlankMCP"
 if [ -n "$entitlements" ]; then args+=(--entitlements "$entitlements"); fi
 codesign "${args[@]}" "$app"
 codesign --verify --deep --strict "$app"

@@ -11,7 +11,7 @@ public enum TestPaths {
         if checkout.path.hasPrefix("/Volumes/SSD/Developer/") {
             let fingerprint = SHA256.hash(data: Data(checkout.path.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
             root = URL(fileURLWithPath: "/Volumes/SSD/Developer/Codex/tmp", isDirectory: true)
-                .appendingPathComponent("sumi-tests-" + fingerprint, isDirectory: true)
+                .appendingPathComponent("leftblank-tests-" + fingerprint, isDirectory: true)
         } else {
             root = checkout.appendingPathComponent("build/test-tmp", isDirectory: true)
         }
