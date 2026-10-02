@@ -94,7 +94,9 @@ public actor DocumentResourceStore {
         }
         let root = try validatedRoot(root, document: document)
         let directory = root.appendingPathComponent("assets", isDirectory: true)
-        guard directory.resolvingSymlinksInPath().standardizedFileURL == directory else {
+        // Foundation can drop a directory URL's trailing slash while resolving
+        // a path that does not exist yet. Compare filesystem paths, not URL hints.
+        guard directory.resolvingSymlinksInPath().standardizedFileURL.pathComponents == directory.pathComponents else {
             throw DocumentResourceError.invalidLocation
         }
         try manager.createDirectory(at: directory, withIntermediateDirectories: true)

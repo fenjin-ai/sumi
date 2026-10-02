@@ -52,6 +52,31 @@ private struct ResourceFixture {
     #expect(try await library.read(document.id).text == snippet.text)
 }
 
+@Test(arguments: [false, true])
+func resourcesCreateAndReuseAssetsWithEitherDirectoryURLHint(directoryHint: Bool) async throws {
+    let fixture = ResourceFixture()
+    let document = try fixture.prepare()
+    defer { fixture.close() }
+    let original = fixture.root.appendingPathComponent("figure.svg")
+    try fixture.svg.write(to: original)
+    let root = URL(fileURLWithPath: fixture.root.path, isDirectory: directoryHint)
+    let assets = root.appendingPathComponent("assets", isDirectory: true)
+    #expect(!FileManager.default.fileExists(atPath: assets.path))
+    let store = DocumentResourceStore()
+    let first = try await #require(store.importResources(
+        [.file(original)], kind: .image, in: root, relativeTo: document,
+    ).first)
+    #expect(FileManager.default.fileExists(atPath: assets.path))
+    let second = try await #require(store.importResources(
+        [.file(original)], kind: .image, in: root, relativeTo: document,
+    ).first)
+    #expect(first.url != second.url)
+    #expect(try Data(contentsOf: first.url) == fixture.svg)
+    #expect(try Data(contentsOf: second.url) == fixture.svg)
+    #expect(first.relativePath.hasPrefix("assets/"))
+    #expect(second.relativePath.hasPrefix("assets/"))
+}
+
 @Test func resourcesUseTheActiveSubdocumentBaseAndSkipSymlinks() async throws {
     let fixture = ResourceFixture()
     let main = try fixture.prepare()
