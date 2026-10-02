@@ -108,5 +108,20 @@ source revision changes. Ordinary selection and scrolling do not move the previe
 Clicks originating in the preview do not trigger a reverse navigation loop.
 
 The SICP fixture has natural prose wrapping; its original code newlines remain.
-The editor keeps its centered 740 pt maximum writing width and 36 pt minimum
-margins. Width changes reflow prose rather than doubling source hard wraps.
+The editor uses a centered, adaptive writing column with 36 pt minimum margins.
+Ordinary panes retain the familiar 740 pt column; wider panes grow to 70% of the
+editor pane, capped at 1080 pt. A 1440 pt editor pane therefore provides 1008 pt
+for writing, while a 1920 pt pane provides 1080 pt. Split layouts use the editor
+pane's width rather than the full window. The outline shares the same margin
+calculation, so pinning it never changes the text width. Width changes reflow
+prose rather than inserting source hard wraps.
+
+This default follows the distinction between readable line length and available
+screen space. [Bear](https://bear.app/faq/typography-options/) and
+[Ulysses](https://help.ulysses.app/dive-into-editing/editor-customization-guide)
+offer line-width preferences;
+[Obsidian](https://obsidian.md/help/settings) offers a readable-line-length
+toggle; [Typora](https://support.typora.io/Width-of-Writing-Area/) supports custom
+writing and source-mode widths. LeftBlank's 70% proportion and 1080 pt cap are
+its own design choices, not measured defaults from those editors. This change
+improves the default layout without introducing another preference.

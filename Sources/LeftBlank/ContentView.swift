@@ -41,7 +41,7 @@ struct ContentView: View {
                                 if workspace.layout != .preview {
                                     FloatingOutline(
                                         workspace: workspace,
-                                        availableMargin: max(36, (editorWidth - 740) / 2),
+                                        availableMargin: ManuscriptLayout.horizontalInset(for: editorWidth),
                                     )
                                     .padding(.leading, 6).padding(.top, 64)
                                 }
