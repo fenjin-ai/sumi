@@ -10,7 +10,7 @@ name = "LeftBlankMCP"
 path = "src/main.rs"
 
 [dependencies]
-base64 = "0.22.1"
+base64 = "0.23.1"
 futures-util = "0.3.31"
 jsonschema = { version = "=0.58.5", default-features = false }
 libc = "0.2.177"
