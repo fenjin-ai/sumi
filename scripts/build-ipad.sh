@@ -34,6 +34,7 @@ else
   export CARGO_HOME=/Volumes/SSD/Developer/Codex/cargo-ipad
 fi
 export IPHONEOS_DEPLOYMENT_TARGET=17.0
+scripts/prepare-ipad-engine.sh
 rustup toolchain install 1.92.0 --profile minimal --target "$target"
 cargo +1.92.0 build --locked --manifest-path Engine/TinymistBridge/Cargo.toml --release --target "$target"
 env -u CC -u CXX xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \

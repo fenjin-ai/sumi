@@ -573,7 +573,6 @@ dependencies = [
 [[package]]
 name = "cmark-writer"
 version = "0.9.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "cmark-writer-macros",
  "ecow",
@@ -585,7 +584,6 @@ dependencies = [
 [[package]]
 name = "cmark-writer-macros"
 version = "0.9.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4143,7 +4141,6 @@ dependencies = [
 [[package]]
 name = "sync-ls"
 version = "0.15.8"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "anyhow",
  "clap",
@@ -4367,7 +4364,6 @@ dependencies = [
 [[package]]
 name = "tinymist"
 version = "0.15.8"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4439,7 +4435,6 @@ dependencies = [
 [[package]]
 name = "tinymist-analysis"
 version = "0.15.8"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "comemo",
  "dashmap",
@@ -4477,7 +4472,6 @@ checksum = "0b72e2e8db7e7892ed1251c936e847253a81c5f27859c1ea6c8d26ac5044d3c0"
 [[package]]
 name = "tinymist-derive"
 version = "0.15.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "quote",
  "syn 2.0.119",
@@ -4486,7 +4480,6 @@ dependencies = [
 [[package]]
 name = "tinymist-l10n"
 version = "0.15.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "anyhow",
  "clap",
@@ -4500,7 +4493,6 @@ dependencies = [
 [[package]]
 name = "tinymist-lint"
 version = "0.15.8"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "comemo",
  "rayon",
@@ -4515,7 +4507,6 @@ dependencies = [
 [[package]]
 name = "tinymist-package"
 version = "0.15.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "base64 0.22.1",
  "comemo",
@@ -4538,7 +4529,6 @@ dependencies = [
 [[package]]
 name = "tinymist-preview"
 version = "0.15.8"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "bytes",
  "clap",
@@ -4566,7 +4556,6 @@ dependencies = [
 [[package]]
 name = "tinymist-project"
 version = "0.15.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "anyhow",
  "clap",
@@ -4595,7 +4584,6 @@ dependencies = [
 [[package]]
 name = "tinymist-query"
 version = "0.15.8"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -4650,7 +4638,6 @@ dependencies = [
 [[package]]
 name = "tinymist-render"
 version = "0.15.8"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "base64 0.22.1",
  "log",
@@ -4664,7 +4651,6 @@ dependencies = [
 [[package]]
 name = "tinymist-std"
 version = "0.15.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -4701,7 +4687,6 @@ dependencies = [
 [[package]]
 name = "tinymist-task"
 version = "0.15.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4737,7 +4722,6 @@ dependencies = [
 [[package]]
 name = "tinymist-vfs"
 version = "0.15.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "comemo",
  "ecow",
@@ -4753,7 +4737,6 @@ dependencies = [
 [[package]]
 name = "tinymist-world"
 version = "0.15.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5050,7 +5033,6 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 [[package]]
 name = "typlite"
 version = "0.15.8"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "base64 0.22.1",
  "cmark-writer",
@@ -5356,7 +5338,6 @@ dependencies = [
 [[package]]
 name = "typst-shim"
 version = "0.15.0"
-source = "git+https://github.com/Myriad-Dreamin/tinymist.git?rev=32f908199ee17ea295512bbc27166e890c438175#32f908199ee17ea295512bbc27166e890c438175"
 dependencies = [
  "cfg-if",
  "comemo",

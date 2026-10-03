@@ -369,6 +369,11 @@ final class WritingTests: XCTestCase {
         expect(templateApply.isHittable) == true
         capture("Template details portrait")
         XCUIDevice.shared.orientation = .landscapeLeft
+        let landscape = NSPredicate { _, _ in
+            templateApply.isHittable && search.isHittable && resume.isHittable
+        }
+        expectation(for: landscape, evaluatedWith: app)
+        waitForExpectations(timeout: 15)
         expect(templateApply.isHittable) == true
         expect(search.isHittable) == true
         expect(resume.isHittable) == true

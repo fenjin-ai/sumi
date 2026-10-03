@@ -158,36 +158,12 @@ struct TabletRoot: View {
                     TabletIcon(name: "grid-four").frame(width: 44, height: 44)
                 }.buttonStyle(.plain).disabled(workspace.busy)
                     .accessibilityLabel(L10n.text("Browse templates")).accessibilityIdentifier("new-document")
-                Menu {
-                    Button { importing = true } label: {
-                        Label { Text(L10n.text("Import a document…")) } icon: { TabletIcon.menuImage(
-                            "file-text",
-                            title: L10n.text("Import a document…"),
-                        ) }
-                    }
-                    Button { importingProject = true } label: {
-                        Label { Text(L10n.text("Import Project…")) } icon: { TabletIcon.menuImage(
-                            "folder-open",
-                            title: L10n.text("Import Project…"),
-                        ) }
-                    }
-                    Divider()
-                    Button { workspace.panel = .settings } label: {
-                        Label { Text(L10n.text("Settings")) } icon: { TabletIcon.menuImage(
-                            "gear",
-                            title: L10n.text("Settings"),
-                        ) }
-                    }
-                    Button { Task { await workspace.showTrash() } } label: {
-                        Label { Text(L10n.text("Trash")) } icon: { TabletIcon.menuImage(
-                            "trash",
-                            title: L10n.text("Trash"),
-                        ) }
-                    }
-                } label: {
-                    TabletIcon(name: "dots-three-vertical").frame(width: 44, height: 44)
-                }.buttonStyle(.plain).accessibilityLabel(L10n.text("Library actions"))
-                    .accessibilityIdentifier("library-actions")
+                TabletLibraryMenu(actions: [
+                    .init(title: L10n.text("Import a document…"), icon: "file-text") { importing = true },
+                    .init(title: L10n.text("Import Project…"), icon: "folder-open") { importingProject = true },
+                    .init(title: L10n.text("Settings"), icon: "gear") { workspace.panel = .settings },
+                    .init(title: L10n.text("Trash"), icon: "trash") { Task { await workspace.showTrash() } },
+                ]).frame(width: 44, height: 44)
             }
         }.padding(16).foregroundStyle(TabletTheme.secondary).background(TabletTheme.background)
             .overlay(alignment: .bottom) { Rectangle().fill(TabletTheme.border).frame(height: 0.5) }

@@ -84,7 +84,7 @@ not a substitute for these measurements.
 | Platform | Build and validation | Distribution |
 | --- | --- | --- |
 | Mac | SwiftPM, `scripts/test.sh`, existing Mac CI and book benchmarks | Existing signed preview and Mac release workflows |
-| iPad | Xcode target, `scripts/build-ipad.sh`, iPad jobs in `.github/workflows/ci.yml` | Development installation works; TestFlight/App Store automation is not configured |
+| iPad | Xcode target, `scripts/build-ipad.sh`, iPad jobs in `.github/workflows/ci.yml` | `ipad-v*` release tags start production signing, upload and storefront preparation |
 
 One `build and test` workflow contains Mac and iPad validation. Mac regression
 and main-only App Store distribution validation run independently. PRs avoid
@@ -109,10 +109,12 @@ Existing Mac release tags do not publish an iPad build. Apple supports adding an
 with the same bundle identifier and independently selected platform versions and
 builds. The iPad app uses the Mac App Store bundle identifier and iCloud container.
 The separate iPad archive/export/upload pipeline and initial `1.0.0 (1)` release
-metadata are prepared in [ipad-app-store.md](ipad-app-store.md). Before distribution,
-configure the iOS app record, monthly subscription and production provisioning,
-then validate the signed build on TestFlight. Development signing does not validate
-that pipeline.
+metadata are described in [ipad-app-store.md](ipad-app-store.md). The pipeline
+prepares the iOS record, subscription and production profile using existing
+credentials. Apple requires the first subscription to be submitted with the app
+through the website; the pipeline records this handoff rather than claiming
+submission. Later releases can submit through the API after subscription approval.
+Development signing does not validate production signing or Apple review.
 
 ## Current parity and release gaps
 
