@@ -11,7 +11,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT / 'iPad/LeftBlank.xcodeproj/project.pbxproj'
 MAC_TARGETS = {
-    'LeftBlankCore', 'LeftBlankAutomation', 'LeftBlankMCPServer', 'LeftBlankMCP',
+    'LeftBlankCore', 'LeftBlankAutomation',
     'LeftBlankApp', 'LeftBlankLauncher', 'LeftBlankTestSupport', 'LeftBlankCoreTests',
     'LeftBlankAppTests', 'LeftBlankAutomationTests',
 }
@@ -71,7 +71,8 @@ class PackageGraphs(unittest.TestCase):
         ipad_path = ROOT / 'Sources' / ipad_core['path']
         self.assertEqual(mac_path.resolve(), ipad_path.resolve())
         self.assertEqual(mac['name'], ipad['name'], 'SwiftPM resource bundle identity must remain stable')
-        self.assertEqual(mac['defaultLocalization'], ipad['defaultLocalization'])
+        # Swift 6.2 omits this field from dump-package; newer versions include it.
+        self.assertEqual(mac.get('defaultLocalization'), ipad.get('defaultLocalization'))
         for key in ('dependencies', 'resources', 'type'):
             self.assertEqual(mac_core[key], ipad_core[key], key)
 
@@ -80,14 +81,9 @@ class PackageGraphs(unittest.TestCase):
             with self.subTest(distribution=mode):
                 self.assertEqual(set(targets(graph)), MAC_TARGETS)
                 self.assertEqual({p['name'] for p in graph['products']},
-                                 {'LeftBlankCore', 'LeftBlank', 'LeftBlankMCP'})
-                expected = {'zipfoundation', 'swift-sdk'} | ({'sparkle'} if mode == 'preview' else set())
+                                 {'LeftBlankCore', 'LeftBlank'})
+                expected = {'zipfoundation'} | ({'sparkle'} if mode == 'preview' else set())
                 self.assertEqual(dependencies(graph), expected)
-                mcp_dependencies = targets(graph)['LeftBlankMCPServer']['dependencies']
-                self.assertTrue(any(row.get('product', [])[:2] == ['MCP', 'swift-sdk']
-                                    for row in mcp_dependencies))
-                self.assertTrue(any(row.get('byName', [])[:1] == ['LeftBlankAutomation']
-                                    for row in mcp_dependencies))
                 for name in ('LeftBlankApp', 'LeftBlankAppTests'):
                     has_updater = any(row.get('product', [])[:2] == ['Sparkle', 'Sparkle']
                                       for row in targets(graph)[name]['dependencies'])

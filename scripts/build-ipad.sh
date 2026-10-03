@@ -6,9 +6,9 @@ source scripts/environment.sh
 platform="${1:-simulator}"
 sanitizer="${2:-none}"
 derived_data=build/iPad
-diagnostics=(-enableCodeCoverage YES)
+diagnostics=()
 case "$platform" in
-  simulator) target=aarch64-apple-ios-sim; destination='generic/platform=iOS Simulator'; actions=(build-for-testing) ;;
+  simulator) target=aarch64-apple-ios-sim; destination='generic/platform=iOS Simulator'; actions=(build-for-testing); diagnostics=(-enableCodeCoverage YES) ;;
   device) target=aarch64-apple-ios; destination='generic/platform=iOS'; actions=(build analyze) ;;
   *) echo 'Usage: scripts/build-ipad.sh [simulator|device] [none|address|thread]' >&2; exit 2 ;;
 esac

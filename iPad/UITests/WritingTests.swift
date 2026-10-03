@@ -131,8 +131,10 @@ final class WritingTests: XCTestCase {
         app.buttons["Rename"].tap()
         let titleField = app.alerts.textFields.firstMatch
         titleField.tap()
-        titleField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue,
-                                  count: (titleField.value as? String)?.count ?? 0) + title)
+        titleField.typeText(String(
+            repeating: XCUIKeyboardKey.delete.rawValue,
+            count: (titleField.value as? String)?.count ?? 0,
+        ) + title)
         app.alerts.buttons["Save"].tap()
         app.textViews["manuscript"].tap()
         app.textViews["manuscript"].typeText("\nPreserved after subscription expiration.\n")
@@ -151,8 +153,10 @@ final class WritingTests: XCTestCase {
         reveal(restore, in: form)
         restore.tap()
         reveal(app.staticTexts["subscription-status"], in: form, scrollingUp: false)
-        expectation(for: NSPredicate(format: "label BEGINSWITH %@", "Your subscription has expired"),
-                    evaluatedWith: app.staticTexts["subscription-status"])
+        expectation(
+            for: NSPredicate(format: "label BEGINSWITH %@", "Your subscription has expired"),
+            evaluatedWith: app.staticTexts["subscription-status"],
+        )
         waitForExpectations(timeout: 30)
         app.buttons["Done"].tap()
         expect(banner.exists) == true
