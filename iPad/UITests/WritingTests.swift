@@ -22,24 +22,27 @@ final class WritingTests: XCTestCase {
         let create = app.buttons["new-document"]
         let actions = app.buttons["document-actions"]
         let loading = app.progressIndicators["document-loading"]
-        // First launch opens Welcome and hides the sidebar asynchronously.
-        // Wait for that transition before deciding whether to reveal the library.
+        // First launch opens Welcome asynchronously; later launches show the library.
+        // Wait for either entry point before opening the template gallery.
         let launched = NSPredicate { _, _ in
             !loading.exists && ((create.exists && create.isEnabled && create.isHittable) ||
                 (actions.exists && actions.isHittable))
         }
         expectation(for: launched, evaluatedWith: app)
         waitForExpectations(timeout: 60)
-        if !create.waitForExistence(timeout: 3) || !create.isHittable {
-            let sidebar = app.buttons["sidebar-toggle"]
-            expect(sidebar.waitForExistence(timeout: 60)) == true
-            sidebar.tap()
+        if actions.exists, actions.isHittable {
+            // Fresh libraries open Welcome. Use its menu without waiting for
+            // NavigationSplitView to reveal the sidebar after startup.
+            actions.tap()
+            let command = app.buttons[language == "zh-Hans" ? "新建文稿" : "New Document"]
+            expect(command.waitForExistence(timeout: 60)) == true
+            command.tap()
+        } else {
+            let enabled = NSPredicate { _, _ in create.exists && create.isEnabled && create.isHittable }
+            expectation(for: enabled, evaluatedWith: app)
+            waitForExpectations(timeout: 60)
+            create.tap()
         }
-        expect(create.waitForExistence(timeout: 60)) == true
-        let enabled = NSPredicate { _, _ in create.exists && create.isEnabled && create.isHittable }
-        expectation(for: enabled, evaluatedWith: app)
-        waitForExpectations(timeout: 60)
-        create.tap()
         app.buttons["universe.builtin." + template].tap()
         expect(app.textViews["manuscript"].waitForExistence(timeout: 60)) == true
         let settled = NSPredicate { _, _ in !app.progressIndicators["document-loading"].exists }
