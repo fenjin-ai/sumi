@@ -348,11 +348,8 @@ extension WritingFlowTests {
         #expect(editor.string == "= Keep me\n")
         let saved = LibraryPreferences(defaults: defaults)
         #expect(saved.values == settings.preferences.values)
-        #expect(!settings.agentEnabled)
-        #expect(settings.installationPrompt.contains("MCP server name: " + AppDistribution.current.agentName))
         let view = NSHostingView(rootView: WritingSettingsView(
             workspace: app.workspace,
-            settings: settings,
             library: app.workspace.library,
         ))
         view.layoutSubtreeIfNeeded()

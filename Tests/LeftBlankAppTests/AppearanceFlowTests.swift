@@ -46,7 +46,6 @@ extension WritingFlowTests {
         let syntaxColor = try #require(editorColor(editor, at: keyword))
         let settingsView = NSHostingView(rootView: WritingSettingsView(
             workspace: app.workspace,
-            settings: settings,
             library: app.workspace.library,
         ))
         settingsView.frame = NSRect(x: 0, y: 0, width: 530, height: 690)

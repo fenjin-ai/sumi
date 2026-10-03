@@ -1087,7 +1087,7 @@ final class Workspace: ObservableObject {
         }
     }
 
-    func formattedSource() async throws -> String {
+    private func formattedSource() async throws -> String {
         guard serviceReady else {
             throw ServiceError.remote(L10n.text("The typesetting service is not ready."))
         }
@@ -1453,7 +1453,7 @@ final class Workspace: ObservableObject {
         return operation
     }
 
-    func compiledPDF() async throws -> (Data, Int) {
+    private func compiledPDF() async throws -> (Data, Int) {
         try flushChanges()
         let version = documentVersion
         let result = try await client.command("tinymist.exportPdf", arguments: [compilationURL.path])

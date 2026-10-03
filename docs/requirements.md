@@ -82,7 +82,7 @@ Users can switch between writing, side-by-side preview and full preview. Unsaved
 
 ## First-release boundaries
 
-The initial release excludes collaborative accounts, hosted cloud services, built-in AI authorship, a plugin marketplace, Vim emulation, arbitrary visual editing of typeset pages, Markdown round-tripping and App Store distribution. These historical boundaries do not prevent later local-agent or iCloud enhancements.
+The initial release excludes collaborative accounts, hosted cloud services, built-in AI authorship, a plugin marketplace, Vim emulation, arbitrary visual editing of typeset pages, Markdown round-tripping and App Store distribution. These historical boundaries do not prevent later iCloud enhancements.
 
 Compatibility follows the bundled Tinymist/Typst version. Command forms cover common features, while direct source editing remains available for everything else. Deliverables include a working app, source, reproducible scripts, dependency licenses, documentation and an honest verification record.
 

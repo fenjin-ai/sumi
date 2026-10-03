@@ -103,7 +103,7 @@ Export flushes the latest main-document buffer, waits for a valid result and cop
 
 Appearance defaults to **Match System**, with persistent **Light** and **Dark** choices in Settings. Light uses Nano-inspired white paper (`#FFFFFF`), blue-grey ink (`#37474F`), pale surfaces (`#FAFAFA`, `#ECEFF1`) and a restrained violet accent (`#673AB7`). Secondary and muted text use darker blue-greys for readable small labels; decorative greys do not carry essential text. The palette references [Nano's light theme](https://github.com/rougier/nano-emacs/blob/master/nano-theme-light.el) without importing its implementation.
 
-Native dynamic `NSColor` values serve SwiftUI surfaces, AppKit controls and TextKit's existing syntax runs. System appearance changes repaint in place; no text replacement, syntax rescan, layout rebuild or undo entry is needed. The app-level choice also covers settings, toolbar, popovers and the preview canvas. The preview document's independent Light/Dark control still leaves PDF output unchanged. The small preference joins existing iCloud reconciliation and MCP's validated display settings.
+Native dynamic `NSColor` values serve SwiftUI surfaces, AppKit controls and TextKit's existing syntax runs. System appearance changes repaint in place; no text replacement, syntax rescan, layout rebuild or undo entry is needed. The app-level choice also covers settings, toolbar, popovers and the preview canvas. The preview document's independent Light/Dark control still leaves PDF output unchanged. The small preference joins existing iCloud reconciliation.
 
 Dark retains charcoal surfaces, warm white text and a low-saturation warm accent. Its colors are background `#171A1D`, editor `#1C1F23`, panel `#22262B`, border `#343A41`, text `#E0E2E5`, secondary `#9DA6B2`, accent `#D9B97C`, success `#A3BE8C` and error `#E29A9A`.
 
@@ -127,11 +127,11 @@ The preview protocol includes extension APIs, so pinning and real integration te
 
 References: [Tinymist preview](https://myriad-dreamin.github.io/tinymist/feature/preview.html), [Tinymist source](https://github.com/Myriad-Dreamin/tinymist), [NSTextView](https://developer.apple.com/documentation/appkit/nstextview), [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview), [Nano Emacs](https://github.com/rougier/nano-emacs), [Phosphor](https://github.com/phosphor-icons/core), [CotEditor testing](https://github.com/coteditor/CotEditor/blob/main/.github/workflows/test.yml), [CodeEdit testing](https://github.com/CodeEditApp/CodeEdit/blob/main/.github/workflows/tests.yml), [GitHub hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
 
-## Library and agent extensions (0.4)
+## Library and localization (0.4)
 
 The library actor owns UUID-based folders and coordinated filesystem operations; LibraryController connects navigation to the live Workspace. UI titles are metadata, while source and assets retain stable relative paths. A conservative background three-way diff incorporates non-overlapping remote edits through native undo. Native iCloud conflicts block overwrites. See [library and sync](library-and-sync.md) and [merge evaluation](merge-evaluation.md).
 
-An opt-in, same-user socket connects the app to a separate official-SDK MCP helper. Revision-checked edits use the same buffer and undo mechanism. See [agent integration](agents.md). Localization uses native resource bundles and observable language changes without replacing the editor. Explicit package imports in the [Code notes template](code-notes.md) keep exported source portable. [Local intelligence](local-intelligence.md) remains a research prototype outside the app build.
+Localization uses native resource bundles and observable language changes without replacing the editor. Explicit package imports in the [Code notes template](code-notes.md) keep exported source portable. [Local intelligence](local-intelligence.md) remains a research prototype outside the app build.
 
 ### Book-length WebKit preview
 

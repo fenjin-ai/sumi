@@ -323,9 +323,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         if settingsController == nil {
             settingsController = WorkspaceSettings(workspace: workspace)
         }
-        guard let settingsController else {
-            return
-        }
         if settingsWindow == nil {
             let panel = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 530, height: 690),
@@ -336,7 +333,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             panel.isReleasedWhenClosed = false
             panel.contentView = NSHostingView(rootView: WritingSettingsView(
                 workspace: workspace,
-                settings: settingsController,
                 library: workspace.library,
             ))
             panel.center()

@@ -1,6 +1,5 @@
 import AppKit
 @testable import LeftBlankApp
-import LeftBlankAutomation
 import LeftBlankCore
 import Testing
 #if LEFTBLANK_PREVIEW
@@ -8,16 +7,9 @@ import Testing
 #endif
 
 extension WritingFlowTests {
-    @Test func distributionUsesMatchingAppAndAgentIdentity() throws {
+    @Test func distributionUsesMatchingAppIdentity() throws {
         let app = try WritingFixture(text: "A separate preview", startService: false)
         defer { app.close() }
-        let suite = "LeftBlank.preview.test." + UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let settings = WorkspaceSettings(workspace: app.workspace, defaults: defaults)
-        defer { settings.stop() }
-        #expect(settings.installationPrompt.contains("codex mcp add " + AppDistribution.current.agentName + " --"))
-        #expect(AutomationContract.defaultStateDirectory == AppDistribution.defaultStateDirectory)
         let previousMenu = NSApp.mainMenu, previousWindowsMenu = NSApp.windowsMenu
         defer { NSApp.mainMenu = previousMenu
             NSApp.windowsMenu = previousWindowsMenu

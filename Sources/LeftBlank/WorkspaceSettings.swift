@@ -1,58 +1,18 @@
 import AppKit
 import Combine
-import LeftBlankAutomation
 import LeftBlankCore
 import SwiftUI
 
 @MainActor
 final class WorkspaceSettings: ObservableObject {
-    @Published private(set) var agentEnabled = false
-    @Published private(set) var agentError: String?
-    let automation: WorkspaceAutomation
     let preferences: LibraryPreferences
     private weak var workspace: Workspace?
     private var subscriptions: Set<AnyCancellable> = []
     private var applying = false
-    private let defaults: UserDefaults
 
     init(workspace: Workspace, defaults: UserDefaults = .standard) {
         self.workspace = workspace
-        self.defaults = defaults
         preferences = LibraryPreferences(defaults: defaults)
-        automation = WorkspaceAutomation(workspace: workspace)
-        automation.library = AutomationLibraryAccess(
-            currentID: { [weak workspace] in
-                guard let workspace, !workspace.isLibraryHome else {
-                    return "closed"
-                }
-                return workspace.managedDocumentID?.uuidString ?? workspace.documentURL.absoluteString
-            },
-            list: { [weak workspace] query in
-                guard let workspace else {
-                    return []
-                }
-                var documents = try await workspace.library.store.list(query: query).map { AutomationDocument(
-                    id: $0.id.uuidString,
-                    title: $0.title,
-                ) }
-                if !workspace.isLibraryHome, workspace.managedDocumentID == nil,
-                   query.isEmpty || workspace.title.localizedCaseInsensitiveContains(query)
-                {
-                    documents.insert(
-                        AutomationDocument(id: workspace.documentURL.absoluteString, title: workspace.title),
-                        at: 0,
-                    )
-                }
-                return documents
-            },
-            open: { [weak workspace] id in
-                guard let workspace, let uuid = UUID(uuidString: id) else {
-                    throw LibraryInteractionError.couldNotOpen
-                }
-                try await workspace.library.open(uuid)
-            },
-            create: { [weak workspace] title, text in try await workspace?.library.create(title: title, text: text) },
-        )
         apply(preferences.values)
         Theme.apply(workspace.appearance)
         preferences.onChange = { [weak self] in self?.apply($0) }
@@ -79,9 +39,6 @@ final class WorkspaceSettings: ObservableObject {
         workspace.$documentTemplate.dropFirst().sink { [weak self] _ in
             Task { @MainActor [weak self] in self?.persist() }
         }.store(in: &subscriptions)
-        if defaults.bool(forKey: "agentAccessEnabled") {
-            setAgentEnabled(true)
-        }
     }
 
     private func apply(_ value: SyncedPreferences) {
@@ -140,39 +97,13 @@ final class WorkspaceSettings: ObservableObject {
         }
     }
 
-    func setAgentEnabled(_ enabled: Bool) {
-        do {
-            if enabled {
-                try automation.start()
-            } else {
-                automation.stop()
-            }
-            agentEnabled = enabled
-            agentError = nil
-            defaults.set(enabled, forKey: "agentAccessEnabled")
-        } catch { agentError = error.localizedDescription
-            agentEnabled = false
-        }
-    }
-
-    var installationPrompt: String {
-        AutomationInstallation.prompt(
-            bundle: Bundle.main.bundleURL,
-            distribution: Bundle.main.object(forInfoDictionaryKey: "LeftBlankDistribution") as? String ??
-                ProcessInfo.processInfo.environment["LEFTBLANK_DISTRIBUTION"] ?? "direct",
-            serverName: AppDistribution.current.agentName,
-        )
-    }
-
     func stop() {
-        automation.stop()
         subscriptions.removeAll()
     }
 }
 
 struct WritingSettingsView: View {
     @ObservedObject var workspace: Workspace
-    @ObservedObject var settings: WorkspaceSettings
     @ObservedObject var library: LibraryController
     @ObservedObject private var localization = AppLocalization.shared
 
@@ -230,29 +161,6 @@ struct WritingSettingsView: View {
                     Text(error).font(.footnote).foregroundStyle(Theme.red)
                 }
             } header: { Text(L10n.text("Library")) }
-            Section {
-                Toggle(
-                    L10n.text("Allow local coding agents"),
-                    isOn: Binding(get: { settings.agentEnabled }, set: { settings.setAgentEnabled($0) }),
-                )
-                .accessibilityIdentifier("settings.agentAccess")
-                Text(L10n
-                    .text(
-                        "Agents connected on this Mac can read your library, edit the open document, change writing settings and export previews. Edits can be undone. Access stays on this Mac.",
-                    ))
-                    .font(.footnote).foregroundStyle(Theme.secondary)
-                HStack {
-                    Text(L10n.text("Connect a coding agent")).font(.system(size: 12))
-                    Spacer()
-                    Button(L10n.text("Copy installation prompt")) {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(settings.installationPrompt, forType: .string)
-                    }
-                }
-                if let error = settings.agentError {
-                    Text(error).font(.footnote).foregroundStyle(Theme.red)
-                }
-            } header: { Text(L10n.text("Agent Access")) }
         }.formStyle(.grouped).frame(width: 530, height: 690)
             .environment(\.locale, L10n.locale)
             .onChange(of: localization.generation) { _, _ in
