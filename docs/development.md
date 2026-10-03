@@ -9,13 +9,13 @@ scripts/build.sh release
 scripts/test.sh
 ```
 
-The build downloads Tinymist **0.15.8** (Typst 0.15.1), verifies its pinned SHA-256, and produces `build/LeftBlank.app` with an ad hoc development signature. Functional tests exercise the real native editor, workspace, windows, WebKit preview and Tinymist process: discovery, insertion, undo/redo, Unicode, recovery, multiple files, compilation errors and PDF output. Small boundary tests cover text ranges, protocol framing and index validation.
+The build downloads Tinymist **0.15.8** (Typst 0.15.1), verifies its pinned SHA-256, and produces `build/LeftBlank.app` with an ad hoc development signature. Functional tests exercise the real native editor, workspace, windows, WebKit preview and Tinymist process: discovery, insertion, undo/redo, Unicode, recovery, multiple files, compilation errors and PDF output. Small boundary tests cover text ranges and index validation.
 
 `scripts/test.sh` writes HTML, raw coverage data and `build/coverage/summary.md`. It requires **80% coverage of unique executable lines across production Swift sources**, including the interface. LCOV records are deduplicated by source file and line to avoid counting SwiftUI generic instantiations repeatedly. Plain `swift test` omits explicitly enabled integration scenarios and does not enforce coverage.
 
-GitHub Actions uses `macos-15` with Xcode 26.3 for both pull requests and signed releases. The `build and test` check must pass on an up-to-date pull request before merging. It checks functional coverage (at least 80%), exercises the agent bridge with a single cooperative worker, runs book benchmarks, and uploads reports. After all checks pass on main, CI builds, signs, notarizes and uploads LeftBlank Preview for testing, then publishes its signed automatic-update feed. Preview uses a separate local library and can coexist with LeftBlank. Swift package sources are cached; application binaries are rebuilt. [Codecov](https://app.codecov.io/github/leftblank-app/leftblank) reports project and patch coverage, including PR comments. A version tag matching `Info.plist` triggers testing and a release ZIP with SHA-256. Public releases require Developer ID signing, successful Apple notarization, ticket stapling and Gatekeeper validation. See [release signing](signing.md) and [Preview updates](preview-updates.md). Local builds remain development-signed.
+GitHub Actions uses `macos-15` with Xcode 26.3 for both pull requests and signed releases. The `build and test` check must pass on an up-to-date pull request before merging. It checks functional coverage (at least 80%), runs book benchmarks, and uploads reports. After all checks pass on main, CI builds, signs, notarizes and uploads LeftBlank Preview for testing, then publishes its signed automatic-update feed. Preview uses a separate local library and can coexist with LeftBlank. Swift package sources are cached; application binaries are rebuilt. [Codecov](https://app.codecov.io/github/leftblank-app/leftblank) reports project and patch coverage, including PR comments. A version tag matching `Info.plist` triggers testing and a release ZIP with SHA-256. Public releases require Developer ID signing, successful Apple notarization, ticket stapling and Gatekeeper validation. See [release signing](signing.md) and [Preview updates](preview-updates.md). Local builds remain development-signed.
 
-The source is split into the launcher, testable native app, core document logic and local agent integration. Bundled third-party licenses are listed in `Resources/ThirdParty.txt`.
+The source is split into the launcher, testable native app and core document logic. Bundled third-party licenses are listed in `Resources/ThirdParty.txt`.
 
 See [iPad development and validation](ipad.md) for the native iPad target and embedded engine.
 
@@ -35,10 +35,6 @@ Unicode editing, marked-text protection, undo and saving have automated coverage
 - [Brand assets and favicons](../Brand/README.md)
 - [Localization](localization.md)
 - [Library and synchronization](library-and-sync.md)
-- [Coding agents and MCP](agents.md)
 - [Code notes](code-notes.md)
 - [Local intelligence evaluation](local-intelligence.md)
 - [Merge evaluation](merge-evaluation.md)
-
-
-The macOS MCP helper is built separately with Rust 1.92.0 through `scripts/build-mcp.sh`. Its sources and lockfile live in `Tools/LeftBlankMCP`; Cargo artifacts stay inside that package. User installation uses a copied coding-agent prompt, with no Rust runtime needed.

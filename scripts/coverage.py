@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report and gate instrumented application line coverage, including native UI.
 
-Select all production implementation targets, including the agent bridge; no UI exclusions.
+Select all production implementation targets; no UI exclusions.
 Count LCOV's executable source-line records once per physical line. SwiftUI's
 nested closure instantiations can inflate LLVM summary line totals beyond the
 actual source length. Raw LLVM JSON and LCOV are retained alongside the report.
@@ -45,7 +45,7 @@ for record in lcov.split("end_of_record"):
         if line.startswith("DA:"):
             number, hits, *_ = line[3:].split(",")
             entries[int(number)] = max(entries.get(int(number), 0), int(hits))
-expected = {p.resolve() for folder in ("Sources/LeftBlankCore", "Sources/LeftBlank", "Sources/LeftBlankAutomation") for p in (root / folder).glob("**/*.swift")}
+expected = {p.resolve() for folder in ("Sources/LeftBlankCore", "Sources/LeftBlank") for p in (root / folder).glob("**/*.swift")}
 by_path = {Path(entry["filename"]).resolve(): entry for data in report["data"] for entry in data["files"] if Path(entry["filename"]).resolve() in expected}
 files = list(by_path.values())
 missing = expected - {Path(entry["filename"]).resolve() for entry in files}
@@ -79,7 +79,7 @@ rows = ["| File | Covered lines | Coverage |", "|---|---:|---:|"]
 for entry in sorted(files, key=lambda f: f["filename"]):
     lines = entry["sourceLineCoverage"]
     rows.append(f"| {Path(entry['filename']).relative_to(root)} | {lines['covered']}/{lines['count']} | {lines['percent']:.1f}% |")
-summary = f"Application source-line coverage: **{percent:.2f}%** ({covered}/{total}), required **{args.minimum:g}%**.\n\nEvery executable implementation line under `Sources/LeftBlankCore`, `Sources/LeftBlank`, `Sources/LeftBlankAutomation` is counted once using LCOV DA records. Only the minimal Swift process launcher is outside the gate. No UI exclusions.\n\n" + "\n".join(rows) + "\n"
+summary = f"Application source-line coverage: **{percent:.2f}%** ({covered}/{total}), required **{args.minimum:g}%**.\n\nEvery executable implementation line under `Sources/LeftBlankCore`, `Sources/LeftBlank` is counted once using LCOV DA records. Only the minimal Swift process launcher is outside the gate. No UI exclusions.\n\n" + "\n".join(rows) + "\n"
 (output / "summary.md").write_text(summary)
 print(summary)
 subprocess.run(["xcrun", "llvm-cov", "show", *objects, f"-instr-profile={profile}", "-format=html", f"-output-dir={output / 'html'}", *map(str, sorted(expected))], check=True, stdout=subprocess.DEVNULL)

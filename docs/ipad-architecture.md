@@ -37,9 +37,8 @@ The Mac Swift package uses the repository's `Package.swift`. The iPad Xcode
 project points to the fixed core-only manifest in `Sources/Package.swift`, which
 compiles the same `Sources/LeftBlankCore` files and resources. Its only package
 dependency is ZIPFoundation; the UI test target separately uses Nimble. iPad
-does not resolve or compile the Mac app, automation bridge, MCP SDK/server/helper,
-or Sparkle updater. The shared engine process transport and agent identity API
-are also guarded with `os(macOS)`.
+does not resolve or compile the Mac app or Sparkle updater. The shared engine
+process transport is also guarded with `os(macOS)`.
 
 The manifests use the same package and target names to preserve the generated
 resource bundle identity. iPad's graph stays fixed even when
@@ -128,7 +127,6 @@ Development signing does not validate production signing or Apple review.
 | Projects | Built-in/community templates and folder import | Folder import expects `main.typ`; only the entry file can be edited |
 | History and recovery | Shared snapshots, version restore and conflict-aware saves | Mac's full history diff UI is missing; background/relaunch recovery needs stress testing |
 | Native workflows | Adaptive writing/preview/split, rotation, touch controls, common shortcuts and complete project ZIP export | Multiwindow, complete keyboard-menu parity and printing are missing |
-| Agents | No automation or MCP code/dependencies in the iPad package graph | Agent access remains a Mac feature |
 | Input/accessibility | Native UIKit editor with composition safeguards | Chinese IME, hardware keyboard/trackpad, VoiceOver and Dynamic Type need manual verification |
 | Cloud/lifecycle | Shared iCloud library services and background save hook | Cross-device conflicts, suspension/resume and memory-pressure behavior need device testing |
 

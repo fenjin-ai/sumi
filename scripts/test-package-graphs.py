@@ -11,9 +11,9 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT / 'iPad/LeftBlank.xcodeproj/project.pbxproj'
 MAC_TARGETS = {
-    'LeftBlankCore', 'LeftBlankAutomation',
+    'LeftBlankCore',
     'LeftBlankApp', 'LeftBlankLauncher', 'LeftBlankTestSupport', 'LeftBlankCoreTests',
-    'LeftBlankAppTests', 'LeftBlankAutomationTests',
+    'LeftBlankAppTests',
 }
 DESKTOP_DEPENDENCIES = {
     'swift-sdk', 'sparkle', 'eventsource', 'swift-atomics', 'swift-collections',
@@ -76,7 +76,7 @@ class PackageGraphs(unittest.TestCase):
         for key in ('dependencies', 'resources', 'type'):
             self.assertEqual(mac_core[key], ipad_core[key], key)
 
-    def test_mac_keeps_agents_and_preview_updater(self):
+    def test_mac_keeps_apps_and_preview_updater(self):
         for mode, graph in self.mac.items():
             with self.subTest(distribution=mode):
                 self.assertEqual(set(targets(graph)), MAC_TARGETS)

@@ -4,7 +4,7 @@ LeftBlank's library presents document titles, previews, search and a recoverable
 
 ## Storage and identity
 
-The local library lives at `Application Support/LeftBlank/Library`. Each document has a stable UUID directory under `Documents`, a `document.json` metadata file and a source entry point. New documents use `main.typ`. Renaming changes the title in metadata, never the source URL or the UUID. Source modification dates also contribute to the displayed modification time, so edits made by the editor, MCP or another application remain visible.
+The local library lives at `Application Support/LeftBlank/Library`. Each document has a stable UUID directory under `Documents`, a `document.json` metadata file and a source entry point. New documents use `main.typ`. Renaming changes the title in metadata, never the source URL or the UUID. Source modification dates also contribute to the displayed modification time, so edits made by the editor or another application remain visible.
 
 A source-only import copies one UTF-8 file and leaves its original untouched. A project import requires an explicitly selected project directory and main `.typ` file; it copies that directory beneath `Project/` and preserves relative asset paths. LeftBlank never silently copies the source file's entire parent directory. Symbolic links and nonregular files are rejected, and metadata entry points cannot escape the managed document folder. Documents that depend on external paths or dynamically located resources still require the author to bring those resources into the imported project.
 

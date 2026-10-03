@@ -197,6 +197,5 @@ using matching fonts. Signed installation and UI tests do not establish all of
 these behaviors.
 
 The current project importer expects `main.typ` in the chosen folder. The iPad
-editor exposes one active entry file; Mac's included-file navigation, agent/MCP
-integration, multiwindow workflows and full completion UI are not yet ported.
+editor exposes one active entry file; Mac's included-file navigation, multiwindow workflows and full completion UI are not yet ported.
 This is the initial iPad implementation, not a claim of complete feature parity.

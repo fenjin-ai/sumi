@@ -12,7 +12,7 @@ Use a deterministic recommendation system first, with an optional Foundation Mod
 | Find “a numbered Python block” | Search the bilingual command catalogue immediately | Select a command ID from a small retrieved candidate set |
 | Find a drawing package | Search the cached Universe catalogue and curated categories | Rank real package IDs and give a short explanation |
 | Improve a document's appearance | Offer tested typography presets with an explicit before/after preview | Classify intent, such as lecture notes, letter or technical report |
-| Write or repair Typst | Existing insertion templates, Tinymist diagnostics and optional coding-agent MCP | Do not depend on a small model to produce correct code or mathematics |
+| Write or repair Typst | Existing insertion templates and Tinymist diagnostics | Do not depend on a small model to produce correct code or mathematics |
 
 Apple explicitly describes summarization, extraction and classification as suitable tasks, and cautions against using the on-device model for code, basic mathematics and logical reasoning. Guided generation gives a useful output shape, but cannot guarantee a correct recommendation. Validate every command/package/preset ID against the actual catalogue. Package descriptions and document text are untrusted data, not instructions to execute actions.
 

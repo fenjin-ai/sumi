@@ -20,7 +20,6 @@ public enum DocumentResourceKind: Sendable {
 public enum DocumentResourceInput: Sendable {
     case file(URL)
     case image(Data)
-    case data(name: String, bytes: Data)
 }
 
 public struct DocumentResource: Identifiable, Sendable, Equatable {
@@ -152,16 +151,6 @@ public actor DocumentResourceStore {
                     }
                     data = try png(image)
                     name = L10n.text("Pasted image") + ".png"
-                case let .data(filename, bytes):
-                    guard !filename.isEmpty, filename.utf8.count <= 255, !filename.hasPrefix("."),
-                          !filename.contains("/"), !filename.contains("\\"),
-                          !filename.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
-                          kind.extensions.contains((filename as NSString).pathExtension.lowercased())
-                    else {
-                        throw DocumentResourceError.unsupported
-                    }
-                    name = filename
-                    data = bytes
                 }
                 let itemDirectory = batch.appendingPathComponent(String(index + 1), isDirectory: true)
                 try manager.createDirectory(at: itemDirectory, withIntermediateDirectories: false)

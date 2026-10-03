@@ -30,39 +30,7 @@ if [ "$distribution" = appstore ]; then
     entitlements=Resources/LeftBlank.AppStore.entitlements
   fi
 fi
-# A macOS Team-ID group needs no profile registration and allows the external
-# helper to reach a sandboxed app without asking for access to its private data.
-signing_dir=$(mktemp -d "$TMPDIR/leftblank-agent-signing.XXXXXX")
-trap 'rm -rf "$signing_dir"' EXIT
-if [ "$identity" != - ]; then
-  codesign "${args[@]}" "$app/Contents/MacOS/LeftBlank"
-  team=$(codesign -d --verbose=4 "$app/Contents/MacOS/LeftBlank" 2>&1 | sed -n 's/^TeamIdentifier=//p')
-  python3 - "$app" "$team" "$entitlements" "$signing_dir" <<'PY'
-from pathlib import Path
-import plistlib, re, sys
-app, team, original, temporary = sys.argv[1:]
-if not re.fullmatch(r'[A-Z0-9]{10}', team):
-    raise SystemExit('A valid Apple developer team is required for the MCP group.')
-group = team + '.lb.mcp'
-info_path = Path(app) / 'Contents/Info.plist'
-info = plistlib.loads(info_path.read_bytes())
-info['LeftBlankAgentGroup'] = group
-info_path.write_bytes(plistlib.dumps(info))
-app_entitlements = plistlib.loads(Path(original).read_bytes()) if original else {}
-app_entitlements['com.apple.security.application-groups'] = [group]
-Path(temporary, 'app.plist').write_bytes(plistlib.dumps(app_entitlements))
-Path(temporary, 'helper.plist').write_bytes(plistlib.dumps({'com.apple.security.application-groups': [group]}))
-PY
-  entitlements="$signing_dir/app.plist"
-fi
 codesign "${helper_args[@]}" "$app/Contents/Helpers/tinymist"
-if [ -f "$app/Contents/Helpers/LeftBlankMCP" ]; then
-  if [ "$identity" = - ]; then
-    codesign "${args[@]}" "$app/Contents/Helpers/LeftBlankMCP"
-  else
-    codesign "${args[@]}" --entitlements "$signing_dir/helper.plist" "$app/Contents/Helpers/LeftBlankMCP"
-  fi
-fi
 if [ -n "$entitlements" ]; then args+=(--entitlements "$entitlements"); fi
 codesign "${args[@]}" "$app"
 codesign --verify --deep --strict "$app"

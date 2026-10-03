@@ -11,17 +11,14 @@ shows the source commit.
 | --- | --- | --- |
 | Bundle identifier and preferences domain | `app.leftblank.writer` | `app.leftblank.writer.preview` |
 | Application Support directory | `LeftBlank` | `LeftBlank Preview` |
-| Codex connection name | `leftblank` | `leftblank-preview` |
 | iCloud | On by default when available | On by default when available |
 
 Each directory contains its own library, history, recovery copies, exports,
-logs and local agent socket. When sync is enabled, both editions use the shared
+and logs. When sync is enabled, both editions use the shared
 iCloud library and writing preferences. Turn sync off to keep an independent local
 library.
-Opening an external file deliberately still edits that file. Preview's MCP
-helper reads the selected app's bundle identity, so agents
-connect to the matching library. `LEFTBLANK_STATE_DIR` remains an explicit development
-and test override for both executables.
+Opening an external file deliberately still edits that file. `LEFTBLANK_STATE_DIR`
+remains an explicit development and test override.
 
 ## Update experience
 
@@ -134,7 +131,7 @@ editor, erase update preferences, or weaken signature verification.
 ## iCloud sync
 
 Preview and standard builds use the same iCloud document container and writing
-preferences. Local state and agent identities remain separate. Sync is attempted
+preferences. Local state remains separate. Sync is attempted
 by default on startup unless the user has turned it off. An unavailable account
 or an unprovisioned build keeps local writing available and retries on a later launch.
 

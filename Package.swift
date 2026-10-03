@@ -27,10 +27,9 @@ let package = Package(
             resources: [.process("Resources")],
             swiftSettings: distributionSettings,
         ),
-        .target(name: "LeftBlankAutomation", dependencies: ["LeftBlankCore"]),
         .target(
             name: "LeftBlankApp",
-            dependencies: ["LeftBlankCore", "LeftBlankAutomation"] + updaterProducts,
+            dependencies: ["LeftBlankCore"] + updaterProducts,
             path: "Sources/LeftBlank",
             swiftSettings: distributionSettings,
         ),
@@ -48,13 +47,9 @@ let package = Package(
         .testTarget(name: "LeftBlankCoreTests", dependencies: ["LeftBlankCore", "LeftBlankTestSupport"]),
         .testTarget(
             name: "LeftBlankAppTests",
-            dependencies: ["LeftBlankApp", "LeftBlankCore", "LeftBlankAutomation", "LeftBlankTestSupport"] +
+            dependencies: ["LeftBlankApp", "LeftBlankCore", "LeftBlankTestSupport"] +
                 updaterProducts,
             swiftSettings: distributionSettings,
-        ),
-        .testTarget(
-            name: "LeftBlankAutomationTests",
-            dependencies: ["LeftBlankAutomation", "LeftBlankTestSupport"],
         ),
     ],
 )

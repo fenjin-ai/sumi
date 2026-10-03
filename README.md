@@ -51,7 +51,6 @@ and your iCloud account support it; otherwise writing stays local.
 <p align="center">
   <a href="docs/writing-guide.md">Writing guide</a> ·
   <a href="docs/development.md">Development</a> ·
-  <a href="docs/agents.md">Working with agents</a> ·
   <a href="Brand/README.md">The Σ mark</a>
 </p>
 

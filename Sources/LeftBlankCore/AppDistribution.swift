@@ -1,6 +1,6 @@
 import Foundation
 
-/// Distribution identity is shared by the native apps and Mac's MCP helper.
+/// Distribution identity is compiled into the native apps.
 /// Local state stays separate; both distributions can use the shared iCloud library.
 public enum AppDistribution: Sendable {
     case standard
@@ -25,12 +25,6 @@ public enum AppDistribution: Sendable {
     public var stateFolderName: String {
         self == .preview ? "LeftBlank Preview" : "LeftBlank"
     }
-
-    #if os(macOS)
-        public var agentName: String {
-            self == .preview ? "leftblank-preview" : "leftblank"
-        }
-    #endif
 
     public func stateDirectory(applicationSupport: URL) -> URL {
         applicationSupport.appendingPathComponent(stateFolderName, isDirectory: true)
