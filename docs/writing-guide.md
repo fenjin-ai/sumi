@@ -57,7 +57,7 @@ The library presents document titles and searchable content without requiring yo
 
 **Documents → Document History** compares and restores the latest seven source snapshots. Edited documents create checkpoints hourly by default, or daily in Settings; unchanged documents create none. Restoration first preserves current writing and remains undoable. History stays on this Mac and covers the current source file. See [document history](document-history.md).
 
-Local coding agents can use the opt-in MCP bridge to read the live document, make undoable revision-checked edits, browse the library, change writing preferences and export previews. Enable **Settings → Agent Access** and copy the Codex setup command. See [agent setup](agents.md).
+Local coding agents can use the opt-in MCP bridge to read the live document, make undoable revision-checked edits, browse the library, change writing preferences and export previews. Enable **Settings → Agent Access** and copy the installation prompt into your coding-agent conversation. See [agent setup](agents.md).
 
 iCloud support is under development. It requires a properly provisioned release and an iCloud Drive account; local development builds clearly report when unavailable. Real two-Mac delivery and conflict recovery remain release checks. See [sync status and limitations](library-and-sync.md).
 

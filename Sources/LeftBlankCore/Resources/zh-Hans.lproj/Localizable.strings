@@ -92,14 +92,14 @@
 "Complete" = "补全";
 "Complete Syntax" = "补全 Typst";
 "Components" = "组件";
-"Connect Codex" = "连接 Codex";
+"Connect a coding agent" = "连接编程智能体";
 "Connecting" = "正在连接";
 "Connecting to packages.typst.org…" = "正在连接 packages.typst.org…";
 "Content Alignment" = "内容对齐";
 "Content Padding" = "内容留白";
 "Contents" = "目录";
 "Copy" = "复制";
-"Copy setup command" = "复制配置命令";
+"Copy installation prompt" = "复制安装提示词";
 "Copy the selected original Typst source." = "复制选中的原始 Typst 源码。";
 "Could not save the recovery copy: %@" = "无法保存恢复副本：%@";
 "Create a table. Use Tab to move between cells." = "生成一个清晰的表格，Tab 在单元格之间移动。";

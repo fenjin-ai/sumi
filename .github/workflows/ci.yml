@@ -43,12 +43,19 @@ jobs:
           sw_vers
           xcodebuild -version
           swift --version
+      - name: Cache MCP dependencies and test tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tools/cargo-mcp
+            .tools/mcp-test-tools
+          key: mcp-${{ runner.os }}-${{ runner.arch }}-rust-1.92.0-${{ hashFiles('Tools/LeftBlankMCP/Cargo.lock', 'scripts/test-mcp.sh') }}
       - name: Functional integration tests and 80% coverage gate
         run: scripts/test.sh
       - name: Agent bridge with one cooperative worker
         run: |
           source scripts/environment.sh
-          export LEFTBLANK_MCP_HELPER="$(swift build --show-bin-path)/LeftBlankMCP"
+          export LEFTBLANK_MCP_HELPER="$PWD/Tools/LeftBlankMCP/target/debug/LeftBlankMCP"
           python3 scripts/test-cooperative-pool.py
       - name: Upload application coverage to Codecov
         if: ${{ !cancelled() && hashFiles('build/coverage/codecov.lcov') != '' }}
@@ -56,7 +63,7 @@ jobs:
         with:
           # Fork PRs use Codecov's public-repository tokenless upload support.
           use_oidc: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-          files: build/coverage/codecov.lcov
+          files: build/coverage/codecov.lcov,build/coverage/mcp.lcov
           disable_search: true
           disable_file_fixes: true
           plugins: noop
@@ -183,6 +190,13 @@ jobs:
             .build/checkouts
             .build/artifacts
           key: preview-swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('Package.resolved') }}
+      - name: Cache MCP dependencies and test tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tools/cargo-mcp
+            .tools/mcp-test-tools
+          key: mcp-${{ runner.os }}-${{ runner.arch }}-rust-1.92.0-${{ hashFiles('Tools/LeftBlankMCP/Cargo.lock', 'scripts/test-mcp.sh') }}
       - name: Sign, notarize and prepare the update
         env:
           SIGNING_CERTIFICATE_P12: ${{ secrets.SIGNING_CERTIFICATE_P12 }}

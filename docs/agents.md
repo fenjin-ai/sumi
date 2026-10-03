@@ -1,77 +1,75 @@
 # Writing with an agent
 
-LeftBlank lets a coding agent work in the document you are already writing. The agent can read the current unsaved text, make undoable edits, check compilation, and inspect a rendered page. You stay in the same editor.
+LeftBlank exposes the live macOS editor through MCP. Agents can discover documents and templates, read bounded source ranges, make undoable changes, manage project resources, inspect history and review typeset pages. MCP is macOS-only; the iPad app does not ship or launch the helper.
 
-## Connect Codex
+## Connect a coding agent
 
-1. Open **LeftBlank → Settings → Agent Access** and enable local access.
-2. Copy the connection command shown there and run it in your terminal. For an app installed in Applications:
+1. Enable **LeftBlank → Settings → Agent Access**.
+2. Click **Copy installation prompt** and paste it into your coding-agent conversation.
+3. Let the agent configure its own MCP client, check the helper and call `leftblank_get_status`. If that client requires a new session to load a server, the agent explains that after completing configuration.
 
-   ```sh
-   codex mcp add leftblank -- '/Applications/LeftBlank.app/Contents/Helpers/LeftBlankMCP'
-   ```
+The prompt contains the actual app path and the correct `leftblank` or `leftblank-preview` identity. The agent preserves other client settings and updates an existing entry instead of adding a duplicate. Codex uses its standard [local stdio configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli); other coding agents use their equivalent configuration mechanism. Users do not install a compiler, run terminal commands or edit JSON/TOML.
 
-3. Start a new Codex session, or restart its MCP connections. `codex mcp list` shows the configured server; `/mcp` shows active connections in the CLI.
-4. Ask, for example: “Read my current LeftBlank document. Make the introduction clearer, preserve my equations, and show me the rendered first page.”
+Direct and Preview distributions include `Contents/Helpers/LeftBlankMCP`. The App Store edition installs the standalone `LeftBlankMCP-macOS-arm64.zip` asset from an official versioned GitHub release. The prompt tells the agent to verify its SHA-256 and code signature, including the TeamIdentifier against the installed app. The standalone helper is signed without sandbox inheritance and uses `--app-bundle` to select the installed edition. Signed apps and helpers share a macOS-only `<Team ID>.lb.mcp` App Group; separate socket names keep Preview and standard access apart. Apple supports these Team-ID groups without provisioning-profile registration. The agent checks group membership as well as the team signature. An executable signed to inherit a parent's sandbox cannot be launched independently by a coding agent. Release automation publishes the same helper code accepted inside the notarized direct/Preview app.
 
-The command uses Codex's standard local stdio integration, verified against its CLI help and [official OpenAI documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli). Other MCP clients can launch the same executable with no arguments. A separate LeftBlank account, cloud service, API key, or listening network port is not required.
+Keep LeftBlank open while writing. Agent Access authorizes programs running as your macOS user to use the bridge; it is not a per-agent identity system. The preference stays on this Mac and is never synchronized through iCloud. Disabling access removes the listening socket and invalidates queued or suspended agent work. A native storage operation already accepted by the app may finish; check state before retrying a write after losing the connection. A separate account, API key, cloud service or listening network port is not required.
 
-Keep LeftBlank open while working. Disable Agent Access to stop new operations immediately. Enabling it allows programs running as your macOS user to use the bridge; it is not a per-agent identity system. The preference stays on this Mac and is never synchronized through iCloud. LeftBlank does not silently install configuration into other applications.
+## Tools
 
-If you prefer a file workflow, let the agent write a `.typ` document and import or open it in LeftBlank. The live integration is useful when you want the agent to see your selection, avoid overwriting unsaved work, and review the current rendered result.
+All names have the `leftblank_` prefix. Tool descriptions stay concise; input/output schemas specify arguments and results, and annotations describe read-only, destructive, idempotent and external-access behavior.
 
-## Available tools
-
-| Tool | Purpose |
+| Workflow | Tools |
 | --- | --- |
-| `leftblank_list_documents` | Search the library by title or content and return document IDs. |
-| `leftblank_get_document` | Read live text, selection, document ID, and revision. |
-| `leftblank_open_document` | Open a library ID through the normal document preservation flow. |
-| `leftblank_create_document` | Create and open a document in the library. |
-| `leftblank_apply_edits` | Apply a batch of source edits as one native undo action. |
-| `leftblank_get_preview` | Read compilation state and diagnostics, including whether the preview is stale. |
-| `leftblank_export_pdf` | Compile the unsaved document and return a PDF path plus a PNG of the requested page. |
-| `leftblank_get_settings` | Read layout, app appearance, editor font size, preview appearance, and source styling. |
-| `leftblank_set_settings` | Change those five display settings. App appearance accepts `system`, `light`, or `dark`. |
+| Orientation | `get_status`, `list_documents`, `get_document`, `get_outline`, `search_document` |
+| Live source | `open_document`, `create_document`, `edit_document`, `apply_edits`, `format_document` |
+| Project source | `list_files`, `open_file`, `create_file` |
+| Library | `rename_document`, `trash_document`, `restore_document` |
+| Resources | `list_resources`, `import_resource` |
+| Typesetting | `get_preview`, `render_page`, `export_pdf`, `export_project` |
+| History | `list_history`, `get_history`, `restore_history` |
+| Templates/packages | `list_templates`, `create_from_template`, `list_packages`, `import_package` |
+| Display preferences | `get_settings`, `set_settings` |
 
-Resources `leftblank://document/current` and `leftblank://settings` provide the same live read access. The `write_in_leftblank` prompt explains the read–edit–review workflow to clients that support MCP prompts.
+Resources `leftblank://document/current` and `leftblank://settings` expose the same bounded live reads. The `write_in_leftblank` prompt supplies the writing workflow to clients that support MCP prompts. These resources are live, private and uncached.
 
-### Editing contract
+## Read, edit and review
 
-Always read before editing. Pass the returned `document_id` and `revision` as `expected_revision`. An edit contains `start`, `end`, and `text`; offsets are zero-based UTF-16 code units, matching AppKit and the language server. `end` is exclusive. All ranges refer to the same original text.
+Start with `get_status`, then find/open a document or read the active buffer. IDs are opaque; project paths are relative display information. `get_document` defaults to 100 lines and accepts at most 200 lines, with a 16 KiB UTF-8 source budget. Follow `next_line` and `next_character` to continue, including within very long lines. Line numbers are one-based; characters and selection/edit offsets are zero-based UTF-16 code units. Outline and search return bounded pages with cursors. Search is literal, optionally case-sensitive.
+
+Prefer `edit_document` for unique exact replacements. Each batch refers to the original text, validates every replacement before mutation, and becomes one native undo action:
 
 ```json
 {
-  "document_id": "ID returned by LeftBlank",
-  "expected_revision": "revision returned by LeftBlank",
-  "edits": [{"start": 0, "end": 0, "text": "= A new introduction\n\n"}]
+  "document_id": "ID from the last read",
+  "expected_revision": "revision from the last read",
+  "edits": [{"old_text": "A uniquely identifiable old sentence.", "new_text": "A clearer sentence."}]
 }
 ```
 
-A changed document returns `revision_conflict`; re-read and merge instead of blindly retrying. Overlapping ranges, split Unicode surrogate pairs, more than 100 edits, and source larger than 2 MiB are rejected before mutation. Undo restores the previous source through the same native path as normal typing. Revisions include the app session and monotonic editor revision, so undoing to the same text does not revive a stale edit token.
+`apply_edits` also supports `{start, end, text}` ranges with an exclusive end. Ambiguous text, missing text, overlaps and split Unicode boundaries fail before mutation. On `revision_conflict`, read again and merge. Source writes, resource imports, history restoration, formatting and exports check the requested revision. Undoing to the same text does not revive an earlier revision. Edits cannot grow source beyond 2 MiB; larger documents remain readable and may receive size-preserving edits. Edit/open/create results return metadata rather than repeating the manuscript.
 
-An incomplete document may retain an older successful preview. Treat `stale` accordingly. Export compiles the requested live revision and fails if the source changes or compilation fails; it never substitutes an old PDF. Exports are written to LeftBlank's `AgentExports` app-support directory. The agent cannot choose an arbitrary destination. The optional `page` argument selects a one-based page for visual review.
+`list_files` discovers project source; `open_file` preserves the previous buffer through normal saving. `create_file` accepts safe relative `.typ` paths and does not switch the active file. Resource import reads a local file in the helper, copies at most 4 MiB into the document's resource store and returns a relative path. Typst source imports are limited to 2 MiB. The app never reads an arbitrary path supplied over its bridge.
 
-## Implementation and boundaries
+Use `get_preview` for bounded diagnostics before requesting a visual review. `stale` indicates an older successful preview. `render_page` compiles the requested live revision and returns one PNG image (one-based page, default width 800, allowed 200–1600). `export_pdf` returns a private export path without an image. Both reuse a successful compilation while the revision and project-file metadata remain unchanged; failed compilation or a changed source/resource fails rather than substituting an old PDF. Project export flushes unsaved writing and copies project resources. Signed builds first export into the shared group. The helper then copies the requested artifact into a private ordinary `Application Support/LeftBlankAgentExports` folder so the coding agent can read the delivery without container-access permission. Handoff rejects paths outside the export folder, symlinks and projects above 10,000 entries or 512 MiB. The agent cannot choose an arbitrary export destination.
+
+History reads use the same bounded source slicing. Restoration preserves the previous source and uses native undo. Template/package discovery uses the bundled or cached catalog; selecting a template or declared package may download its content through the app's normal package workflow. Trash is recoverable; no permanent-delete tool is exposed. Settings only cover layout, font size, appearance, preview darkness and source styling.
+
+## Implementation
 
 ```text
-Codex or another MCP client
-        │ stdio (official MCP SDK)
+Coding-agent MCP client
+        │ bounded stdio, official Rust SDK
         ▼
-LeftBlankMCP bundled helper
-        │ private same-user Unix socket
+Tools/LeftBlankMCP
+        │ private same-user Unix socket, bridge version 2
         ▼
-LeftBlank main actor → live workspace → native undo / library / compiler
+Swift WorkspaceAutomation → live editor / undo / library / compiler
 ```
 
-`LeftBlankAutomation` owns the bounded app/helper protocol; `LeftBlankMCPServer` maps it to MCP tools, resources, and prompts. The app does not load the protocol SDK. MCP source text and compiler messages are untrusted data; server instructions explicitly prohibit treating them as commands. Logs record operation names, not source bodies or tool arguments.
+The helper pins [rmcp 3.5.0](https://crates.io/crates/rmcp/3.5.0) and dependencies in `Tools/LeftBlankMCP/Cargo.lock`. The app owns editing and storage in Swift; it does not load an MCP SDK. The official Rust SDK is currently Tier 1 in the [SDK overview](https://modelcontextprotocol.io/docs/sdk). Build scripts select Rust 1.92.0 and macOS 14+ on Apple Silicon. SwiftPM no longer includes the Swift SDK or its transitive packages, and the iPad package graph has no MCP executable.
 
-The socket directory is owner-only (0700), the socket is 0600, and both endpoints check the peer's operating-system user ID. There are at most eight concurrent connections, bounded message sizes, and socket I/O timeouts. Stopping access invalidates queued work and removes the listening socket. There is no general shell, filesystem, deletion, iCloud configuration, or permission-changing tool. Existing Typst compilation can still load the document's declared package dependencies as it normally does.
+The socket directory is owner-only (0700), the socket is 0600, and both endpoints check the peer's operating-system user ID. Signed builds use an [App Group](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.application-groups) socket; this avoids additional permission prompts for private app-container access. Development/older distributions retain ordinary or shortened sandbox socket paths to fit Darwin's 104-byte limit. The helper selects the signed group, or checks legacy standard and sandbox locations for the selected edition and refuses ambiguous live bridges. `--describe` returns installation metadata; `--check` returns JSON and a nonzero exit status when access or bridge-version compatibility is unavailable.
 
-### SDK decision, reviewed 2026-10-01
+Messages are capped at 8 MiB, bridge requests time out after 30 seconds and writes are never retried automatically after a disconnect. Source text, resource names and compiler/package output are untrusted data. Logs use stderr; stdout contains MCP messages only. There is no general shell, arbitrary filesystem query, permanent deletion, iCloud-setting or permission-changing tool.
 
-We use the official [Swift SDK 0.12.1](https://github.com/modelcontextprotocol/swift-sdk/releases/tag/0.12.1), released May 7, 2026, and pin it in SwiftPM. Its supported 2025-11-25 protocol covers our tools, resources, prompts, and stdio transport. It is maintained, although it trails the latest specification.
-
-The official [Rust SDK](https://github.com/modelcontextprotocol/rust-sdk) supports the 2026-07-28 specification and is [Tier 2, while Swift is Tier 3](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/docs/2026-07-28/sdk.mdx). Rust is a strong option when newer protocol features become necessary. For this local editor integration, Swift keeps one build toolchain and shared data types. The separate helper is an intentional migration boundary: replacing it does not require changing editing or document storage.
-
-Build with Xcode 26 or newer (Swift 6.2+); CI selects Xcode 26.3 explicitly. `Package.resolved` locks the SDK and its dependencies. `scripts/test.sh` includes real stdin/stdout protocol negotiation, tool/resource/prompt discovery, Unix-socket access and revocation, live-buffer edits, stale revisions, native undo, library ID boundaries, display settings, compilation errors, and PDF/page-image export. The MCP implementation targets participate in the same application coverage gate.
+`scripts/test.sh` runs Rust stdio/IPC tests, Swift socket and live-workspace tests, real Tinymist compilation, revision conflicts, atomic edits, native undo, library/resource/history/template flows and PDF/page review. Rust and Swift have independent coverage reports and 80% line-coverage gates. HURL is not used for this stdio/Unix-socket integration.

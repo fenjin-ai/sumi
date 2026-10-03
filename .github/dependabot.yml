@@ -26,3 +26,16 @@ updates:
       swift-packages-security:
         applies-to: security-updates
         patterns: ['*']
+  - package-ecosystem: cargo
+    directory: /Tools/LeftBlankMCP
+    schedule:
+      interval: monthly
+      time: '09:00'
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 1
+    groups:
+      mcp-packages:
+        patterns: ['*']
+      mcp-packages-security:
+        applies-to: security-updates
+        patterns: ['*']

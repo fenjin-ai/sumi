@@ -4,6 +4,13 @@ Historical validation entries below describe testing before the LeftBlank rename
 
 Date: 2026-10-01. This record preserves evidence from each development iteration. New feature acceptance is recorded separately; historical counts and measurements refer to the stated version.
 
+## 2026-10-03 · macOS MCP redesign
+
+- Replaced the Swift SDK helper with pinned official Rust rmcp 3.5.0; MCP is excluded from the iPad package graph. The Swift app still owns the live buffer, native undo, library, resources and compiler.
+- Added 31 tools across bounded source discovery, exact revision-checked edits, project files, templates/packages, resources, history, recoverable trash, formatting and separate page/PDF/project output. Installation is a copied coding-agent prompt with app/edition identity and executable/bridge verification.
+- Signed app/helper communication uses a macOS Team-ID App Group; the standalone App Store helper is distributed as a signed release asset. Artifact handoff copies only requested exports into an ordinary private delivery folder. Release CI checks external helper access to a real signed sandbox peer before publishing.
+- Local validation: 174 Swift tests and 7 Rust executable tests passed; Swift source-line coverage exceeds 86%, Rust 89%, both with 80% gates. Strict Swift/Rust lint, one-worker socket tests, release contracts, development packaging and helper execution passed. iPad dependencies resolved without the MCP SDK. Developer ID/App Store signing and the real sandbox App Group handshake run in release CI and were not verified locally.
+
 ## 0.5.0 (9) follow-up · Real books and visual discovery
 
 - Reproduced multi-megabyte input stalls and distant pointer errors with real books. Incremental metrics, revision-based reconciliation, off-main token decoding and stable contiguous text layout passed [the book benchmarks](large-document-performance.md). Current War and Peace typing median is 3.38 ms; SICP is 1.96 ms on the measured Mac. CPU draw measurements are explicitly separate from display FPS.
