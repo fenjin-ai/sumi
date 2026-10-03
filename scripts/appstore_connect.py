@@ -291,6 +291,21 @@ class Release:
             time.sleep(10)
 
 
+def upload_package(package, client):
+    result = subprocess.run(['xcrun', 'altool', '--upload-package', str(package),
+        '--api-key', client.key_id, '--api-issuer', client.issuer,
+        '--p8-file-path', str(client.key), '--output-format', 'json'],
+        check=True, text=True, stdout=subprocess.PIPE)
+    # altool can exit zero while its JSON reports an upload validation failure.
+    report = json.loads(result.stdout)
+    if not isinstance(report, dict):
+        raise RuntimeError('Unexpected altool upload response; verify Apple before retrying')
+    errors = report.get('product-errors')
+    if errors:
+        raise RuntimeError('Apple rejected package upload: ' + json.dumps(errors))
+    print('Apple package upload completed; waiting for build processing', flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['preflight', 'claim', 'upload', 'submit', 'status', 'profile', 'prepare'])
@@ -330,9 +345,7 @@ def main():
         return
     if args.command == 'upload':
         if not release.build():
-            subprocess.run(['xcrun', 'altool', '--upload-package', str(args.package),
-                '--api-key', client.key_id, '--api-issuer', client.issuer,
-                '--p8-file-path', str(args.key), '--output-format', 'json'], check=True)
+            upload_package(args.package, client)
         else:
             print('Reusing the uploaded build for this immutable tag')
         release.wait_build(args.timeout)

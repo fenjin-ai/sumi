@@ -90,6 +90,31 @@ class FakeApple:
                             {'data': {'type': kind, 'id': identifier, 'attributes': attributes}})
 
 
+class UploadTests(unittest.TestCase):
+    def setUp(self):
+        self.client = asc.Client(Path('key.p8'), 'key-id', 'issuer')
+
+    def test_zero_exit_with_apple_validation_error_stops_upload(self):
+        report = {'product-errors': [{'code': -19241, 'message': 'Invalid large app icon'}]}
+        with patch.object(asc.subprocess, 'run', return_value=subprocess.CompletedProcess(
+                [], 0, stdout=json.dumps(report))):
+            with self.assertRaisesRegex(RuntimeError, 'Invalid large app icon'):
+                asc.upload_package(Path('app.ipa'), self.client)
+
+    def test_successful_json_upload(self):
+        with patch.object(asc.subprocess, 'run', return_value=subprocess.CompletedProcess(
+                [], 0, stdout='{"product-errors": []}')) as run:
+            asc.upload_package(Path('app.ipa'), self.client)
+        self.assertTrue(run.call_args.kwargs['check'])
+
+    def test_malformed_response_cannot_be_treated_as_success(self):
+        for response in ('not json', '[]'):
+            with self.subTest(response=response), patch.object(asc.subprocess, 'run',
+                    return_value=subprocess.CompletedProcess([], 0, stdout=response)):
+                with self.assertRaises((ValueError, RuntimeError)):
+                    asc.upload_package(Path('app.ipa'), self.client)
+
+
 class ReleaseTests(unittest.TestCase):
     def setUp(self):
         self.apple = FakeApple()

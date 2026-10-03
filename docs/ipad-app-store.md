@@ -13,7 +13,7 @@ export, including source and assets.
 
 `iPad/Storefront/manifest.json` is the business configuration; `en-US.json` and
 `zh-Hans.json` provide final localized storefront copy. The initial iPad version is
-`1.0.1 (2)` in `iPad/Info.plist`, independently versioned from Mac. The initial
+`1.0.2 (3)` in `iPad/Info.plist`, independently versioned from Mac. The initial
 `ipad-v1.0.0` attempt stopped before upload because its profile validator did not
 accept Apple's iCloud entitlement allowlists; that tag remains immutable. Subsequent iPad
 releases must increase the build number; Apple preflight checks previous iOS builds.
@@ -50,6 +50,13 @@ API key cannot manage profiles. The required existing secrets are
 `APPSTORE_CONNECT_PRIVATE_KEY`; `APP_STORE_APP_ID` is the existing repository
 variable. Signing materials use an ephemeral keychain and are cleaned up.
 
+The 1024-pixel light and dark icons reuse the Mac designs as opaque RGB PNGs.
+iPadOS 18 and later select the dark asset when the Home Screen icon appearance
+is dark (including Automatic when the system is dark). Earlier systems use the
+default light icon. Release validation rejects alpha channels and PNG transparency
+before signing. Upload validation also checks
+`altool` JSON errors, because its process can exit zero after Apple rejects a package.
+
 Validate the preparation without credentials:
 
 ```sh
@@ -58,11 +65,14 @@ python3 scripts/test-ipad-release.py
 python3 scripts/ipad_release.py
 ```
 
-After merging, push an immutable tag matching the iPad version:
+After merging, wait until the required `build and test` check has succeeded on
+the actual merged main commit. A successful PR check alone is not sufficient.
+Only then push an immutable tag matching the iPad version; do not start a release
+runner just to wait for CI:
 
 ```sh
-git tag ipad-v1.0.1 <merged-main-commit>
-git push origin ipad-v1.0.1
+git tag ipad-v1.0.2 <merged-main-commit>
+git push origin ipad-v1.0.2
 ```
 
 This automatically starts **iPad App Store release**, independently from Mac
@@ -87,7 +97,7 @@ Build processing and App Review submission are distinct from approval.
 ## Validation before review
 
 Hosted CI measures executable iPad Swift/Core coverage and runs the native UI
-suite on both 11-inch and 13-inch iPads in each of light and dark mode, hosted
+suite on an 11-inch iPad in light mode and a 13-inch iPad in dark mode, hosted
 unit/lifecycle tests, Address Sanitizer, Thread Sanitizer and Main
 Thread Checker. Compiler concurrency checks and warnings are enforced. Rust FFI
 formatting and Clippy checks supplement the embedded-engine integration test.
@@ -102,7 +112,7 @@ fully shut down and boot again before the measured suite. In run 37125166334,
 SpringBoard crashed during first-boot setup; after its restart both LeftBlank and
 Apple Settings stayed in portrait despite delivered landscape events. The full
 boot separates that setup from testing; it is not an application-test retry.
-The four-device/appearance gate still requires real rotation and passing tests.
+Both device/appearance configurations require real rotation and passing tests.
 The template cover and subscription sheet must hand off through `onDismiss`;
 changing both presentation bindings at once can leave XCTest waiting for an
 animation to finish. Purchase and expired-export scenarios run independently,

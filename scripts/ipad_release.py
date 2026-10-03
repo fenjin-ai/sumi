@@ -16,6 +16,24 @@ BUNDLE = 'app.leftblank.writer'
 PRODUCT = BUNDLE + '.ipad.monthly'
 
 
+def validate_icon(path):
+    data = path.read_bytes()
+    if (len(data) < 33 or data[:8] != b'\x89PNG\r\n\x1a\n'
+            or data[12:16] != b'IHDR' or struct.unpack('>II', data[16:24]) != (1024, 1024)
+            or data[24:26] != bytes([8, 2])):
+        raise ValueError('iPad App Store icon must be a 1024x1024 RGB PNG without an alpha channel')
+    offset = 8
+    while offset + 12 <= len(data):
+        length = struct.unpack('>I', data[offset:offset + 4])[0]
+        kind = data[offset + 4:offset + 8]
+        if kind == b'tRNS':
+            raise ValueError('iPad App Store icon must not contain PNG transparency')
+        offset += length + 12
+        if kind == b'IEND':
+            return
+    raise ValueError('Incomplete iPad App Store PNG icon')
+
+
 def metadata(root):
     info = plistlib.loads((root / 'iPad/Info.plist').read_bytes())
     version, build = info['CFBundleShortVersionString'], info['CFBundleVersion']
@@ -65,6 +83,17 @@ def metadata(root):
         dimensions = struct.unpack('>II', data[16:24])
         if dimensions not in ((2048, 2732), (2732, 2048), (2064, 2752), (2752, 2064)):
             raise ValueError('Screenshot must match the 13-inch iPad slot: ' + name)
+    icons = root / 'iPad/Assets.xcassets/AppIcon.appiconset'
+    images = json.loads((icons / 'Contents.json').read_text())['images']
+    appearances = [image.get('appearances', []) for image in images]
+    if (len(images) != 2 or [] not in appearances
+            or [{'appearance': 'luminosity', 'value': 'dark'}] not in appearances):
+        raise ValueError('Provide both default light and dark iPad app icons')
+    for image in images:
+        path = icons / image['filename']
+        if path.parent != icons:
+            raise ValueError('Unsafe iPad app icon path')
+        validate_icon(path)
     return {'platform': 'IOS', 'version': version, 'build': build, 'storefront': store, 'localizations': locales}
 
 

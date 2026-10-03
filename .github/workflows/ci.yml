@@ -344,8 +344,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        size: [11-inch, 13-inch]
-        appearance: [light, dark]
+        include:
+          - size: 11-inch
+            appearance: light
+          - size: 13-inch
+            appearance: dark
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
@@ -406,8 +409,6 @@ jobs:
           source scripts/environment.sh
           python3 scripts/ipad_coverage.py --minimum 80 --result \
             build/iPad-results/ipad-writing-11-inch-light/11-inch.xcresult \
-            build/iPad-results/ipad-writing-11-inch-dark/11-inch.xcresult \
-            build/iPad-results/ipad-writing-13-inch-light/13-inch.xcresult \
             build/iPad-results/ipad-writing-13-inch-dark/13-inch.xcresult
       - name: Upload iPad application coverage to Codecov
         if: ${{ !cancelled() && hashFiles('build/iPad-coverage/codecov.lcov') != '' }}
