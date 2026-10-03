@@ -64,18 +64,21 @@ def diagnostics(path, device=None):
         ['tail', '-n', '200', str(Path.home() / 'Library/Logs/CoreSimulator/CoreSimulator.log')],
     ]
     if device:
+        commands.append(['xcrun', 'simctl', 'spawn', device['udid'],
+                         'defaults', 'read', 'com.apple.springboard'])
         commands.append(['xcrun', 'simctl', 'spawn', device['udid'], 'log', 'show',
-                         '--last', '20m', '--style', 'compact', '--predicate',
+                         '--last', '3m', '--style', 'compact', '--info', '--debug', '--predicate',
                          'eventMessage CONTAINS[c] "orient" OR eventMessage CONTAINS[c] "rotat"'])
     with path.open('w') as output:
         for command in commands:
             output.write(f"+ {shlex.join(command)}\n")
             try:
-                result = run(command, 10, capture=True, check=False)
+                timeout = 60 if command[:3] == ['xcrun', 'simctl', 'spawn'] else 10
+                result = run(command, timeout, capture=True, check=False)
                 output.write(result.stdout)
                 print(result.stdout, flush=True)
             except subprocess.TimeoutExpired:
-                output.write('Diagnostic command timed out after 10 seconds.\n')
+                output.write(f'Diagnostic command timed out after {timeout} seconds.\n')
 
 
 def shutdown(device):
@@ -165,21 +168,13 @@ def configure_coverage(bundle):
     bundle.write_bytes(plistlib.dumps(parameters))
 
 
-def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True, appearance=None, show_device=False):
+def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True, appearance=None):
     print(f"::group::{size}: boot, native {suite} tests, shutdown", flush=True)
     try:
         if coverage:
             configure_coverage(bundle)
         # bootstatus also initiates the boot and reports migration progress.
         run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b', '-d'], 240)
-        if show_device:
-            # Attach the hosted UI device to Simulator's display before XCTest
-            # sends orientation events. Keep the actual window-shape assertions.
-            developer = os.environ.get('DEVELOPER_DIR')
-            if not developer:
-                raise RuntimeError('Hosted UI tests require an explicit DEVELOPER_DIR')
-            simulator = str(Path(developer) / 'Applications/Simulator.app')
-            run(['open', '-a', simulator, '--args', '-CurrentDeviceUDID', device['udid']], 30)
         if appearance:
             # A cold hosted simulator can still be initializing UI services after
             # bootstatus completes. Keep a bounded startup allowance and confirm
@@ -264,7 +259,7 @@ def main(argv=None):
         return 1
     finally:
         print('::endgroup::', flush=True)
-    options = {'show_device': True} if args.fresh_device else {}
+    options = {}
     if args.appearance:
         options['appearance'] = args.appearance
     if args.suite != 'all':

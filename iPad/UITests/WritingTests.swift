@@ -5,6 +5,7 @@ import XCTest
 @MainActor
 final class WritingTests: XCTestCase {
     private var storeSession: SKTestSession?
+    private static var capturedRotationFailure = false
 
     override func setUp() async throws {
         try await super.setUp()
@@ -128,8 +129,53 @@ final class WritingTests: XCTestCase {
             hierarchy.name = name + " hierarchy"
             hierarchy.lifetime = .keepAlways
             add(hierarchy)
+            if name == "Window orientation" {
+                diagnoseSystemRotation()
+            }
         }
         expect(completed) == true
+    }
+
+    private func diagnoseSystemRotation() {
+        guard !Self.capturedRotationFailure else { return }
+        Self.capturedRotationFailure = true
+        // A system app is an independent control: it distinguishes app layout
+        // failures from simulator orientation delivery or system rotation lock.
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.launch()
+        XCUIDevice.shared.orientation = .portrait
+        let portrait = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = settings.windows.firstMatch.frame
+            return frame.height > frame.width && frame.width > 0
+        }, object: settings)
+        let portraitReady = XCTWaiter.wait(for: [portrait], timeout: 5) == .completed
+        let portraitFrame = settings.windows.firstMatch.frame
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let frame = settings.windows.firstMatch.frame
+            return frame.width > frame.height && frame.height > 0
+        }, object: settings)
+        let landscapeReady = XCTWaiter.wait(for: [landscape], timeout: 10) == .completed
+        let report = "Settings control: portrait=\(portraitReady) \(portraitFrame), " +
+            "landscape=\(landscapeReady) \(settings.windows.firstMatch.frame), " +
+            "device=\(XCUIDevice.shared.orientation.rawValue)\n" + settings.debugDescription
+        let attachment = XCTAttachment(string: report)
+        attachment.name = "System rotation control"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        capture("System Settings after rotation")
+        XCUIDevice.shared.press(.home)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let start = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.01))
+        let end = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: end)
+        let controls = XCTAttachment(string: springboard.debugDescription)
+        controls.name = "Control Center diagnostic"
+        controls.lifetime = .keepAlways
+        add(controls)
+        capture("Control Center diagnostic")
+        XCUIDevice.shared.press(.home)
+        settings.terminate()
     }
 
     private func expectShareSheet(in app: XCUIApplication) {
