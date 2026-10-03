@@ -1,0 +1,156 @@
+{
+  "extraction": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "strictExact": [
+        4,
+        12
+      ],
+      "factsAfterUnitSuffixRemoval": [
+        10,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 0.7983364462852478,
+    "wallSecondsIncludingTokenCountingP95": 1.9932559728622437
+  },
+  "classification": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "strictExact": [
+        12,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 0.4719405174255371,
+    "wallSecondsIncludingTokenCountingP95": 0.5248390436172485
+  },
+  "topicTags": {
+    "total": 12,
+    "errors": 0,
+    "checks": {},
+    "wallSecondsIncludingTokenCountingP50": 0.8103035092353821,
+    "wallSecondsIncludingTokenCountingP95": 1.2102890014648438
+  },
+  "groundedQA": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "strictAnswerAndEvidence": [
+        10,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 0.6809325218200684,
+    "wallSecondsIncludingTokenCountingP95": 1.0360701084136963
+  },
+  "extractiveSummary": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "verbatimOnly": [
+        12,
+        12
+      ],
+      "allThreeSalientSentences": [
+        9,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 1.1712344288825989,
+    "wallSecondsIncludingTokenCountingP95": 1.2301349639892578
+  },
+  "rewrite": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "literalNamesNumbersDates": [
+        11,
+        12
+      ],
+      "shorter": [
+        6,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 0.8922845125198364,
+    "wallSecondsIncludingTokenCountingP95": 1.1132869720458984
+  },
+  "toolCalling": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "strictExact": [
+        6,
+        12
+      ],
+      "expectedToolRoute": [
+        12,
+        12
+      ],
+      "exactToolArgument": [
+        2,
+        2
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 1.3108115196228027,
+    "wallSecondsIncludingTokenCountingP95": 1.452415108680725
+  },
+  "code": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "literalRequiredText": [
+        4,
+        12
+      ],
+      "noMarkdownFences": [
+        9,
+        12
+      ],
+      "noFileOrPackageAccess": [
+        12,
+        12
+      ],
+      "compiled": [
+        10,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 1.323148488998413,
+    "wallSecondsIncludingTokenCountingP95": 8.177901983261108
+  },
+  "arithmetic": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "numericAnswer": [
+        4,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 0.5338795185089111,
+    "wallSecondsIncludingTokenCountingP95": 0.6552790403366089
+  },
+  "vision": {
+    "total": 6,
+    "errors": 0,
+    "checks": {
+      "exactAnswerIgnoringWhitespaceAndColonStyle": [
+        1,
+        6
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 1.0055674314498901,
+    "wallSecondsIncludingTokenCountingP95": 1.262863039970398
+  },
+  "context": {
+    "total": 1,
+    "errors": 0,
+    "checks": {},
+    "wallSecondsIncludingTokenCountingP50": 10.30930507183075,
+    "wallSecondsIncludingTokenCountingP95": 10.30930507183075
+  }
+}

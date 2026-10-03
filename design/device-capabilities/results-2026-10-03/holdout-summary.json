@@ -1,0 +1,28 @@
+{
+  "classification": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "strictExact": [
+        10,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 0.5105260014533997,
+    "wallSecondsIncludingTokenCountingP95": 1.909287929534912
+  },
+  "topicTags": {
+    "total": 12,
+    "errors": 0,
+    "checks": {},
+    "wallSecondsIncludingTokenCountingP50": 0.8492809534072876,
+    "wallSecondsIncludingTokenCountingP95": 1.372534990310669
+  },
+  "topicTagsLocalized": {
+    "total": 6,
+    "errors": 0,
+    "checks": {},
+    "wallSecondsIncludingTokenCountingP50": 0.9070430397987366,
+    "wallSecondsIncludingTokenCountingP95": 0.9432240724563599
+  }
+}

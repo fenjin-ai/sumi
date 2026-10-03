@@ -1,0 +1,422 @@
+[
+  {
+    "run": "run1",
+    "id": "topicTags-en-01",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-en-02",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-en-03",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-en-04",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-en-05",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-en-06",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-zh-01",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-zh-02",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-zh-03",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-zh-04",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Two useful main-subject tags; the third tag, guide, is generic."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-zh-05",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "topicTags-zh-06",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-en-01",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": true,
+    "notes": "Meaning and language preserved; concision is separately measured."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-en-02",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": true,
+    "notes": "Meaning and language preserved; concision is separately measured."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-en-03",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": true,
+    "notes": "Meaning and language preserved; concision is separately measured."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-en-04",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": false,
+    "notes": "Adds an unsupported claim that responsibility lies with the experiment."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-en-05",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": true,
+    "notes": "Meaning and language preserved; concision is separately measured."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-en-06",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": true,
+    "notes": "Meaning and language preserved; concision is separately measured."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-zh-01",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": true,
+    "notes": "Meaning and language preserved; concision is separately measured."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-zh-02",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": false,
+    "notes": "Changes Chinese to English and transliterates the name despite same-language instruction."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-zh-03",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": true,
+    "notes": "Meaning and language preserved; concision is separately measured."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-zh-04",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": true,
+    "notes": "Meaning and language preserved; concision is separately measured."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-zh-05",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": true,
+    "notes": "Meaning and language preserved; concision is separately measured."
+  },
+  {
+    "run": "run1",
+    "id": "rewrite-zh-06",
+    "criterion": "Same language and all original facts, uncertainty, negation and responsibility preserved; no added claims.",
+    "faithful": false,
+    "notes": "Invents responsibility for paragraph-order checking: 责任归周航."
+  },
+  {
+    "run": "run1",
+    "id": "code-en-01",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-en-02",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-en-03",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-en-04",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-en-05",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-en-06",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-zh-01",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-zh-02",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-zh-03",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-zh-04",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-zh-05",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "run1",
+    "id": "code-zh-06",
+    "criterion": "Complete Typst document implements every requested layout/content requirement.",
+    "semanticallyCorrect": false,
+    "notes": "Emits Markdown, pseudo-language, plain text or incorrect math instead of implementing the requested Typst behavior."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-en-01",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-en-02",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-en-03",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-en-04",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-en-05",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Two useful finance tags; spam message is grounded but describes a minor quoted detail."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-en-06",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-zh-07",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTagsLocalized-zh-07",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-zh-08",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTagsLocalized-zh-08",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-zh-09",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTagsLocalized-zh-09",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-zh-10",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTagsLocalized-zh-10",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-zh-11",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTagsLocalized-zh-11",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTags-zh-12",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "holdout",
+    "id": "holdout-topicTagsLocalized-zh-12",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Source-grounded and useful as editable metadata."
+  },
+  {
+    "run": "stability",
+    "id": "holdout-topicTagsLocalized-zh-07",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Localized topic tags remain relevant on the repeat."
+  },
+  {
+    "run": "stability",
+    "id": "holdout-topicTagsLocalized-zh-08",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Localized topic tags remain relevant on the repeat."
+  },
+  {
+    "run": "stability",
+    "id": "holdout-topicTagsLocalized-zh-09",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Localized topic tags remain relevant on the repeat."
+  },
+  {
+    "run": "stability",
+    "id": "holdout-topicTagsLocalized-zh-10",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Localized topic tags remain relevant on the repeat."
+  },
+  {
+    "run": "stability",
+    "id": "holdout-topicTagsLocalized-zh-11",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Localized topic tags remain relevant on the repeat."
+  },
+  {
+    "run": "stability",
+    "id": "holdout-topicTagsLocalized-zh-12",
+    "criterion": "At least two tags relate to the main subject; at least one is distinctive; no invented subject.",
+    "relevant": true,
+    "notes": "Localized topic tags remain relevant on the repeat."
+  }
+]

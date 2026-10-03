@@ -1,0 +1,50 @@
+[
+  {
+    "file": "chinese-image.png",
+    "sha256": "71bd29d11ec60bb5e56abdf4cdf8d272f0378bd24aeac0f6b04ec8f9ef783603",
+    "dimensions": [
+      1191,
+      1684
+    ]
+  },
+  {
+    "file": "chinese-lowres.png",
+    "sha256": "a4ce0115d099df25dd9f83e769a15f98bb265e8bdddfd7b57e0dffbe4c2fd597",
+    "dimensions": [
+      496,
+      702
+    ]
+  },
+  {
+    "file": "chinese-skew.png",
+    "sha256": "ac7edad96f47c85a711c729969a7ef648dda8880e7052f369451e66d4eaa1211",
+    "dimensions": [
+      1293,
+      1754
+    ]
+  },
+  {
+    "file": "chinese.png",
+    "sha256": "2ee2a5607a75d5cca743c0dd4c95470101dcdcdbef1f299159c28875641acd06",
+    "dimensions": [
+      778,
+      1100
+    ]
+  },
+  {
+    "file": "columns-short.png",
+    "sha256": "35d95c2a285dff76d3c372bd300619683e52d7ac365261f3c155b67a4cb6b463",
+    "dimensions": [
+      778,
+      1100
+    ]
+  },
+  {
+    "file": "table.png",
+    "sha256": "704878e6cfb975374c39a53fabc98e8dfef6efc8cf2220ee7d49f9e8d722fc8a",
+    "dimensions": [
+      778,
+      1100
+    ]
+  }
+]

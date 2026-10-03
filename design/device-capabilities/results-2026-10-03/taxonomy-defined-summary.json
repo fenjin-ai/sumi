@@ -1,0 +1,14 @@
+{
+  "classification": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "strictExact": [
+        12,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 0.4455380439758301,
+    "wallSecondsIncludingTokenCountingP95": 1.2969650030136108
+  }
+}

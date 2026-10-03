@@ -1,0 +1,14 @@
+[
+{"category":"classification","id":"taxonomy-defined-classification-en-01","instructionTokens":126,"language":"en","promptTokens":40,"responseJSON":"{\"label\": \"other\"}","schemaTokens":74,"seconds":1.2969650030136108,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-en-02","instructionTokens":126,"language":"en","promptTokens":38,"responseJSON":"{\"label\": \"other\"}","schemaTokens":74,"seconds":0.44322705268859863,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-en-03","instructionTokens":126,"language":"en","promptTokens":42,"responseJSON":"{\"label\": \"software\"}","schemaTokens":74,"seconds":0.4478490352630615,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-en-04","instructionTokens":126,"language":"en","promptTokens":39,"responseJSON":"{\"label\": \"travel\"}","schemaTokens":74,"seconds":0.4715648889541626,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-en-05","instructionTokens":126,"language":"en","promptTokens":41,"responseJSON":"{\"label\": \"finance\"}","schemaTokens":74,"seconds":0.46763908863067627,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-en-06","instructionTokens":126,"language":"en","promptTokens":48,"responseJSON":"{\"label\": \"writing\"}","schemaTokens":74,"seconds":0.4342449903488159,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-zh-07","instructionTokens":126,"language":"zh","promptTokens":43,"responseJSON":"{\"label\": \"other\"}","schemaTokens":74,"seconds":0.45060908794403076,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-zh-08","instructionTokens":126,"language":"zh","promptTokens":40,"responseJSON":"{\"label\": \"other\"}","schemaTokens":74,"seconds":0.4355689287185669,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-zh-09","instructionTokens":126,"language":"zh","promptTokens":40,"responseJSON":"{\"label\": \"software\"}","schemaTokens":74,"seconds":0.42196595668792725,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-zh-10","instructionTokens":126,"language":"zh","promptTokens":40,"responseJSON":"{\"label\": \"travel\"}","schemaTokens":74,"seconds":0.45829498767852783,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-zh-11","instructionTokens":126,"language":"zh","promptTokens":41,"responseJSON":"{\"label\": \"finance\"}","schemaTokens":74,"seconds":0.4303020238876343,"toolCalls":[]},
+{"category":"classification","id":"taxonomy-defined-classification-zh-12","instructionTokens":126,"language":"zh","promptTokens":45,"responseJSON":"{\"label\": \"writing\"}","schemaTokens":74,"seconds":0.4386199712753296,"toolCalls":[]}
+]

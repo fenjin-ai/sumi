@@ -1,5 +1,7 @@
 # Local intelligence: product evaluation
 
+Latest decision: [direct device-model capability study](device-model-capabilities-2026-10-03.md). After the weak app-effect results, the user asked to choose scenarios from measured capabilities. Direct probes favor editable topic-tag suggestions, source-linked excerpts and narrowly scoped read-only lookup. General typesetting intent and reconstruction remain experiments in the draft PR.
+
 Status: researched and prototyped on October 1, 2026. On October 3, the user approved a first implementation of natural-language typesetting and one-image/first-PDF-page reconstruction into editable Typst. The Mac-first implementation and local regression tests are complete; it has not been released. The original probe below remains historical evidence.
 
 See [Apple Intelligence integration roadmap](apple-intelligence-roadmap.md) for the six researched product ideas, the approved reconstruction scope, SDK compatibility and Private Cloud Compute enrollment status.

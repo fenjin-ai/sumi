@@ -2,6 +2,8 @@
 
 Research and decisions updated October 3, 2026. The user approved natural-language typesetting and a small image/PDF-to-editable-Typst workflow. The first implementation is present and locally validated on October 3; it has not been released. The remaining features below are proposals for evaluation, not shipped behavior.
 
+The user subsequently asked to evaluate the device model before choosing scenarios. The [direct capability study](device-model-capabilities-2026-10-03.md) now prioritizes topic-tag suggestions, source-linked chapter excerpts and bounded read-only document lookup. The earlier typesetting/reconstruction implementation remains a draft experiment and is deferred as a release candidate; regression validation did not establish useful production quality.
+
 ## Product direction
 
 Make LeftBlank a reliable place to turn materials into editable, well-typeset documents. Apple models can interpret a person's request or classify extracted text; LeftBlank should own source generation, compilation, revision checks and undo. A document remains an ordinary `.typ` file with editable source.

@@ -1,0 +1,21 @@
+{
+  "classification": {
+    "total": 12,
+    "errors": 0,
+    "checks": {
+      "strictExact": [
+        12,
+        12
+      ]
+    },
+    "wallSecondsIncludingTokenCountingP50": 0.4664425849914551,
+    "wallSecondsIncludingTokenCountingP95": 1.097370982170105
+  },
+  "topicTagsLocalized": {
+    "total": 6,
+    "errors": 0,
+    "checks": {},
+    "wallSecondsIncludingTokenCountingP50": 0.903642475605011,
+    "wallSecondsIncludingTokenCountingP95": 1.1727499961853027
+  }
+}
