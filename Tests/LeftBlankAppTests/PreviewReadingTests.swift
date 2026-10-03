@@ -166,9 +166,20 @@ extension WritingFlowTests {
         )
         #expect(try await web.evaluateJavaScript("document.querySelectorAll('canvas').length") as? Int == 0)
         for page in [0, 223, 447, 0] {
+            // Lazy SVG groups have zero height before rendering. Scroll the real
+            // container to their position without an offscreen WebKit animation.
             _ = try await web
                 .evaluateJavaScript(
-                    "document.querySelector('.typst-doc > g.typst-page[data-page-number=\"\(page)\"]').scrollIntoView({block:'start'})",
+                    """
+                    (() => {
+                        const page = document.querySelector('.typst-doc > g.typst-page[data-page-number="\(page)"]');
+                        const container = document.getElementById('typst-container-main');
+                        container.scrollTo({
+                            top: container.scrollTop + page.getBoundingClientRect().top - container.getBoundingClientRect().top,
+                            behavior: 'instant'
+                        });
+                    })()
+                    """,
                 )
             try await waitForJavaScript(
                 web,
