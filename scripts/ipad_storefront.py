@@ -345,7 +345,11 @@ class Storefront:
         infos = self.client.list(f'/v1/apps/{self.release.app}/appInfos', limit=200)
         info = unique([i for i in infos if state(i) in EDITABLE], 'editable app information')
         if not info:
-            info = next((i for i in infos if state(i) in {'READY_FOR_SALE', 'READY_FOR_DISTRIBUTION'}), None)
+            info = unique([i for i in infos if state(i) in {'READY_FOR_SALE', 'READY_FOR_DISTRIBUTION'}],
+                          'published app information')
+        if not info:
+            info = unique([i for i in infos if state(i) in {'READY_FOR_REVIEW', 'WAITING_FOR_REVIEW',
+                          'IN_REVIEW', 'ACCEPTED', 'PENDING_RELEASE'}], 'shared app information in review')
         if not info:
             raise RuntimeError('App information and age rating must be configured in App Store Connect')
         locales = self.client.list(f"/v1/appInfos/{info['id']}/appInfoLocalizations", limit=200)

@@ -183,6 +183,21 @@ class Preparation(unittest.TestCase):
             self.store.prepare(self.apple.build)
         self.assertNotIn('subscriptions', self.apple.rows)
 
+    def test_shared_mac_information_in_review_is_reused_without_changes(self):
+        self.apple.rows['appInfos']['info']['attributes']['state'] = 'IN_REVIEW'
+        before = copy.deepcopy(self.apple.rows['appInfoLocalizations'])
+        with patch.object(self.store, 'upload_asset', return_value={'id': 'image'}):
+            self.store.prepare(self.apple.build)
+        self.assertEqual(self.apple.rows['appInfoLocalizations'], before)
+        self.assertFalse(any(path == '/v1/appInfoLocalizations' for path, _ in self.apple.posts))
+
+    def test_shared_information_in_review_cannot_add_missing_locales(self):
+        self.apple.rows['appInfos']['info']['attributes']['state'] = 'IN_REVIEW'
+        del self.apple.rows['appInfoLocalizations']['zh-Hans']
+        with self.assertRaisesRegex(RuntimeError, 'Missing shared App Info locale'):
+            self.store.app_information()
+        self.assertFalse(self.apple.posts)
+
 
 class AssetUploads(unittest.TestCase):
     def setUp(self):
