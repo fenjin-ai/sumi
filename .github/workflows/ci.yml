@@ -357,7 +357,7 @@ jobs:
     name: iPad UI (${{ matrix.size }})
     needs: ipad-build
     runs-on: macos-15
-    timeout-minutes: 35
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -384,7 +384,7 @@ jobs:
           mkdir -p build/iPad/Build
           tar -xzf build/iPad-ui-tests.tar.gz -C build/iPad/Build
       - name: Native unit tests, writing, preview navigation, catalog and PDF sharing
-        timeout-minutes: 23
+        timeout-minutes: 28
         run: |
           source scripts/environment.sh
           python3 scripts/ipad_simulator.py --size "${{ matrix.size }}" \

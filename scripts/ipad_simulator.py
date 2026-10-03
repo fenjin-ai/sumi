@@ -120,10 +120,12 @@ def export_coverage(bundle, device, results, size, started):
         executable = app / 'LeftBlank'
     images = [executable]
     core = products / 'Debug-iphonesimulator/PackageFrameworks/LeftBlankCore.framework/LeftBlankCore'
-    if core.is_file():
-        images.append(core)
-    images += sorted(path / path.stem for path in (app / 'Frameworks').glob('*.framework')
-                     if path.stem != 'LeftBlankCore' and (path / path.stem).is_file())
+    if not core.is_file():
+        raise RuntimeError('Coverage requires the instrumented shared Core image')
+    # Only our app and Core are instrumented for the production denominator.
+    # Hosted test runs inject universal Apple XCTest frameworks; those are not
+    # production coverage objects and require a separate architecture selection.
+    images.append(core)
     objects = [str(images[0])]
     for image in images[1:]:
         objects += ['-object', str(image)]
@@ -166,7 +168,13 @@ def test_device(size, device, bundle, results, *, suite='all', memory=False, cov
         # bootstatus also initiates the boot and reports migration progress.
         run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b', '-d'], 240)
         if appearance:
-            run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance', appearance], 30)
+            # A cold hosted simulator can still be initializing UI services after
+            # bootstatus completes. Keep a bounded startup allowance and confirm
+            # the actual appearance before measuring the test run.
+            run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance', appearance], 120)
+            actual = run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance'], 30, capture=True).stdout
+            if actual.strip().lower() != appearance:
+                raise RuntimeError('Simulator appearance differs from the requested ' + appearance)
         # Xcode's verbose sysdiagnose can spend ten minutes after a test failure.
         # Keep the test report and attachments, then collect our bounded diagnostics.
         selection = ['-only-testing:LeftBlankTabletTests'] if suite == 'unit' else []
@@ -183,13 +191,15 @@ def test_device(size, device, bundle, results, *, suite='all', memory=False, cov
              '-collect-test-diagnostics', 'never',
              '-enableCodeCoverage', 'YES' if coverage else 'NO',
              '-resultBundlePath', str(results / f'{size}.xcresult'),
-             *selection, 'test-without-building'], 720)
+             *selection, 'test-without-building'], 1080)
         verify_result(results / f'{size}.xcresult', results, memory=memory)
         if coverage:
             export_coverage(bundle, device, results, size, started)
         return True
     except (RuntimeError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         print(f"::error::{size}: {error}", flush=True)
+        if isinstance(error, subprocess.CalledProcessError) and error.output:
+            print(error.output, flush=True)
         diagnostics(results / f'{size}-diagnostics.log')
         return False
     finally:

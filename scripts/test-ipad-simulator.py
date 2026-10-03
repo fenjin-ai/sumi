@@ -193,6 +193,41 @@ class SimulatorContracts(unittest.TestCase):
         self.assertNotIn(('test', 'small'), events)
         self.assertEqual(events[-1], ('shutdown', 'small'))
 
+    def test_cold_appearance_setup_is_bounded_and_verified_before_tests(self):
+        events = []
+
+        def command(args, timeout, **_options):
+            if args[:3] == ['xcrun', 'simctl', 'ui']:
+                if len(args) == 6:
+                    # Hosted startup can take longer than the old 30-second limit.
+                    if timeout < 90:
+                        raise subprocess.TimeoutExpired(args, timeout)
+                    self.assertLessEqual(timeout, 120)
+                    events.append('set appearance')
+                    return subprocess.CompletedProcess(args, 0)
+                events.append('verify appearance')
+                return subprocess.CompletedProcess(args, 0, stdout='Dark\n')
+            if args[0] == 'xcodebuild':
+                events.append('test')
+            return subprocess.CompletedProcess(args, 0)
+
+        with patch.object(runner, 'run', side_effect=command), patch.object(runner, 'verify_result'), \
+             patch.object(runner, 'configure_coverage'), patch.object(runner, 'export_coverage'):
+            self.assertTrue(runner.test_device('13-inch', DEVICES[1][1], self.root / 'tests.xctestrun',
+                                              self.root, appearance='dark'))
+        self.assertEqual(events, ['set appearance', 'verify appearance', 'test'])
+
+    def test_wrong_appearance_cleans_up_without_testing(self):
+        def command(args, _timeout, **_options):
+            return subprocess.CompletedProcess(args, 0, stdout='Light\n')
+
+        with patch.object(runner, 'run', side_effect=command) as run, patch.object(runner, 'diagnostics'), \
+             patch.object(runner, 'configure_coverage'):
+            self.assertFalse(runner.test_device('13-inch', DEVICES[1][1], self.root / 'tests.xctestrun',
+                                               self.root, appearance='dark'))
+        self.assertFalse(any(call.args[0][0] == 'xcodebuild' for call in run.call_args_list))
+        self.assertEqual(run.call_args.args[0][:3], ['xcrun', 'simctl', 'shutdown'])
+
     def test_memory_validation_rejects_missing_workload_metrics(self):
         summary = {'result': 'Passed', 'passedTests': 2, 'failedTests': 0}
         with patch.object(runner, 'run', side_effect=[
@@ -209,6 +244,9 @@ class SimulatorContracts(unittest.TestCase):
         framework = products / 'Debug-iphonesimulator/PackageFrameworks/LeftBlankCore.framework'
         framework.mkdir(parents=True)
         (framework / 'LeftBlankCore').touch()
+        injected = app / 'Frameworks/Testing.framework/Testing'
+        injected.parent.mkdir(parents=True)
+        injected.touch()
         profile = self.root / 'Build/ProfileData/small/Coverage.profdata'
         with self.assertRaisesRegex(RuntimeError, 'fresh coverage profile'):
             runner.export_coverage(products / 'tests.xctestrun', DEVICES[0][1], self.root, '11-inch', 0)
@@ -217,6 +255,7 @@ class SimulatorContracts(unittest.TestCase):
         with patch.object(runner, 'run', return_value=subprocess.CompletedProcess([], 0, stdout='real LCOV')) as run:
             runner.export_coverage(products / 'tests.xctestrun', DEVICES[0][1], self.root, '11-inch', 0)
         self.assertIn(str(framework / 'LeftBlankCore'), run.call_args.args[0])
+        self.assertNotIn(str(injected), run.call_args.args[0])
         self.assertEqual((self.root / '11-inch.lcov').read_text(), 'real LCOV')
 
     def test_relocatable_run_declares_both_instrumented_images(self):

@@ -90,6 +90,13 @@ final class WritingTests: XCTestCase {
                 form.swipeDown()
             }
         }
+        if !element.exists || !element.isHittable {
+            capture("Subscription control unavailable")
+            let hierarchy = XCTAttachment(string: form.debugDescription)
+            hierarchy.name = "Subscription form hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
         expect(element.exists && element.isHittable) == true
     }
 
@@ -127,10 +134,11 @@ final class WritingTests: XCTestCase {
             evaluatedWith: app.staticTexts["subscription-status"],
         )
         waitForExpectations(timeout: 30)
-        let privacy = app.links["Privacy policy"]
+        // Locate legal controls by their accessible names across supported runtimes.
+        let privacy = app.descendants(matching: .any)["Privacy policy"].firstMatch
         reveal(privacy, in: form)
         expect(privacy.exists) == true
-        let terms = app.links["Terms of use"]
+        let terms = app.descendants(matching: .any)["Terms of use"].firstMatch
         reveal(terms, in: form)
         expect(terms.exists) == true
         app.buttons["Done"].tap()
