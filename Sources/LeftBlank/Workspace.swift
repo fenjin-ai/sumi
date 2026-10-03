@@ -78,7 +78,24 @@ final class Workspace: ObservableObject {
     @Published var paletteOpen = false
     @Published var paletteGroup: String?
     @Published var searchMode = false
-    @Published var query = ""
+    @Published var query = "" {
+        didSet {
+            if query != oldValue {
+                cancelTypesettingRequest()
+            }
+        }
+    }
+
+    @Published var understandingRequest = false
+    var typesettingRequestTask: Task<Void, Never>?
+    var typesettingRequestGeneration = UUID()
+    var typesettingResolver: @Sendable (String) async throws -> TypesettingSuggestion? = {
+        try await LocalIntelligence.suggest($0)
+    }
+
+    @Published var reconstructingPage = false
+    var reconstructionTask: Task<Void, Never>?
+    var reconstructionGeneration = UUID()
     @Published var activeCommand: WritingCommand?
     @Published var fieldValues: [String: String] = [:]
     @Published var resourceSelection: ResourceSelection?
@@ -246,8 +263,18 @@ final class Workspace: ObservableObject {
         {
             return cached.commands
         }
-        let commands = searchMode ? WritingCommand.search(query) : WritingCommand.all
+        var commands = searchMode ? WritingCommand.search(query) : WritingCommand.all
             .filter { $0.group == paletteGroup }
+        let extra = Self.referencePageCommand
+        if searchMode {
+            let terms = query.lowercased().split(whereSeparator: \.isWhitespace)
+            let index = "\(extra.title) \(extra.detail) \(extra.keywords)".lowercased()
+            if terms.allSatisfy({ index.contains($0) }) {
+                commands.append(extra)
+            }
+        } else if paletteGroup == extra.group {
+            commands.append(extra)
+        }
         commandResults = (query, paletteGroup, searchMode, commands)
         return commands
     }
@@ -266,7 +293,7 @@ final class Workspace: ObservableObject {
     }
 
     func keyPath(for command: WritingCommand) -> String {
-        command.keyPath
+        command.id == Self.referencePageCommand.id ? "f p" : command.keyPath
     }
 
     init(stateDirectory directory: URL? = nil) {
@@ -840,6 +867,7 @@ final class Workspace: ObservableObject {
     }
 
     func closePalette() {
+        cancelTypesettingRequest()
         recordOperation("palette.close")
         paletteOpen = false
         activeCommand = nil
@@ -854,6 +882,7 @@ final class Workspace: ObservableObject {
     }
 
     func backPalette() {
+        cancelTypesettingRequest()
         commandError = nil
         if activeCommand != nil {
             activeCommand = nil
@@ -869,6 +898,7 @@ final class Workspace: ObservableObject {
     }
 
     func enterGroup(_ id: String) {
+        cancelTypesettingRequest()
         paletteGroup = id
         searchMode = false
         activeCommand = nil
@@ -876,6 +906,7 @@ final class Workspace: ObservableObject {
     }
 
     func selectCommand(_ command: WritingCommand) {
+        cancelTypesettingRequest()
         recordOperation("command.selected", ["command": command.id, "source": searchMode ? "search" : "group"])
         commandError = nil
         fieldValues = Dictionary(uniqueKeysWithValues: command.fields.map { ($0.id, $0.initial) })
@@ -950,7 +981,7 @@ final class Workspace: ObservableObject {
             return true
         }
         if let group = paletteGroup,
-           let command = WritingCommand.all
+           let command = (WritingCommand.all + [Self.referencePageCommand])
            .first(where: { $0.group == group && $0.key == key })
         {
             selectCommand(command)
@@ -996,6 +1027,8 @@ final class Workspace: ObservableObject {
             openLibrary()
         case "importDocument": closePalette()
             library.importPanel()
+        case "reconstructPage": closePalette()
+            chooseReferencePage()
         case "revealSource": closePalette()
             NSWorkspace.shared.activateFileViewerSelecting([documentURL])
         case "history": openHistory()
@@ -1593,6 +1626,8 @@ final class Workspace: ObservableObject {
     }
 
     func shutdown() {
+        cancelTypesettingRequest()
+        cancelPageReconstruction()
         dismissAssistance()
         recordOperation("session.end")
         saveTask?.cancel()

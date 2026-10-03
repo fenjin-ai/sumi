@@ -199,13 +199,22 @@ final class LibraryController: ObservableObject {
         workspace.recordOperation("library.createExample", ["book": sample.rawValue])
     }
 
-    func open(_ id: UUID) async throws {
+    @discardableResult
+    func open(_ id: UUID, ifCurrent snapshot: (url: URL, revision: Int)? = nil) async throws -> Bool {
         guard let workspace else {
-            return
+            return false
         }
         let result = try await store.read(id)
         guard result.document.trashedAt == nil else {
             throw LibraryInteractionError.restoreFirst
+        }
+        if let snapshot {
+            guard workspace.documentURL == snapshot.url, workspace.revision == snapshot.revision,
+                  !workspace.documentTransitionInProgress, !workspace.libraryOpen,
+                  workspace.discoveryMode == nil, !Task.isCancelled
+            else {
+                return false
+            }
         }
         guard workspace.open(result.document.sourceURL) else {
             throw LibraryInteractionError.couldNotOpen
@@ -214,6 +223,7 @@ final class LibraryController: ObservableObject {
         workspace.managedTitle = result.document.title
         workspace.onTitleChange?(workspace.title)
         workspace.libraryOpen = false
+        return true
     }
 
     func rename(_ id: UUID, title: String) async throws {
