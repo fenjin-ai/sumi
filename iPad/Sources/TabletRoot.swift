@@ -96,15 +96,10 @@ struct TabletRoot: View {
             }
         }
         .sheet(item: panelBinding) { panel in
-            if panel == .universe, #available(iOS 18.0, *) {
-                TabletPanel(workspace: workspace, panel: panel)
-                    .presentationSizing(TabletUniverseSizing(windowSize: windowSize))
-            } else {
-                TabletPanel(workspace: workspace, panel: panel)
-                    .presentationDetents(panel == .commands ? [.large] : [.medium, .large])
-            }
+            TabletPanel(workspace: workspace, panel: panel)
+                .presentationDetents(panel == .commands ? [.large] : [.medium, .large])
         }
-        .fullScreenCover(isPresented: legacyUniverseBinding) {
+        .fullScreenCover(isPresented: universeBinding) {
             TabletPanel(workspace: workspace, panel: .universe)
         }
         .sheet(isPresented: Binding(get: { workspace.shareURL != nil }, set: {
@@ -187,19 +182,13 @@ struct TabletRoot: View {
 
     private var panelBinding: Binding<TabletWorkspace.Panel?> {
         Binding(get: {
-            if #available(iOS 18.0, *) {
-                return workspace.panel
-            }
-            return workspace.panel == .universe ? nil : workspace.panel
+            workspace.panel == .universe ? nil : workspace.panel
         }, set: { workspace.panel = $0 })
     }
 
-    private var legacyUniverseBinding: Binding<Bool> {
+    private var universeBinding: Binding<Bool> {
         Binding(get: {
-            if #available(iOS 18.0, *) {
-                return false
-            }
-            return workspace.panel == .universe
+            workspace.panel == .universe
         }, set: { presented in
             if !presented, workspace.panel == .universe {
                 workspace.panel = nil

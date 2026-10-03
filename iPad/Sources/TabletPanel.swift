@@ -1,19 +1,6 @@
 import LeftBlankCore
 import SwiftUI
 
-@available(iOS 18.0, *)
-struct TabletUniverseSizing: PresentationSizing {
-    let windowSize: CGSize
-
-    func proposedSize(for _: PresentationSizingRoot, context _: PresentationSizingContext) -> ProposedViewSize {
-        let margin: CGFloat = windowSize.width >= 700 ? 64 : 0
-        return ProposedViewSize(
-            width: min(1120, max(320, windowSize.width - margin)),
-            height: min(1100, max(320, windowSize.height - 32)),
-        )
-    }
-}
-
 struct TabletPanel: View {
     @ObservedObject var workspace: TabletWorkspace
     let panel: TabletWorkspace.Panel

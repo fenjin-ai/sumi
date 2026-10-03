@@ -374,6 +374,9 @@ final class TabletWorkspace: ObservableObject {
                 assets: template == .welcome ? WelcomeDocument.assets() : [:],
             )
             try await reloadLibrary()
+            if panel == .universe {
+                panel = nil
+            }
             await open(item)
         } catch { message = error.localizedDescription }
     }

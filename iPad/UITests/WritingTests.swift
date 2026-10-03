@@ -34,6 +34,7 @@ final class WritingTests: XCTestCase {
                                "-iPadCloudEnabled", "NO"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
+        waitForOrientation(in: app, landscape: true)
         let create = app.buttons["new-document"]
         let actions = app.buttons["document-actions"]
         let loading = app.progressIndicators["document-loading"]
@@ -55,7 +56,9 @@ final class WritingTests: XCTestCase {
         expectation(for: enabled, evaluatedWith: app)
         waitForExpectations(timeout: 60)
         create.tap()
-        app.buttons["universe.builtin." + template].tap()
+        let starter = app.buttons["universe.builtin." + template]
+        waitForStableControl(starter, in: app)
+        starter.tap()
         expect(app.textViews["manuscript"].waitForExistence(timeout: 60)) == true
         let settled = NSPredicate { _, _ in !app.progressIndicators["document-loading"].exists }
         expectation(for: settled, evaluatedWith: app)
@@ -77,6 +80,45 @@ final class WritingTests: XCTestCase {
         screenshot.name = name
         screenshot.lifetime = .keepAlways
         add(screenshot)
+    }
+
+    private func waitForOrientation(in app: XCUIApplication, landscape: Bool) {
+        let rotated = NSPredicate { _, _ in
+            let frame = app.windows.firstMatch.frame
+            return frame.width > 0 && frame.height > 0 && (frame.width > frame.height) == landscape
+        }
+        waitForState(rotated, in: app, name: "Window orientation")
+    }
+
+    private func waitForStableControl(_ control: XCUIElement, in app: XCUIApplication) {
+        var previous = CGRect.zero
+        var changed = Date()
+        let settled = NSPredicate { _, _ in
+            guard control.exists, control.isEnabled, control.isHittable else {
+                changed = Date()
+                return false
+            }
+            let frame = control.frame
+            if frame != previous {
+                previous = frame
+                changed = Date()
+            }
+            return Date().timeIntervalSince(changed) >= 1
+        }
+        waitForState(settled, in: app, name: "Template control position")
+    }
+
+    private func waitForState(_ predicate: NSPredicate, in app: XCUIApplication, name: String) {
+        let ready = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        let completed = XCTWaiter.wait(for: [ready], timeout: 30) == .completed
+        if !completed {
+            capture(name)
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = name + " hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        expect(completed) == true
     }
 
     private func expectShareSheet(in app: XCUIApplication) {
@@ -192,6 +234,12 @@ final class WritingTests: XCTestCase {
         waitForExpectations(timeout: 30)
         app.buttons["Done"].tap()
         expect(banner.exists) == true
+        app.buttons["new-document"].tap()
+        let starter = app.buttons["universe.builtin.blank"]
+        waitForStableControl(starter, in: app)
+        starter.tap()
+        expect(form.waitForExistence(timeout: 30)) == true
+        app.buttons["Done"].tap()
         app.staticTexts[title].tap()
         expect(app.textViews["manuscript"].waitForExistence(timeout: 30)) == true
         expect(app.textViews["manuscript"].value as? String) == manuscript
@@ -361,6 +409,11 @@ final class WritingTests: XCTestCase {
         expect(app.navigationBars["Templates & Packages"].waitForExistence(timeout: 10)) == true
         expect(app.navigationBars["Templates & Packages"].frame.width) > app.frame.width * 0.7
         capture("Templates landscape")
+        XCUIDevice.shared.orientation = .portrait
+        waitForOrientation(in: app, landscape: false)
+        capture("Template storefront portrait")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        waitForOrientation(in: app, landscape: true)
         let search = app.textFields["universe.search"]
         expect(search.waitForExistence(timeout: 10)) == true
         expect(search.placeholderValue) == "Find a resume, paper, presentation…"
@@ -370,6 +423,7 @@ final class WritingTests: XCTestCase {
         expect(resume.waitForExistence(timeout: 20)) == true
         search.typeText("\n")
         XCUIDevice.shared.orientation = .portrait
+        waitForOrientation(in: app, landscape: false)
         expect(resume.waitForExistence(timeout: 10)) == true
         expect(search.value as? String) == "basic-resume"
         capture("Templates portrait")
@@ -377,8 +431,10 @@ final class WritingTests: XCTestCase {
         let templateApply = app.buttons["universe.apply"]
         expect(templateApply.waitForExistence(timeout: 10)) == true
         expect(templateApply.isHittable) == true
+        expect(search.exists) == false
         capture("Template details portrait")
         XCUIDevice.shared.orientation = .landscapeLeft
+        waitForOrientation(in: app, landscape: true)
         let landscape = NSPredicate { _, _ in
             templateApply.isHittable && search.isHittable && resume.isHittable
         }

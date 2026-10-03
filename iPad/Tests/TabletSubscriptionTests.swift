@@ -248,6 +248,7 @@ struct TabletSubscriptionTests {
         workspace.text = "Preserved manuscript"
         workspace.edited("Unexpected change", selection: NSRange(location: 0, length: 0))
         #expect(workspace.text == "Preserved manuscript")
+        workspace.panel = .universe
         await workspace.create(.blank)
         #expect(workspace.document == nil)
         #expect(workspace.panel == .subscription)
