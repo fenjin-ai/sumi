@@ -4,9 +4,11 @@ Status: researched and prototyped on October 1, 2026. On October 3, the user app
 
 See [Apple Intelligence integration roadmap](apple-intelligence-roadmap.md) for the six researched product ideas, the approved reconstruction scope, SDK compatibility and Private Cloud Compute enrollment status.
 
+The [October 3 effect evaluation](intelligence-effect-evaluation-2026-10-03.md) now records 100 fixed bilingual requests across three identical-output runs and 11 rendered page inputs. The hybrid resolver strictly matched 59/100 expectations (rules alone: 47/100), with serious negation, unsupported-intent and parameter-default errors. Reconstruction recovered simple text but lost tables/layout and failed a partial-text-layer PDF. Treat the implementation as an experiment; regression-test success did not establish production readiness.
+
 ## Decision
 
-Use a deterministic recommendation system first, with an optional Foundation Models adapter for natural-language intent. A writing tool should remain useful without Apple Intelligence, and ordinary typing, command discovery, saving and preview must never wait for inference. Keep macOS 14 compatibility; conditionally offer the on-device model on macOS 26 or later when `SystemLanguageModel.default.availability` is available. Do not silently substitute a cloud model.
+Keep deterministic source generation and strict validation, with an optional Foundation Models adapter for natural-language intent. The effect evaluation shows that broad keyword rules are not a reliable intent gate; narrow them before production release. A writing tool should remain useful without Apple Intelligence, and ordinary typing, command discovery, saving and preview must never wait for inference. Keep macOS 14 compatibility; conditionally offer the on-device model on macOS 26 or later when `SystemLanguageModel.default.availability` is available. Do not silently substitute a cloud model.
 
 | Proposed experience | Practical starting point | Where a model can help |
 | --- | --- | --- |
@@ -60,7 +62,7 @@ A standalone, unshipped probe used `SystemLanguageModel.default`, a fresh `Langu
 
 This is a feasibility smoke test, not a quality or latency guarantee; four obvious candidates do not establish useful recommendation accuracy. Initial loading was visibly slower than subsequent requests, reinforcing asynchronous presentation. The probe is kept under `design/intelligence/` for reproducibility and is outside the app build.
 
-Before shipping, compare rules-only search against rules-plus-model on at least 100 bilingual, ambiguous and out-of-catalogue requests, plus long text and prompt-injection cases. Measure useful top-three selection, invalid-ID rate (must be zero after validation), dismissal rate and p95 keystroke latency while generation runs. Test supported macOS versions, unavailable models, offline use, cancellation, low power and thermal pressure. Set an initial engineering budget of no synchronous inference, no additional main-thread task over 8 ms, no measurable input-latency regression above 5 ms, and at most one in-flight request. These are acceptance targets, not measured results.
+The fixed 100-request rules-only versus hybrid comparison is complete in the October 3 effect report. Before shipping, correct the observed intent and extraction errors and validate against a fresh held-out set and authorized real materials. Long requests, useful top-three selection, invalid-ID rate (must be zero after validation), dismissal rate and p95 keystroke latency during generation still need evaluation. Test supported macOS versions, unavailable models, offline use, cancellation, low power and thermal pressure. Set an initial engineering budget of no synchronous inference, no additional main-thread task over 8 ms, no measurable input-latency regression above 5 ms, and at most one in-flight request. These are acceptance targets, not measured results.
 
 ## References
 

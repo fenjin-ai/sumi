@@ -1,0 +1,118 @@
+{
+  "evaluatedCommit": "b02973c",
+  "hardware": "Apple M4 Pro, 24 GiB RAM",
+  "os": "macOS 27.0",
+  "toolchain": "Swift 6.4 / Xcode 27.0",
+  "model": "SystemLanguageModel.default (availability: available; installed model build not exposed by this run)",
+  "runCount": 3,
+  "requestsPerRun": 100,
+  "languageCounts": {
+    "zh": 50,
+    "en": 50
+  },
+  "strictCorrect": [
+    59,
+    59,
+    59
+  ],
+  "identicalOutputsAcrossRuns": true,
+  "categories": {
+    "straightforward": {
+      "correct": 20,
+      "total": 20
+    },
+    "paraphrase": {
+      "correct": 15,
+      "total": 20
+    },
+    "parameters": {
+      "correct": 10,
+      "total": 20
+    },
+    "ambiguity": {
+      "correct": 2,
+      "total": 20
+    },
+    "unsupported": {
+      "correct": 12,
+      "total": 20
+    }
+  },
+  "timing": {
+    "rules": {
+      "totalPerRun": 50,
+      "correctPerRun": [
+        23,
+        23,
+        23
+      ],
+      "p50Seconds": [
+        0.0012579560279846191,
+        0.001217484474182129,
+        0.0012540221214294434
+      ],
+      "p95Seconds": [
+        0.0015149116516113281,
+        0.0014699697494506836,
+        0.0014810562133789062
+      ]
+    },
+    "model": {
+      "totalPerRun": 39,
+      "correctPerRun": [
+        27,
+        27,
+        27
+      ],
+      "p50Seconds": [
+        0.4672729969024658,
+        0.4769129753112793,
+        0.4735790491104126
+      ],
+      "p95Seconds": [
+        1.165550947189331,
+        1.1139559745788574,
+        0.910673975944519
+      ]
+    },
+    "rules-refusal": {
+      "totalPerRun": 4,
+      "correctPerRun": [
+        4,
+        4,
+        4
+      ],
+      "p50Seconds": [
+        6.645917892456055e-05,
+        7.200241088867188e-05,
+        6.55055046081543e-05
+      ],
+      "p95Seconds": [
+        0.00022399425506591797,
+        0.00023305416107177734,
+        0.0001900196075439453
+      ]
+    },
+    "rules-rejection": {
+      "totalPerRun": 7,
+      "correctPerRun": [
+        5,
+        5,
+        5
+      ],
+      "p50Seconds": [
+        0.0012710094451904297,
+        0.0012170076370239258,
+        0.001260995864868164
+      ],
+      "p95Seconds": [
+        0.001412034034729004,
+        0.0012619495391845703,
+        0.0012890100479125977
+      ]
+    }
+  },
+  "rulesOnlyStrictCorrect": 47,
+  "rulesOnlyTotal": 100,
+  "additionalSafeRefusals": 3
+}

@@ -6,7 +6,7 @@ Research and decisions updated October 3, 2026. The user approved natural-langua
 
 Make LeftBlank a reliable place to turn materials into editable, well-typeset documents. Apple models can interpret a person's request or classify extracted text; LeftBlank should own source generation, compilation, revision checks and undo. A document remains an ordinary `.typ` file with editable source.
 
-The existing [agent workflow](agents.md) already provides bounded document reads, atomic edits, native undo, compiler diagnostics, rendered-page review and PDF export. The [local-intelligence evaluation](local-intelligence.md) contains a dated four-request feasibility probe. These are useful foundations, but the probe does not establish model quality or product readiness.
+The existing [agent workflow](agents.md) already provides bounded document reads, atomic edits, native undo, compiler diagnostics, rendered-page review and PDF export. The [October 3 effect evaluation](intelligence-effect-evaluation-2026-10-03.md) measured the implemented resolver on 100 bilingual requests and rendered 11 reconstruction inputs. Results support a limited experiment, not production release: strict request accuracy was 59/100, and layout/structure reconstruction has substantial gaps. The older [local-intelligence probe](local-intelligence.md) remains historical feasibility evidence.
 
 ## Opportunities and priorities
 
