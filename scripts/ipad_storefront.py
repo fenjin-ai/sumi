@@ -369,17 +369,20 @@ class Storefront:
         if not schedule:
             raise RuntimeError('The free app download price is not configured')
         prices = self.client.list(f"/v1/appPriceSchedules/{schedule['id']}/manualPrices",
-                                  **{'filter[territory]': 'USA', 'limit': 200})
+                                  **{'filter[territory]': 'USA', 'include': 'appPricePoint', 'limit': 200})
         if not prices:
             prices = self.client.list(f"/v1/appPriceSchedules/{schedule['id']}/automaticPrices",
-                                      **{'filter[territory]': 'USA', 'limit': 200})
+                                      **{'filter[territory]': 'USA', 'include': 'appPricePoint', 'limit': 200})
         today = datetime.date.today().isoformat()
         active = [p for p in prices if (p['attributes'].get('startDate') or today) <= today
                   and (p['attributes'].get('endDate') or '9999-12-31') > today]
         price = unique(active, 'current free download price')
         if not price:
             raise RuntimeError('The USA app download price is missing')
-        point = self.client.request('GET', f"/v3/appPricePoints/{rel_id(price, 'appPricePoint')}")['data']
+        point_id = rel_id(price, 'appPricePoint')
+        if not point_id:
+            raise RuntimeError('Apple did not return the USA app price point; cannot verify the free download price')
+        point = self.client.request('GET', f'/v3/appPricePoints/{point_id}')['data']
         if Decimal(point['attributes']['customerPrice']) != 0:
             raise RuntimeError('LeftBlank must remain a free download on both platforms')
 

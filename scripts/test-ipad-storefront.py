@@ -65,6 +65,7 @@ class Apple:
     def __init__(self):
         self.rows = {}
         self.posts = []
+        self.automatic_app_prices = False
         self.app = '6818442294'
         self.put('apps', 'app', {'bundleId': 'app.leftblank.writer'})
         self.put('appInfos', 'info', {'state': 'PREPARE_FOR_SUBMISSION'}, {'app': relationship('apps', self.app)})
@@ -131,14 +132,23 @@ class Apple:
                    'introductoryOffers': 'subscriptionIntroductoryOffers',
                    'versions': 'subscriptionVersions' if parts[1] == 'subscriptions' else 'subscriptionGroupVersions',
                    'localizations': 'subscriptionLocalizations' if parts[1] == 'subscriptionVersions' else 'subscriptionGroupLocalizations',
-                   'manualPrices': 'appPrices'}
+                   'manualPrices': 'appPrices', 'automaticPrices': 'appPrices'}
         kind = aliases.get(relation, relation)
         rows = list(self.rows.get(kind, {}).values())
         if relation == 'appStoreVersions':
             return [r for r in rows if r['attributes']['platform'] == query['filter[platform]']]
-        if relation in ('pricePoints', 'manualPrices'):
+        if relation in ('manualPrices', 'automaticPrices'):
+            if (relation == 'automaticPrices') != self.automatic_app_prices:
+                return []
+            rows = copy.deepcopy(rows)
+            if 'appPricePoint' not in query.get('include', '').split(','):
+                for row in rows:
+                    # Apple omits relationship linkage unless explicitly included.
+                    row['relationships'] = {'appPricePoint': {'links': {'related': 'price-point'}}}
             return rows
-        if relation in ('equalizations', 'automaticPrices'):
+        if relation == 'pricePoints':
+            return rows
+        if relation == 'equalizations':
             return []
         # All remaining collection relationships are scoped by their parent ID.
         return [r for r in rows if any((v.get('data') or {}).get('id') == parts[2]
@@ -177,11 +187,26 @@ class Preparation(unittest.TestCase):
         self.assertEqual(version['relationships']['build']['data']['id'], self.apple.build['id'])
         self.assertEqual(self.apple.rows['appInfoLocalizations']['en-US']['attributes']['name'], 'LeftBlank')
 
-    def test_paid_download_stops_before_subscription_configuration(self):
-        self.apple.rows['appPricePoints']['zero']['attributes']['customerPrice'] = '1.99'
-        with self.assertRaisesRegex(RuntimeError, 'free download'):
-            self.store.prepare(self.apple.build)
+    def test_manual_and_automatic_prices_require_a_free_download(self):
+        for automatic in (False, True):
+            self.apple.automatic_app_prices = automatic
+            for amount in ('0.00', '1.99'):
+                self.apple.rows['appPricePoints']['zero']['attributes']['customerPrice'] = amount
+                with self.subTest(automatic=automatic, amount=amount):
+                    if amount == '0.00':
+                        self.store.app_information()
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'free download'):
+                            self.store.prepare(self.apple.build)
         self.assertNotIn('subscriptions', self.apple.rows)
+
+    def test_missing_price_linkage_stops_without_requesting_a_none_identifier(self):
+        self.apple.rows['appPrices']['free']['relationships'] = {}
+        with patch.object(self.apple, 'request', wraps=self.apple.request) as request:
+            with self.assertRaisesRegex(RuntimeError, 'cannot verify the free download price'):
+                self.store.app_information()
+        request.assert_not_called()
+        self.assertFalse(self.apple.posts)
 
     def test_shared_mac_information_in_review_is_reused_without_changes(self):
         self.apple.rows['appInfos']['info']['attributes']['state'] = 'IN_REVIEW'
