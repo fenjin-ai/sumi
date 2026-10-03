@@ -1,19 +1,15 @@
 #!/bin/bash
-# Build and upload an immutable iPad release; initial subscription review is manual.
+# Build and submit an immutable iPad release; prepare the first subscription review.
 set -euo pipefail
 set +x
 cd "$(dirname "$0")/.."
 source scripts/environment.sh
 test "${GITHUB_ACTIONS:-}" = true || { echo 'Run this signing wrapper on GitHub Actions.' >&2; exit 1; }
-for variable in APPSTORE_DISTRIBUTION_P12 APPSTORE_CERTIFICATE_PASSWORD IPAD_APPSTORE_PROVISIONING_PROFILE APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_PRIVATE_KEY APP_STORE_APP_ID RELEASE_TAG; do
+for variable in APPSTORE_DISTRIBUTION_P12 APPSTORE_CERTIFICATE_PASSWORD APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_PRIVATE_KEY APP_STORE_APP_ID RELEASE_TAG; do
   test -n "${!variable:-}" || { echo "Missing iPad release setting: $variable" >&2; exit 1; }
 done
 python3 scripts/ipad_release.py --tag "$RELEASE_TAG"
-commit=$(git rev-parse HEAD)
-gh api --paginate "repos/${GH_REPO:?}/commits/$commit/check-runs?filter=latest&per_page=100" \
-  --jq '.check_runs[] | {id, name, conclusion, app: {slug: .app.slug}} | tojson' \
-  > build/iPad-release/checks.jsonl
-python3 scripts/ipad_release.py --tag "$RELEASE_TAG" --checks-file build/iPad-release/checks.jsonl
+python3 scripts/ipad_release.py --tag "$RELEASE_TAG" --wait-for-ci 2700
 umask 077
 signing_dir=$(mktemp -d "$TMPDIR/leftblank-ipad-signing.XXXXXX")
 keychain="$signing_dir/signing.keychain-db"
@@ -35,9 +31,10 @@ trap cleanup EXIT
 python3 - "$signing_dir" <<'PY'
 import base64, os, pathlib, sys
 root = pathlib.Path(sys.argv[1])
-for secret, name in [('APPSTORE_DISTRIBUTION_P12', 'distribution.p12'),
-                     ('IPAD_APPSTORE_PROVISIONING_PROFILE', 'profile.mobileprovision')]:
+for secret, name in [('APPSTORE_DISTRIBUTION_P12', 'distribution.p12')]:
     (root / name).write_bytes(base64.b64decode(os.environ[secret], validate=True))
+if os.environ.get('IPAD_APPSTORE_PROVISIONING_PROFILE'):
+    (root / 'profile.mobileprovision').write_bytes(base64.b64decode(os.environ['IPAD_APPSTORE_PROVISIONING_PROFILE'], validate=True))
 (root / 'api.p8').write_text(os.environ['APP_STORE_CONNECT_PRIVATE_KEY'])
 PY
 unset APPSTORE_DISTRIBUTION_P12 IPAD_APPSTORE_PROVISIONING_PROFILE APP_STORE_CONNECT_PRIVATE_KEY
@@ -58,6 +55,9 @@ unset APPSTORE_CERTIFICATE_PASSWORD
 set_keychains "$keychain"
 identity=$(security find-identity -v -p codesigning "$keychain" | awk '/"Apple Distribution:/ {print $2}')
 test "$(printf '%s\n' "$identity" | awk 'NF {n++} END {print n+0}')" = 1 || { echo 'Expected one Apple Distribution identity for iPad.' >&2; exit 1; }
+if [ ! -f "$signing_dir/profile.mobileprovision" ]; then
+  "${apple[@]}" profile --identity "$identity" --profile-output "$signing_dir/profile.mobileprovision"
+fi
 python3 scripts/ipad_release.py --tag "$RELEASE_TAG" --profile "$signing_dir/profile.mobileprovision" --identity "$identity"
 security cms -D -i "$signing_dir/profile.mobileprovision" > "$signing_dir/profile.plist"
 team=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$signing_dir/profile.plist")
@@ -69,7 +69,7 @@ test ! -e "$profile_destination" || { echo 'Refusing to overwrite an existing si
 profile_path="$profile_destination"
 cp "$signing_dir/profile.mobileprovision" "$profile_path"
 scripts/build-ipad.sh device
-xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
+env -u CC -u CXX xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
   -destination 'generic/platform=iOS' -derivedDataPath build/iPad \
   -clonedSourcePackagesDirPath .build/xcode-packages \
   -archivePath build/iPad-release/LeftBlank.xcarchive \
@@ -90,5 +90,12 @@ PY
 xcodebuild -exportArchive -archivePath build/iPad-release/LeftBlank.xcarchive \
   -exportPath build/iPad-release/export -exportOptionsPlist "$signing_dir/export.plist"
 "${apple[@]}" upload --package build/iPad-release/export/LeftBlank.ipa
+if ! "${apple[@]}" submit; then
+  "${apple[@]}" status > build/iPad-release/apple-status.json || true
+  if [ -f build/iPad-release/review-prepared.json ]; then
+    printf '%s\n' 'iPad build and first subscription are prepared. Apple requires the initial review submission through App Store Connect. See review-prepared.json in the workflow artifact.' >> "$GITHUB_STEP_SUMMARY"
+  fi
+  exit 1
+fi
 "${apple[@]}" status > build/iPad-release/apple-status.json
-printf '%s\n' 'iPad build uploaded and processed. Submit the app version, monthly subscription and subscription group together in App Store Connect.' >> "$GITHUB_STEP_SUMMARY"
+printf '%s\n' 'iPad build uploaded, processed and submitted to App Review. Submission proof is in the workflow artifact.' >> "$GITHUB_STEP_SUMMARY"

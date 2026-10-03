@@ -158,13 +158,15 @@ def configure_coverage(bundle):
     bundle.write_bytes(plistlib.dumps(parameters))
 
 
-def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True):
+def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True, appearance=None):
     print(f"::group::{size}: boot, native {suite} tests, shutdown", flush=True)
     try:
         if coverage:
             configure_coverage(bundle)
         # bootstatus also initiates the boot and reports migration progress.
         run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b', '-d'], 240)
+        if appearance:
+            run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance', appearance], 30)
         # Xcode's verbose sysdiagnose can spend ten minutes after a test failure.
         # Keep the test report and attachments, then collect our bounded diagnostics.
         selection = ['-only-testing:LeftBlankTabletTests'] if suite == 'unit' else []
@@ -205,6 +207,7 @@ def main(argv=None):
     parser.add_argument('--results', type=Path, default=Path('build/iPad-writing'))
     parser.add_argument('--memory', action='store_true')
     parser.add_argument('--no-coverage', action='store_true')
+    parser.add_argument('--appearance', choices=('light', 'dark'))
     args = parser.parse_args(argv)
     root = Path(__file__).resolve().parent.parent
     bundles = list((root / args.derived_data / 'Build/Products').glob('*.xctestrun'))
@@ -226,6 +229,8 @@ def main(argv=None):
     finally:
         print('::endgroup::', flush=True)
     options = {}
+    if args.appearance:
+        options['appearance'] = args.appearance
     if args.suite != 'all':
         options['suite'] = args.suite
     if args.memory:

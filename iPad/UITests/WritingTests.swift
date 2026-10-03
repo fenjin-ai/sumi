@@ -171,6 +171,7 @@ final class WritingTests: XCTestCase {
 
     func testWelcomePreviewAndPDFExport() {
         let app = startWriting(template: "welcome")
+        capture("English writing")
         expect((app.textViews["manuscript"].value as? String)?.contains("leftblank-mark.svg")) == true
         app.buttons["layout-preview"].tap()
         expectation(

@@ -3,10 +3,13 @@ import argparse
 import datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 import plistlib
 import re
 import subprocess
+import struct
+import time
 
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLE = 'app.leftblank.writer'
@@ -47,6 +50,21 @@ def metadata(root):
         if any(store[key] not in fields['description'] for key in ('privacy_url', 'terms_url')):
             raise ValueError(f'{locale}: description must include privacy and terms URLs')
         locales[locale] = fields
+    screenshots = store['screenshots']
+    if set(screenshots) != set(locales) or any(not 1 <= len(names) <= 10 or len(set(names)) != len(names)
+                                            for names in screenshots.values()):
+        raise ValueError('Provide one to ten distinct screenshots for each storefront locale')
+    screenshot_names = {name for names in screenshots.values() for name in names}
+    for name in sorted(screenshot_names | {'subscription.png'}):
+        path = root / 'iPad/Storefront/screenshots' / name
+        if path.parent != root / 'iPad/Storefront/screenshots' or not path.is_file():
+            raise ValueError('Missing or unsafe iPad screenshot: ' + name)
+        data = path.read_bytes()
+        if data[:8] != b'\x89PNG\r\n\x1a\n' or len(data) < 26:
+            raise ValueError('Expected a real iPad PNG screenshot: ' + name)
+        dimensions = struct.unpack('>II', data[16:24])
+        if dimensions not in ((2048, 2732), (2732, 2048), (2064, 2752), (2752, 2064)):
+            raise ValueError('Screenshot must match the 13-inch iPad slot: ' + name)
     return {'platform': 'IOS', 'version': version, 'build': build, 'storefront': store, 'localizations': locales}
 
 
@@ -54,7 +72,7 @@ def validate_profile(profile, identity, now=None):
     now = now or datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     allowed = profile['Entitlements']
     team = profile['TeamIdentifier'][0]
-    if (profile.get('Platform') != ['iOS'] or profile.get('ProvisionedDevices')
+    if ('iOS' not in profile.get('Platform', []) or 'OSX' in profile.get('Platform', []) or profile.get('ProvisionedDevices')
             or profile.get('ProvisionsAllDevices') or allowed.get('get-task-allow')
             or profile['ExpirationDate'] <= now or allowed.get('application-identifier') != team + '.' + BUNDLE):
         raise ValueError('Expected a current App Store iOS distribution profile matching LeftBlank')
@@ -101,6 +119,31 @@ def validate_ci(checks):
         raise ValueError('The required Mac/iPad build and test gate has not passed for this source commit')
 
 
+def wait_ci(commit, timeout):
+    if timeout <= 0:
+        raise ValueError('CI wait timeout must be positive')
+    deadline = time.monotonic() + timeout
+    print('Waiting for the required Mac/iPad gate for ' + commit, flush=True)
+    while True:
+        result = subprocess.check_output(['gh', 'api', '--paginate',
+            f"repos/{os.environ['GH_REPO']}/commits/{commit}/check-runs?filter=latest&per_page=100",
+            '--jq', '.check_runs[] | {id, name, conclusion, app: {slug: .app.slug}} | tojson'], text=True)
+        checks = [json.loads(line) for line in result.splitlines() if line]
+        gates = [c for c in checks if c['name'] == 'build and test' and c.get('app', {}).get('slug') == 'github-actions']
+        latest = max(gates, key=lambda c: c['id']) if gates else None
+        if latest and latest.get('conclusion') == 'success':
+            validate_ci(checks)
+            destination = ROOT / 'build/iPad-release/checks.jsonl'
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(result)
+            return
+        if latest and latest.get('conclusion'):
+            raise ValueError('Required source CI failed: ' + latest['conclusion'])
+        if time.monotonic() >= deadline:
+            raise ValueError('Required source CI is still pending; rerun this immutable tag after CI completes')
+        time.sleep(30)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tag')
@@ -108,10 +151,13 @@ def main():
     parser.add_argument('--profile', type=Path)
     parser.add_argument('--identity')
     parser.add_argument('--checks-file', type=Path)
+    parser.add_argument('--wait-for-ci', type=int)
     parser.add_argument('--output', type=Path, default=ROOT / 'build/iPad-release/source.json')
     args = parser.parse_args()
     expected = metadata(ROOT)
     expected['commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    if args.wait_for_ci:
+        wait_ci(expected['commit'], args.wait_for_ci)
     if args.checks_file:
         validate_ci([json.loads(line) for line in args.checks_file.read_text().splitlines() if line])
     if args.tag:

@@ -1,10 +1,12 @@
-name: iPad App Store build
+name: iPad App Store release
 
 on:
+  push:
+    tags: ['ipad-v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Immutable ipad-vMAJOR.MINOR.PATCH tag on main; uploads a build for review'
+        description: 'Existing immutable ipad-vMAJOR.MINOR.PATCH tag to retry upload and review'
         required: true
         type: string
 
@@ -16,11 +18,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  upload:
-    name: Sign and upload iPad App Store build
-    if: github.ref == 'refs/heads/main'
+  release:
+    name: Sign, upload and submit iPad App Store release
+    if: github.ref_type == 'tag' || github.ref == 'refs/heads/main'
     runs-on: macos-15
-    timeout-minutes: 90
+    timeout-minutes: 120
     permissions:
       contents: write
       checks: read
@@ -28,16 +30,17 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       LEFTBLANK_DISTRIBUTION: appstore
       CARGO_BUILD_JOBS: 2
-      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
       - name: Validate iPad source and offline release contracts
         run: |
           source scripts/environment.sh
           python3 scripts/test-ipad-release.py
+          python3 scripts/test-ipad-storefront.py
           python3 scripts/ipad_release.py --tag "$RELEASE_TAG"
       - name: Strict Swift lint
         run: scripts/lint.sh
@@ -55,7 +58,7 @@ jobs:
         with:
           path: .build/xcode-packages
           key: ipad-swiftpm-${{ runner.os }}-${{ runner.arch }}-xcode-26.3-${{ hashFiles('Sources/Package.swift', 'iPad/**/Package.resolved') }}
-      - name: Archive, export and upload
+      - name: Archive, export, upload and submit review
         env:
           APPSTORE_DISTRIBUTION_P12: ${{ secrets.APPSTORE_DISTRIBUTION_P12 }}
           APPSTORE_CERTIFICATE_PASSWORD: ${{ secrets.APPSTORE_CERTIFICATE_PASSWORD }}
@@ -71,12 +74,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ipad-appstore-${{ inputs.tag }}
+          name: ipad-appstore-${{ inputs.tag || github.ref_name }}
           path: |
             build/iPad-release/export/*.ipa
             build/iPad-release/export/*.plist
             build/iPad-release/source.json
             build/iPad-release/apple-status.json
+            build/iPad-release/review-prepared.json
+            build/appstore-submission.json
             build/appstore-source-ios.json
           if-no-files-found: warn
           retention-days: 14

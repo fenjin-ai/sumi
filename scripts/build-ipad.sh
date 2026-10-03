@@ -39,5 +39,5 @@ cargo +1.92.0 build --locked --manifest-path Engine/TinymistBridge/Cargo.toml --
 env -u CC -u CXX xcodebuild -project iPad/LeftBlank.xcodeproj -scheme LeftBlank-iPad \
   -destination "$destination" -derivedDataPath "$derived_data" \
   -clonedSourcePackagesDirPath .build/xcode-packages \
-  "${diagnostics[@]}" \
+  ${diagnostics[@]+"${diagnostics[@]}"} \
   ARCHS=arm64 CODE_SIGNING_ALLOWED=NO "${actions[@]}"

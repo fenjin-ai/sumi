@@ -311,6 +311,7 @@ jobs:
           python3 scripts/test-ipad-coverage.py
           python3 scripts/test-package-graphs.py
           python3 scripts/test-ipad-release.py
+          python3 scripts/test-ipad-storefront.py
       - name: Build native iPad app
         if: matrix.platform != 'engine'
         run: scripts/build-ipad.sh "${{ matrix.platform }}"
@@ -386,7 +387,8 @@ jobs:
         timeout-minutes: 23
         run: |
           source scripts/environment.sh
-          python3 scripts/ipad_simulator.py --size "${{ matrix.size }}"
+          python3 scripts/ipad_simulator.py --size "${{ matrix.size }}" \
+            --appearance "${{ matrix.size == '13-inch' && 'dark' || 'light' }}"
       - name: Upload native iPad test results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

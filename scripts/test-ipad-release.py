@@ -10,9 +10,11 @@ from pathlib import Path
 import plistlib
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import appstore_connect as asc
 import ipad_release as ipad
+from ipad_storefront import Storefront
 
 spec = importlib.util.spec_from_file_location('mac_release_tests', Path(__file__).with_name('test-appstore-release.py'))
 mac = importlib.util.module_from_spec(spec)
@@ -156,10 +158,126 @@ class PlatformTests(unittest.TestCase):
 
     def test_initial_subscription_cannot_be_submitted_as_an_app_only_review(self):
         apple = mac.FakeApple()
-        release = asc.Release(apple, 'app', {'version': '1.0.0', 'build': '1'}, platform='IOS')
-        with self.assertRaisesRegex(RuntimeError, 'subscription group together'):
-            release.submit(apple.build)
+        release = asc.Release(apple, '6818442294', ipad.metadata(ipad.ROOT), platform='IOS')
+        prepared = {'appStoreVersion': {'id': 'ios-version'}, 'firstSubscription': True, 'submitted': False}
+        with patch.object(Storefront, 'prepare', return_value=prepared), patch('ipad_storefront.Path.write_text'):
+            with self.assertRaisesRegex(RuntimeError, 'initial submission'):
+                release.submit(apple.build)
         self.assertEqual(apple.writes, [])
+
+    def test_api_supports_versioned_subscription_metadata_without_cross_origin_requests(self):
+        client = asc.Client(Path('unused'), 'key', 'issuer')
+        for path in ['https://evil.example/v2/subscriptionLocalizations', '//evil.example/v1/apps',
+                     '/v20/apps', 'https://api.appstoreconnect.apple.com.evil.example/v1/apps']:
+            with self.subTest(path=path), self.assertRaisesRegex(ValueError, 'origin'):
+                client.request('GET', path)
+
+    def test_only_missing_optional_resources_are_ignored(self):
+        client = asc.Client(Path('unused'), 'key', 'issuer')
+        with patch.object(client, 'request', side_effect=asc.APIError(404, 'not found')):
+            self.assertIsNone(client.optional('/v1/subscriptions/id/subscriptionAvailability'))
+        with patch.object(client, 'request', side_effect=asc.APIError(403, 'forbidden')):
+            with self.assertRaisesRegex(asc.APIError, 'forbidden'):
+                client.optional('/v1/subscriptions/id/subscriptionAvailability')
+
+
+class ReviewTests(unittest.TestCase):
+    def setUp(self):
+        self.apple = mac.FakeApple()
+        self.release = asc.Release(self.apple, '6818442294', ipad.metadata(ipad.ROOT), 'IOS')
+        self.store = Storefront(self.release)
+        self.apple.version = mac.resource('appStoreVersions', 'version', appVersionState='PREPARE_FOR_SUBMISSION')
+        self.prepared = {'submitted': False, 'firstSubscription': False, 'appStoreVersion': self.apple.version,
+                         'subscriptionVersion': None, 'subscriptionGroupVersion': None}
+
+    def test_subsequent_tag_submits_the_exact_ios_version(self):
+        with patch.object(self.store, 'prepare', return_value=self.prepared):
+            result = self.store.submit(self.apple.build)
+        self.assertEqual(result['attributes']['state'], 'WAITING_FOR_REVIEW')
+        creation = next(data for _, path, data in self.apple.writes if path == '/v1/reviewSubmissions')
+        self.assertEqual(creation['data']['attributes']['platform'], 'IOS')
+        self.assertEqual(self.apple.items[0]['relationships']['appStoreVersion']['data']['id'], 'version')
+
+    def test_resuming_owned_draft_does_not_duplicate_review_items(self):
+        self.apple.submission = mac.resource('reviewSubmissions', 'submission', state='READY_FOR_REVIEW')
+        self.apple.items = [{'id': 'item', 'relationships': {'appStoreVersion': asc.relationship('appStoreVersions', 'version')}}]
+        with patch.object(self.store, 'prepare', return_value=self.prepared):
+            self.store.submit(self.apple.build)
+        self.assertFalse(any(path == '/v1/reviewSubmissionItems' for _, path, _ in self.apple.writes))
+
+    def test_unrelated_draft_is_never_submitted_or_withdrawn(self):
+        self.apple.submission = mac.resource('reviewSubmissions', 'submission', state='READY_FOR_REVIEW')
+        self.apple.items = [{'id': 'item', 'relationships': {'appStoreVersion': asc.relationship('appStoreVersions', 'other')}}]
+        with patch.object(self.store, 'prepare', return_value=self.prepared):
+            with self.assertRaisesRegex(RuntimeError, 'unrelated'):
+                self.store.submit(self.apple.build)
+        self.assertEqual(self.apple.writes, [])
+
+    def test_previously_submitted_review_needs_no_more_writes(self):
+        with patch.object(self.store, 'prepare', return_value={'submitted': True}):
+            self.assertEqual(self.store.submit(self.apple.build), {'submitted': True})
+        self.assertEqual(self.apple.writes, [])
+
+
+class PricingTests(unittest.TestCase):
+    def setUp(self):
+        self.apple = mac.FakeApple()
+        self.store = Storefront(asc.Release(self.apple, '6818442294', ipad.metadata(ipad.ROOT), 'IOS'))
+        self.point = {**mac.resource('subscriptionPricePoints', 'usd-299', customerPrice='2.99'),
+                      'relationships': {'territory': asc.relationship('territories', 'USA')}}
+        self.price = {**mac.resource('subscriptionPrices', 'price', startDate='2026-01-01'),
+                      'relationships': {'territory': asc.relationship('territories', 'USA'),
+                                        'subscriptionPricePoint': asc.relationship('subscriptionPricePoints', 'usd-299')}}
+        self.offer = {**mac.resource('subscriptionIntroductoryOffers', 'offer', duration='TWO_MONTHS',
+                                    offerMode='FREE_TRIAL', numberOfPeriods=1, startDate=None, endDate=None),
+                      'relationships': {'territory': asc.relationship('territories', 'USA')}}
+        self.prices, self.offers = [self.price], [self.offer]
+        self.apple.list = self.list
+        self.apple.optional = lambda _: {'id': 'availability'}
+
+    def list(self, path, **query):
+        if path.endswith('/pricePoints'):
+            return [self.point]
+        if path.endswith('/equalizations'):
+            return []
+        if path.endswith('/prices'):
+            return self.prices
+        if path.endswith('/introductoryOffers'):
+            return self.offers
+        if path == '/v1/territories':
+            return [mac.resource('territories', 'USA', currency='USD')]
+        raise AssertionError(path)
+
+    def test_existing_price_and_trial_are_valid_on_retry(self):
+        self.store.prices_and_trial('monthly')
+        self.assertEqual(self.apple.writes, [])
+
+    def test_price_or_trial_drift_does_not_overwrite_existing_terms(self):
+        for row, key, value in [(self.price['relationships']['subscriptionPricePoint']['data'], 'id', 'usd-399'),
+                                (self.offer['attributes'], 'duration', 'ONE_MONTH'),
+                                (self.offer['attributes'], 'endDate', '2099-01-01')]:
+            previous = row[key]
+            row[key] = value
+            with self.subTest(key=key), self.assertRaisesRegex(RuntimeError, 'differs'):
+                self.store.prices_and_trial('monthly')
+            row[key] = previous
+        self.assertEqual(self.apple.writes, [])
+
+    def test_scheduled_future_price_is_not_treated_as_current(self):
+        self.price['attributes']['startDate'] = '2099-01-01'
+        with self.assertRaisesRegex(RuntimeError, 'price differs'):
+            self.store.prices_and_trial('monthly')
+        self.assertEqual(self.apple.writes, [])
+
+    def test_only_the_missing_introductory_offer_is_created(self):
+        self.offers = []
+        writes = []
+        self.store.create = lambda kind, attrs, rels: writes.append((kind, attrs, rels))
+        self.store.prices_and_trial('monthly')
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(writes[0][0], 'subscriptionIntroductoryOffers')
+        self.assertEqual(writes[0][1], {'duration': 'TWO_MONTHS', 'offerMode': 'FREE_TRIAL', 'numberOfPeriods': 1})
+        self.assertEqual(writes[0][2]['territory']['data']['id'], 'USA')
 
 
 if __name__ == '__main__':

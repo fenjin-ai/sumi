@@ -16,40 +16,37 @@ export, including source and assets.
 `1.0.0 (1)` in `iPad/Info.plist`, independently versioned from Mac. Subsequent iPad
 releases must increase the build number; Apple preflight checks previous iOS builds.
 
-In existing App Store Connect app **6818442294**, add the **iOS** platform with
-bundle ID `app.leftblank.writer`. Keep the download price free. Create subscription
-group **LeftBlank iPad**, then its monthly product using the exact ID above. Set
-the USA base price to **$2.99** and use Apple's equalized local prices in available
-territories. Add English and Simplified Chinese subscription/group localizations.
-Configure a **Free Trial / 2 Months** introductory offer for every available
-territory, with no end date if the offer should remain available to future users.
-The offer's scheduling dates govern availability to new subscribers, not the
-length of any subscriber's trial.
+CI creates or reuses the iOS version in app **6818442294**, the **LeftBlank iPad**
+subscription group, its monthly product and English/Chinese localizations. It
+configures the USA $2.99 price and Apple's equalizations, plus a two-month free
+trial without an end date in every supported territory. Existing conflicting
+products, pricing, offers or unrelated review drafts stop the release.
 
-Add real iPad screenshots in Apple's required 13-inch screenshot slot, the
-subscription's review screenshot, support and privacy URLs, age rating, export
-compliance and review contact information. Mac screenshot assets cannot establish
-iPad screenshots. The app contains no analytics or advertising SDK; subscriptions
-are handled by StoreKit on the device. Check the App Privacy answers against the
-final binary and policy before submission.
+Real 13-inch screenshots are committed in `iPad/Storefront/screenshots`, including
+a subscription review screenshot and light/dark, English/Chinese views. CI uploads
+and confirms screenshot processing. It preserves shared Mac App Info and verifies
+the app download remains free. Review contacts are inherited from the latest configured Mac
+version; if missing, set them on the iPad draft once. Shared privacy answers and
+age rating must describe the final app. Accepting agreements and completing
+banking or tax forms require the account owner.
 
-The current published privacy policy covers Mac. Before submitting iPad, publish
-the bilingual additions prepared in `iPad/Storefront/privacy-additions.md` at
-`https://leftblank.app/privacy.html`. This repository change prepares that text;
-it does not publish the website or claim that production StoreKit products exist.
-Accepting the Paid Applications Agreement, banking and tax setup requires the
-account owner's App Store Connect configuration.
+The bilingual website privacy policy covers the iPad subscription, on-device
+transaction checks and document access after expiry. `privacy-additions.md` records
+the release's policy text. StoreKit's local configuration is not a production
+product; the workflow creates production subscription metadata through Apple.
 
 ## Signed build
 
-Create an **App Store iOS distribution** provisioning profile for the existing
-App ID, production `iCloud.app.leftblank.writer` container and the Apple
-Distribution certificate already used by CI. Add its base64 contents to repository
-secret `IPAD_APPSTORE_PROVISIONING_PROFILE`. The workflow reuses
+The workflow reuses the Mac Apple Distribution certificate and API key. It finds
+a valid **IOS_APP_STORE** profile for that certificate and iOS App ID, or creates
+one through Apple and verifies its production iCloud permissions. It never rotates
+certificates or enables new capabilities. An existing base64 profile may be
+provided as optional secret `IPAD_APPSTORE_PROVISIONING_PROFILE` if the existing
+API key cannot manage profiles. The required existing secrets are
 `APPSTORE_DISTRIBUTION_P12`, `APPSTORE_CERTIFICATE_PASSWORD`,
-`APPSTORE_CONNECT_KEY_ID`, `APPSTORE_CONNECT_ISSUER_ID`,
-`APPSTORE_CONNECT_PRIVATE_KEY` and variable `APP_STORE_APP_ID` from Mac releases.
-It does not need the Mac installer certificate.
+`APPSTORE_CONNECT_KEY_ID`, `APPSTORE_CONNECT_ISSUER_ID`, and
+`APPSTORE_CONNECT_PRIVATE_KEY`; `APP_STORE_APP_ID` is the existing repository
+variable. Signing materials use an ephemeral keychain and are cleaned up.
 
 Validate the preparation without credentials:
 
@@ -59,29 +56,36 @@ python3 scripts/test-ipad-release.py
 python3 scripts/ipad_release.py
 ```
 
-After merging and confirming the required Mac/iPad CI gate passed for the source
-commit, tag that immutable main commit as `ipad-v1.0.0`. Dispatch **iPad App Store
-build** on main with that tag. This workflow is separate from the Mac `v*`
-release workflow. It checks the tag, source commit, store text, price/trial,
-production profile, iCloud permissions, versions, device family and absent desktop
-helpers; signs a native archive; exports the IPA; uploads it; and confirms Apple's
-processing and App Store eligibility. It records iOS provenance in the tag's draft
-GitHub Release before upload and refuses to reuse a manually uploaded build without
-matching provenance. The exact IPA, source metadata and processing status are saved
-as Actions artifacts. Retries reuse the same tag, source and build; never move a tag
-or force-push.
+After merging, push an immutable tag matching the iPad version:
 
-This workflow uploads a build for review. It deliberately stops before the first
-iOS submission because Apple's first subscription and its subscription group must
-be reviewed together with a new app version. In App Store Connect, attach the
-processed build to iPad `1.0.0`, add the app version, monthly subscription and group
-to **the same draft submission**, verify the storefront and review screenshot,
-and submit them together. Successful build processing is not App Review approval.
+```sh
+git tag ipad-v1.0.0 <merged-main-commit>
+git push origin ipad-v1.0.0
+```
+
+This automatically starts **iPad App Store release**, independently from Mac
+`v*` tags. It waits for that exact source commit's required Mac/iPad CI gate,
+validates metadata and archive boundaries, signs/exports the IPA, uploads it,
+waits for Apple processing, prepares storefront/subscription metadata, and submits
+the iOS version for review. Actions artifacts include the IPA, source provenance,
+prepared-review details and verified submission state. The tag's draft GitHub
+Release records iOS provenance before upload. Retrying the workflow on main with
+the same tag discovers existing resources; never move a tag or force-push.
+
+**First subscription:** Apple's current API documentation explicitly requires
+submitting the first subscription with an app binary through the App Store
+Connect website. CI prepares all supported metadata and saves
+`build/iPad-release/review-prepared.json`, then reports that requirement instead
+of claiming submission. Complete this one initial submission from the prepared
+iPad version, including the monthly subscription and group metadata. After
+approval, subsequent tags submit automatically. The agent performing this launch
+can complete the initial website submission once the account is signed in.
+Build processing and App Review submission are distinct from approval.
 
 ## Validation before review
 
 Hosted CI measures executable iPad Swift/Core coverage and runs the native UI
-suite, hosted unit/lifecycle tests, Address Sanitizer, Thread Sanitizer and Main
+suite in light and dark mode, hosted unit/lifecycle tests, Address Sanitizer, Thread Sanitizer and Main
 Thread Checker. Compiler concurrency checks and warnings are enforced. Rust FFI
 formatting and Clippy checks supplement the embedded-engine integration test.
 Xcode's Swift sanitizer instrumentation does not instrument the precompiled Rust
@@ -99,3 +103,5 @@ Also complete the real-device IME, accessibility, suspension and iCloud checks i
 Apple references: [introductory offers](https://developer.apple.com/help/app-store-connect/manage-subscriptions/set-up-introductory-offers-for-auto-renewable-subscriptions),
 [first subscription review](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-in-app-purchase/),
 [screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/).
+
+Current API workflow: [subscription version review](https://developer.apple.com/documentation/appstoreconnectapi/submitting-subscriptions-and-subscription-groups-for-app-review).

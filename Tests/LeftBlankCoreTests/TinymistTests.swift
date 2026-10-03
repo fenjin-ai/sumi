@@ -7,6 +7,8 @@ import Testing
 @MainActor
 @Test(.enabled(if: ProcessInfo.processInfo.environment["LEFTBLANK_INTEGRATION"] == "1"))
 func realTinymistRoundTrip() async throws {
+    let executable = try #require(TinymistClient.binaryURL)
+    #expect(FileManager.default.isExecutableFile(atPath: executable.path))
     let root = TestPaths.temporaryDirectory.appendingPathComponent("LeftBlank-integration-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     let client = TinymistClient()
