@@ -9,6 +9,17 @@ Apple permits one introductory offer per subscription group. Mac remains free.
 Expired subscriptions retain access to reading, PDF export and complete project
 export, including source and assets.
 
+The first iPad submission, **1.0.2 (3)**, entered **Waiting for Review** on
+2026-10-04 at 00:21 Singapore time. Submission
+`2ec7e9c7-b3f9-443c-b59c-304bb49509d3` includes the app, monthly subscription
+and subscription group. Its immutable tag `ipad-v1.0.2` points to
+`18a6de963dcf9c1c8a4769d2a201c409f7af0b54`, whose full main CI passed before tagging.
+Release run `37135785704` signed and uploaded the IPA, and Apple processed it as
+VALID. Storefront preparation then failed because the price query omitted
+`include=appPricePoint`; the authorized first submission was completed in Chrome.
+The corrected query below is for future releases; do not rerun or retag this
+submitted binary to change that historical workflow result.
+
 ## Storefront preparation
 
 `iPad/Storefront/manifest.json` is the business configuration; `en-US.json` and
