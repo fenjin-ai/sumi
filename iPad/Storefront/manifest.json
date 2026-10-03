@@ -42,5 +42,9 @@
       "zh-light-preview.png",
       "zh-dark-preview.png"
     ]
+  },
+  "privacy_urls": {
+    "en-US": "https://leftblank.app/privacy.html",
+    "zh-Hans": "https://leftblank.app/privacy.html?lang=zh"
   }
 }

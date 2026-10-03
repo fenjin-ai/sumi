@@ -355,14 +355,15 @@ class Storefront:
         locales = self.client.list(f"/v1/appInfos/{info['id']}/appInfoLocalizations", limit=200)
         by_locale = {row['attributes']['locale']: row for row in locales}
         for locale, fields in self.release.metadata['localizations'].items():
+            privacy_url = self.store['privacy_urls'][locale]
             row = by_locale.get(locale)
             if not row:
                 if state(info) not in EDITABLE:
                     raise RuntimeError('Missing shared App Info locale: ' + locale)
                 self.create('appInfoLocalizations', {'locale': locale, 'name': fields['name'],
-                    'subtitle': fields['subtitle'], 'privacyPolicyUrl': self.store['privacy_url']},
+                    'subtitle': fields['subtitle'], 'privacyPolicyUrl': privacy_url},
                     {'appInfo': relationship('appInfos', info['id'])})
-            elif row['attributes'].get('privacyPolicyUrl') != self.store['privacy_url']:
+            elif row['attributes'].get('privacyPolicyUrl') != privacy_url:
                 raise RuntimeError('Shared privacy URL differs from the iPad policy; reconcile it first')
         schedule = self.client.optional(f'/v1/apps/{self.release.app}/appPriceSchedule')
         if not schedule:

@@ -70,7 +70,7 @@ class Apple:
         self.put('appInfos', 'info', {'state': 'PREPARE_FOR_SUBMISSION'}, {'app': relationship('apps', self.app)})
         for locale in ('en-US', 'zh-Hans'):
             self.put('appInfoLocalizations', locale, {'locale': locale, 'name': 'LeftBlank',
-                'privacyPolicyUrl': 'https://leftblank.app/privacy.html'}, {'appInfo': relationship('appInfos', 'info')})
+                'privacyPolicyUrl': 'https://leftblank.app/privacy.html' + ('?lang=zh' if locale == 'zh-Hans' else '')}, {'appInfo': relationship('appInfos', 'info')})
         self.put('appPriceSchedules', 'schedule', {})
         self.put('appPrices', 'free', {'startDate': None, 'endDate': None},
                  {'appPricePoint': relationship('appPricePoints', 'zero')})
@@ -190,6 +190,15 @@ class Preparation(unittest.TestCase):
             self.store.prepare(self.apple.build)
         self.assertEqual(self.apple.rows['appInfoLocalizations'], before)
         self.assertFalse(any(path == '/v1/appInfoLocalizations' for path, _ in self.apple.posts))
+
+    def test_unexpected_shared_privacy_url_stops_without_changing_mac_metadata(self):
+        self.apple.rows['appInfos']['info']['attributes']['state'] = 'IN_REVIEW'
+        self.apple.rows['appInfoLocalizations']['zh-Hans']['attributes']['privacyPolicyUrl'] = 'https://example.com/privacy'
+        before = copy.deepcopy(self.apple.rows['appInfoLocalizations'])
+        with self.assertRaisesRegex(RuntimeError, 'Shared privacy URL differs'):
+            self.store.app_information()
+        self.assertEqual(self.apple.rows['appInfoLocalizations'], before)
+        self.assertFalse(self.apple.posts)
 
     def test_shared_information_in_review_cannot_add_missing_locales(self):
         self.apple.rows['appInfos']['info']['attributes']['state'] = 'IN_REVIEW'
