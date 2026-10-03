@@ -370,7 +370,7 @@ jobs:
         timeout-minutes: 28
         run: |
           source scripts/environment.sh
-          python3 scripts/ipad_simulator.py --size "${{ matrix.size }}" \
+          python3 scripts/ipad_simulator.py --fresh-device --size "${{ matrix.size }}" \
             --appearance "${{ matrix.size == '13-inch' && 'dark' || 'light' }}"
       - name: Upload native iPad test results
         if: always()

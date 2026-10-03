@@ -73,6 +73,39 @@ class SimulatorContracts(unittest.TestCase):
             self.assertEqual(runner.main(['--size', '13-inch']), 0)
         tests.assert_called_once_with('13-inch', DEVICES[1][1], bundle, self.root / 'build/iPad-writing')
 
+    def test_fresh_device_owns_only_created_simulator_even_on_failure(self):
+        self.prepare_bundle()
+        existing = dict(DEVICES[1][1], deviceTypeIdentifier='iPad-Air-13-inch')
+        devices = {'com.apple.CoreSimulator.SimRuntime.iOS-26-2': [existing]}
+        identifier = '12345678-1234-1234-1234-123456789abc'
+        for outcome in (True, False, RuntimeError('test process failed')):
+            with self.subTest(outcome=outcome), \
+                 patch.dict(os.environ, {'GITHUB_ACTIONS': 'true'}), \
+                 patch.object(runner, '__file__', str(self.root / 'scripts/ipad_simulator.py')), \
+                 patch.object(runner, 'inventory', return_value=devices), \
+                 patch.object(runner, 'run', return_value=subprocess.CompletedProcess([], 0, stdout=identifier)) as run, \
+                 patch.object(runner, 'test_device') as tests:
+                if isinstance(outcome, Exception):
+                    tests.side_effect = outcome
+                    with self.assertRaises(RuntimeError):
+                        runner.main(['--size', '13-inch', '--fresh-device'])
+                else:
+                    tests.return_value = outcome
+                    self.assertEqual(runner.main(['--size', '13-inch', '--fresh-device']), 0 if outcome else 1)
+                created = tests.call_args.args[1]
+                self.assertEqual(created['udid'], identifier)
+                self.assertNotEqual(created['udid'], existing['udid'])
+                create = next(call.args[0] for call in run.call_args_list if call.args[0][1:3] == ['simctl', 'create'])
+                self.assertEqual(create[-2:], ['iPad-Air-13-inch', 'com.apple.CoreSimulator.SimRuntime.iOS-26-2'])
+                self.assertEqual(run.call_args.args[0], ['xcrun', 'simctl', 'delete', identifier])
+
+    def test_fresh_device_rejects_local_default_device_storage(self):
+        with patch.dict(os.environ, {'GITHUB_ACTIONS': 'false'}), \
+             patch.object(runner, 'inventory') as inventory, contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                runner.main(['--size', '13-inch', '--fresh-device'])
+            inventory.assert_not_called()
+
     def test_discovery_failure_saves_diagnostics_without_booting_or_testing(self):
         self.prepare_bundle()
         for error in (subprocess.TimeoutExpired(['xcrun', 'simctl'], 180),

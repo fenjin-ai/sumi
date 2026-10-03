@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import time
+import uuid
 
 
 def run(command, timeout, *, capture=False, check=True):
@@ -52,7 +53,7 @@ def select_device(devices, size):
     raise RuntimeError(f'No available iOS runtime with a {size} iPad')
 
 
-def diagnostics(path):
+def diagnostics(path, device=None):
     commands = [
         ['xcode-select', '-p'],
         ['xcodebuild', '-version'],
@@ -62,6 +63,10 @@ def diagnostics(path):
         ['xcrun', 'simctl', 'list', 'devices'],
         ['tail', '-n', '200', str(Path.home() / 'Library/Logs/CoreSimulator/CoreSimulator.log')],
     ]
+    if device:
+        commands.append(['xcrun', 'simctl', 'spawn', device['udid'], 'log', 'show',
+                         '--last', '20m', '--style', 'compact', '--predicate',
+                         'eventMessage CONTAINS[c] "orient" OR eventMessage CONTAINS[c] "rotat"'])
     with path.open('w') as output:
         for command in commands:
             output.write(f"+ {shlex.join(command)}\n")
@@ -200,7 +205,7 @@ def test_device(size, device, bundle, results, *, suite='all', memory=False, cov
         print(f"::error::{size}: {error}", flush=True)
         if isinstance(error, subprocess.CalledProcessError) and error.output:
             print(error.output, flush=True)
-        diagnostics(results / f'{size}-diagnostics.log')
+        diagnostics(results / f'{size}-diagnostics.log', device)
         return False
     finally:
         try:
@@ -218,7 +223,11 @@ def main(argv=None):
     parser.add_argument('--memory', action='store_true')
     parser.add_argument('--no-coverage', action='store_true')
     parser.add_argument('--appearance', choices=('light', 'dark'))
+    parser.add_argument('--fresh-device', action='store_true',
+                        help='Create a disposable simulator on a hosted CI runner')
     args = parser.parse_args(argv)
+    if args.fresh_device and os.environ.get('GITHUB_ACTIONS') != 'true':
+        parser.error('--fresh-device is restricted to disposable hosted CI runners')
     root = Path(__file__).resolve().parent.parent
     bundles = list((root / args.derived_data / 'Build/Products').glob('*.xctestrun'))
     if len(bundles) != 1:
@@ -231,7 +240,16 @@ def main(argv=None):
         # A fresh UI runner has not warmed CoreSimulator through compilation.
         # Allow its first query to initialize services and mount runtimes;
         # subsequent inventory checks retain their short timeout.
-        device = select_device(inventory(timeout=180), args.size)
+        devices = inventory(timeout=180)
+        device = select_device(devices, args.size)
+        if args.fresh_device:
+            runtime = next(runtime for runtime, entries in devices.items() if device in entries)
+            name = 'LeftBlank-' + args.size + '-' + uuid.uuid4().hex[:8]
+            identifier = run(['xcrun', 'simctl', 'create', name,
+                              device['deviceTypeIdentifier'], runtime], 60, capture=True).stdout.strip()
+            uuid.UUID(identifier)
+            device = dict(device, udid=identifier, name=name)
+            print(f'Created disposable simulator {identifier}', flush=True)
     except (RuntimeError, subprocess.SubprocessError, json.JSONDecodeError) as error:
         print(f'::error::{args.size}: simulator discovery failed: {error}', flush=True)
         diagnostics(results / f'{args.size}-discovery-diagnostics.log')
@@ -247,7 +265,11 @@ def main(argv=None):
         options['memory'] = True
     if args.no_coverage:
         options['coverage'] = False
-    return 0 if test_device(args.size, device, bundles[0], results, **options) else 1
+    try:
+        return 0 if test_device(args.size, device, bundles[0], results, **options) else 1
+    finally:
+        if args.fresh_device:
+            run(['xcrun', 'simctl', 'delete', device['udid']], 60)
 
 
 if __name__ == '__main__':
