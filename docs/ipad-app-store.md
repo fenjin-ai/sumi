@@ -58,7 +58,10 @@ python3 scripts/test-ipad-release.py
 python3 scripts/ipad_release.py
 ```
 
-After merging, push an immutable tag matching the iPad version:
+After merging, wait until the required `build and test` check has succeeded on
+the actual merged main commit. A successful PR check alone is not sufficient.
+Only then push an immutable tag matching the iPad version; do not start a release
+runner just to wait for CI:
 
 ```sh
 git tag ipad-v1.0.1 <merged-main-commit>
