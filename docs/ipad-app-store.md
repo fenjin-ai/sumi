@@ -87,7 +87,7 @@ Build processing and App Review submission are distinct from approval.
 ## Validation before review
 
 Hosted CI measures executable iPad Swift/Core coverage and runs the native UI
-suite on both 11-inch and 13-inch iPads in each of light and dark mode, hosted
+suite on an 11-inch iPad in light mode and a 13-inch iPad in dark mode, hosted
 unit/lifecycle tests, Address Sanitizer, Thread Sanitizer and Main
 Thread Checker. Compiler concurrency checks and warnings are enforced. Rust FFI
 formatting and Clippy checks supplement the embedded-engine integration test.
@@ -102,7 +102,7 @@ fully shut down and boot again before the measured suite. In run 37125166334,
 SpringBoard crashed during first-boot setup; after its restart both LeftBlank and
 Apple Settings stayed in portrait despite delivered landscape events. The full
 boot separates that setup from testing; it is not an application-test retry.
-The four-device/appearance gate still requires real rotation and passing tests.
+Both device/appearance configurations require real rotation and passing tests.
 The template cover and subscription sheet must hand off through `onDismiss`;
 changing both presentation bindings at once can leave XCTest waiting for an
 animation to finish. Purchase and expired-export scenarios run independently,
