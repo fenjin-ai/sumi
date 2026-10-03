@@ -35,13 +35,23 @@ final class WritingTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
         let create = app.buttons["new-document"]
+        let actions = app.buttons["document-actions"]
+        let loading = app.progressIndicators["document-loading"]
+        // First launch opens Welcome and hides the sidebar asynchronously.
+        // Wait for that transition before deciding whether to reveal the library.
+        let launched = NSPredicate { _, _ in
+            !loading.exists && ((create.exists && create.isEnabled && create.isHittable) ||
+                (actions.exists && actions.isHittable))
+        }
+        expectation(for: launched, evaluatedWith: app)
+        waitForExpectations(timeout: 60)
         if !create.waitForExistence(timeout: 3) || !create.isHittable {
             let sidebar = app.buttons["sidebar-toggle"]
             expect(sidebar.waitForExistence(timeout: 60)) == true
             sidebar.tap()
         }
         expect(create.waitForExistence(timeout: 60)) == true
-        let enabled = NSPredicate { _, _ in create.isEnabled && create.isHittable }
+        let enabled = NSPredicate { _, _ in create.exists && create.isEnabled && create.isHittable }
         expectation(for: enabled, evaluatedWith: app)
         waitForExpectations(timeout: 60)
         create.tap()
