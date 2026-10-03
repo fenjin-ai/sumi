@@ -168,7 +168,8 @@ def configure_coverage(bundle):
     bundle.write_bytes(plistlib.dumps(parameters))
 
 
-def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True, appearance=None):
+def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True, appearance=None,
+                cold_start=False):
     print(f"::group::{size}: boot, native {suite} tests, shutdown", flush=True)
     try:
         if coverage:
@@ -180,6 +181,14 @@ def test_device(size, device, bundle, results, *, suite='all', memory=False, cov
             # bootstatus completes. Keep a bounded startup allowance and confirm
             # the actual appearance before measuring the test run.
             run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance', appearance], 120)
+        if cold_start:
+            # iOS 26 can crash/respring SpringBoard during first-boot setup and
+            # then acknowledge orientation events without rotating even Settings.
+            # Finish migration/preferences before a full boot of the initialized
+            # device. This is setup, not a retry of failed application tests.
+            shutdown(device)
+            run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b', '-d'], 240)
+        if appearance:
             actual = run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance'], 120, capture=True).stdout
             if actual.strip().lower() != appearance:
                 raise RuntimeError('Simulator appearance differs from the requested ' + appearance)
@@ -260,6 +269,8 @@ def main(argv=None):
     finally:
         print('::endgroup::', flush=True)
     options = {}
+    if args.fresh_device and args.suite == 'all':
+        options['cold_start'] = True
     if args.appearance:
         options['appearance'] = args.appearance
     if args.suite != 'all':

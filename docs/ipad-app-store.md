@@ -97,6 +97,12 @@ library. See `docs/coverage.md` for the coverage denominator and gate.
 UI tests verify actual window bounds after rotation. On failure they also rotate
 Apple Settings and capture Control Center and SpringBoard diagnostics, so an
 accepted XCTest orientation request cannot conceal an unchanged app window.
+Fresh hosted simulators complete first-boot migration and appearance setup, then
+fully shut down and boot again before the measured suite. In run 37125166334,
+SpringBoard crashed during first-boot setup; after its restart both LeftBlank and
+Apple Settings stayed in portrait despite delivered landscape events. The full
+boot separates that setup from testing; it is not an application-test retry.
+The four-device/appearance gate still requires real rotation and passing tests.
 The template cover and subscription sheet must hand off through `onDismiss`;
 changing both presentation bindings at once can leave XCTest waiting for an
 animation to finish. Purchase and expired-export scenarios run independently,
