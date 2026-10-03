@@ -40,3 +40,5 @@ Unicode editing, marked-text protection, undo and saving have automated coverage
 - [Local intelligence evaluation](local-intelligence.md)
 - [Merge evaluation](merge-evaluation.md)
 
+
+The macOS MCP helper is built separately with Rust 1.92.0 through `scripts/build-mcp.sh`. Its sources and lockfile live in `Tools/LeftBlankMCP`; Cargo artifacts stay inside that package. User installation uses a copied coding-agent prompt, with no Rust runtime needed.

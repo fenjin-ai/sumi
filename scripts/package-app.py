@@ -27,12 +27,14 @@ def package(binary_dir, distribution):
     for directory in ('MacOS', 'Helpers'):
         (contents / directory).mkdir(parents=True)
     shutil.copy2(binary_dir / 'LeftBlank', contents / 'MacOS/LeftBlank')
-    shutil.copy2(binary_dir / 'LeftBlankMCP', contents / 'Helpers/LeftBlankMCP')
+    if distribution != 'appstore':
+        shutil.copy2(Path('Tools/LeftBlankMCP/target') / ('release' if binary_dir.name.lower() == 'release' else 'debug') / 'LeftBlankMCP',
+                     contents / 'Helpers/LeftBlankMCP')
     engine = '.tools/tinymist-appstore' if distribution == 'appstore' else '.tools/tinymist'
     shutil.copy2(engine, contents / 'Helpers/tinymist')
     # Native SwiftPM embeds its PackageFrameworks path ahead of the app's rpath.
     # Remove build-machine paths so cold-launch checks exercise bundled code.
-    for executable in (contents / 'MacOS/LeftBlank', contents / 'Helpers/LeftBlankMCP'):
+    for executable in (contents / 'MacOS/LeftBlank',):
         commands = subprocess.check_output(['otool', '-l', str(executable)], text=True)
         for path in re.findall(r'cmd LC_RPATH\s+cmdsize \d+\s+path (.*?) \(offset', commands):
             if path.startswith(str(Path('.build').resolve()) + '/'):

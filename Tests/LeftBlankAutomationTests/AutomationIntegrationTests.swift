@@ -60,6 +60,17 @@ struct AutomationIntegrationTests {
         #expect(throws: AutomationFailure.self) { try server.start { _ in .null } }
     }
 
+    @Test func sandboxSocketUsesContainerShortPath() {
+        let state =
+            URL(
+                fileURLWithPath: "/Volumes/SSD/Developer/Codex/checkouts/example/Library/Containers/app.leftblank.writer/Data/Library/Application Support/LeftBlank",
+            )
+        let socket = AutomationContract.socketURL(in: state)
+        #expect(socket.path.hasSuffix("/Library/Containers/app.leftblank.writer/Data/Agents/bridge.sock"))
+        #expect(AutomationContract.socketURL(in: URL(fileURLWithPath: "/Volumes/SSD/Developer/Codex/tmp/test")).path ==
+            "/Volumes/SSD/Developer/Codex/tmp/test/Agents/bridge.sock")
+    }
+
     @Test func atomicUTF16EditsRejectStaleBoundariesAndOverlap() throws {
         let text = "A😀B\n中文"
         let edits: JSONValue = .array([
@@ -98,7 +109,17 @@ struct AutomationIntegrationTests {
                     "text": .string("= Live unsaved source"),
                 ])
             case "get_settings": return .object(["layout": .string("writing")])
-            case "export_pdf": return .object(["path": .string("test.pdf"), "image_png": .string("aW1hZ2U=")])
+            case "render_page": return .object([
+                    "revision": .string("revision-1"),
+                    "page": .number(1),
+                    "page_count": .number(1),
+                    "image_png": .string("aW1hZ2U="),
+                ])
+            case "export_pdf": return .object([
+                    "path": .string("test.pdf"),
+                    "uri": .string("file:///test.pdf"),
+                    "revision": .string("revision-1"),
+                ])
             default: throw AutomationFailure("revision_conflict", "Read the document again.")
             }
         }
@@ -119,13 +140,20 @@ struct AutomationIntegrationTests {
                     #expect(initialization["result"]["serverInfo"]["name"].string == "LeftBlank")
                     try session.notify("notifications/initialized")
                     let tools = try session.request("tools/list")["result"]["tools"].array
-                    #expect(tools.count == 9)
+                    #expect(tools.count == 31)
                     #expect(tools.contains { $0["name"].string == "leftblank_apply_edits" })
                     let read = try session.request("tools/call", ["name": "leftblank_get_document"])
                     #expect(read["result"]["structuredContent"]["text"].string == "= Live unsaved source")
                     let conflict = try session.request(
                         "tools/call",
-                        ["name": "leftblank_apply_edits", "arguments": [:]],
+                        [
+                            "name": "leftblank_apply_edits",
+                            "arguments": [
+                                "document_id": "test-doc",
+                                "expected_revision": "revision-1",
+                                "edits": [["start": 0, "end": 0, "text": "new"]],
+                            ],
+                        ],
                     )
                     #expect(conflict["result"]["structuredContent"]["code"].string == "revision_conflict")
                     #expect(try session.request("resources/list")["result"]["resources"].array.count == 2)
@@ -138,9 +166,18 @@ struct AutomationIntegrationTests {
                     )
                     #expect(prompt["result"]["messages"].array.first?["content"]["text"].string?
                         .contains("Write a note") == true)
-                    let export = try session.request("tools/call", ["name": "leftblank_export_pdf"])
-                    #expect(export["result"]["content"].array.count == 2)
-                    #expect(export["result"]["content"].array.last?["type"].string == "image")
+                    let arguments: [String: Any] = ["document_id": "test-doc", "expected_revision": "revision-1"]
+                    let export = try session.request(
+                        "tools/call",
+                        ["name": "leftblank_export_pdf", "arguments": arguments],
+                    )
+                    #expect(export["result"]["content"].array.count == 1)
+                    let rendered = try session.request(
+                        "tools/call",
+                        ["name": "leftblank_render_page", "arguments": arguments],
+                    )
+                    #expect(rendered["result"]["content"].array.count == 2)
+                    #expect(rendered["result"]["content"].array.last?["type"].string == "image")
                     #expect(export["result"]["structuredContent"]["image_png"].isNull)
                     server.stop()
                     let disabled = try session.request("tools/call", ["name": "leftblank_get_document"])
@@ -170,14 +207,10 @@ private final class MCPWireSession {
     init(stateDirectory: URL) throws {
         let helper = try #require(ProcessInfo.processInfo.environment["LEFTBLANK_MCP_HELPER"])
         process.executableURL = URL(fileURLWithPath: helper)
-        var environment = ProcessInfo.processInfo.environment.merging(
+        let environment = ProcessInfo.processInfo.environment.merging(
             ["LEFTBLANK_STATE_DIR": stateDirectory.path],
             uniquingKeysWith: { _, new in new },
         )
-        if let coverage = environment["LEFTBLANK_MCP_COVERAGE_DIR"] {
-            environment["LLVM_PROFILE_FILE"] = URL(fileURLWithPath: coverage).appendingPathComponent("mcp-%p.profraw")
-                .path
-        }
         process.environment = environment
         process.standardInput = input
         process.standardOutput = output
@@ -229,7 +262,7 @@ private final class MCPWireSession {
 
     func close() {
         try? input.fileHandleForWriting.close()
-        // EOF lets the helper flush its LLVM coverage profile before exit.
+        // EOF lets the SDK shut down the stdio transport cleanly.
         let deadline = Date().addingTimeInterval(2)
         while process.isRunning, Date() < deadline {
             Thread.sleep(forTimeInterval: 0.02)

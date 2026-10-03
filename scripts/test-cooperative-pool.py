@@ -16,7 +16,7 @@ environment = os.environ | {
     "LIBDISPATCH_COOPERATIVE_POOL_STRICT": "1",
     "LLVM_PROFILE_FILE": str(output.resolve() / "%p.profraw"),
 }
-binary_directory = Path(os.environ["LEFTBLANK_MCP_HELPER"]).parent
+binary_directory = Path(subprocess.check_output(["swift", "build", "--show-bin-path"], text=True).strip())
 bundle = binary_directory / "LeftBlankAutomationTests.xctest"
 if not bundle.is_dir():
     bundle = binary_directory / "LeftBlankPackageTests.xctest"

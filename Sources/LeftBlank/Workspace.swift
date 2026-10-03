@@ -1066,38 +1066,13 @@ final class Workspace: ObservableObject {
         guard serviceReady, let editor, !editor.hasMarkedText() else {
             return
         }
-        let version = documentVersion, generation = serviceGeneration, caret = editor.selectedRange()
+        let caret = editor.selectedRange()
         Task {
             do {
-                try flushChanges()
-                let result = try await client.request(
-                    "textDocument/formatting",
-                    [
-                        "textDocument": ["uri": documentURL.absoluteString],
-                        "options": ["tabSize": 2, "insertSpaces": true],
-                    ],
-                )
-                guard documentVersion == version, serviceGeneration == generation,
-                      !editor.hasMarkedText()
-                else {
+                let formatted = try await formattedSource()
+                guard !editor.hasMarkedText() else {
                     return
                 }
-                let replacements = result.array.map { edit in
-                    let range = edit["range"]
-                    let start = TextPosition(
-                        line: range["start"]["line"].int ?? 0,
-                        character: range["start"]["character"].int ?? 0,
-                    ).offset(in: text)
-                    let end = TextPosition(
-                        line: range["end"]["line"].int ?? 0,
-                        character: range["end"]["character"].int ?? 0,
-                    ).offset(in: text)
-                    return TextReplacement(
-                        range: NSRange(location: start, length: end - start),
-                        text: edit["newText"].string ?? "",
-                    )
-                }
-                let formatted = try TextEditing.applying(replacements, to: text)
                 guard formatted != text else {
                     showMessage(L10n.text("The document is already formatted."))
                     return
@@ -1110,6 +1085,38 @@ final class Workspace: ObservableObject {
                 recordOperation("document.formatted")
             } catch { showMessage(error.localizedDescription) }
         }
+    }
+
+    func formattedSource() async throws -> String {
+        guard serviceReady else {
+            throw ServiceError.remote(L10n.text("The typesetting service is not ready."))
+        }
+        let version = documentVersion, generation = serviceGeneration
+        try flushChanges()
+        let result = try await client.request(
+            "textDocument/formatting",
+            ["textDocument": ["uri": documentURL.absoluteString],
+             "options": ["tabSize": 2, "insertSpaces": true]],
+        )
+        guard documentVersion == version, serviceGeneration == generation else {
+            throw ServiceError.remote(L10n.text("The document changed during formatting."))
+        }
+        let replacements = result.array.map { edit in
+            let range = edit["range"]
+            let start = TextPosition(
+                line: range["start"]["line"].int ?? 0,
+                character: range["start"]["character"].int ?? 0,
+            ).offset(in: text)
+            let end = TextPosition(
+                line: range["end"]["line"].int ?? 0,
+                character: range["end"]["character"].int ?? 0,
+            ).offset(in: text)
+            return TextReplacement(
+                range: NSRange(location: start, length: end - start),
+                text: edit["newText"].string ?? "",
+            )
+        }
+        return try TextEditing.applying(replacements, to: text)
     }
 
     func importPackage(_ package: UniversePackage) throws {
@@ -1446,7 +1453,7 @@ final class Workspace: ObservableObject {
         return operation
     }
 
-    private func compiledPDF() async throws -> (Data, Int) {
+    func compiledPDF() async throws -> (Data, Int) {
         try flushChanges()
         let version = documentVersion
         let result = try await client.command("tinymist.exportPdf", arguments: [compilationURL.path])

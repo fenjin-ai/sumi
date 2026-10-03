@@ -1,7 +1,6 @@
 import AppKit
 import LeftBlankAutomation
 import LeftBlankCore
-import PDFKit
 
 @MainActor
 struct AutomationLibraryAccess {
@@ -11,23 +10,44 @@ struct AutomationLibraryAccess {
     var create: (String, String) async throws -> Void
 }
 
+private enum AutomationAccess {
+    @TaskLocal static var generation: UUID?
+}
+
 /// All agent mutations pass through the same live workspace and native undo path as typing.
 @MainActor
 final class WorkspaceAutomation {
-    private weak var workspace: Workspace?
+    weak var workspace: Workspace?
     private let server: AutomationBridgeServer
+    private let configurationFailure: AutomationFailure?
+    let exportDirectory: URL
     private let session = UUID().uuidString
-    private var accessGeneration = UUID()
+    private(set) var accessGeneration = UUID()
+    private var projectGeneration = 0
     private(set) var enabled = false
     var library: AutomationLibraryAccess?
+    var compiledPreview: AutomationCompiledPreview?
 
     init(workspace: Workspace, socketURL: URL? = nil) {
         self.workspace = workspace
-        server = AutomationBridgeServer(socketURL: socketURL ?? AutomationContract
-            .socketURL(in: workspace.stateDirectory))
+        let group = Bundle.main.object(forInfoDictionaryKey: "LeftBlankAgentGroup") as? String
+        let container = group.flatMap { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) }
+        configurationFailure = group != nil && container == nil ?
+            AutomationFailure("bridge_unavailable", "The signed MCP group is unavailable. Reinstall LeftBlank.") : nil
+        let endpoint = socketURL ?? container.map {
+            AutomationContract.groupSocketURL(in: $0, preview: AppDistribution.current == .preview)
+        } ?? AutomationContract.socketURL(in: workspace.stateDirectory)
+        exportDirectory = (container ?? workspace.stateDirectory).appendingPathComponent(
+            "AgentExports",
+            isDirectory: true,
+        )
+        server = AutomationBridgeServer(socketURL: endpoint)
     }
 
     func start() throws {
+        if let configurationFailure {
+            throw configurationFailure
+        }
         enabled = false
         let generation = UUID()
         accessGeneration = generation
@@ -45,40 +65,62 @@ final class WorkspaceAutomation {
         enabled = false
         accessGeneration = UUID()
         server.stop()
+        compiledPreview = nil
         workspace?.recordOperation("agent.disabled")
     }
 
-    private var documentID: String {
-        library?.currentID() ?? workspace?.documentURL.absoluteString ?? "closed"
+    var documentID: String {
+        guard let workspace, !workspace.isLibraryHome else {
+            return "closed"
+        }
+        if let id = workspace.managedDocumentID {
+            return id.uuidString
+        }
+        if workspace.managedDocumentID == nil, workspace.mainFileURL != nil {
+            return workspace.compilationURL.absoluteString
+        }
+        return library?.currentID() ?? workspace.compilationURL.absoluteString
     }
 
-    private func revision(_ workspace: Workspace) -> String {
+    func fileID(_ url: URL) -> String {
+        AutomationContract.revision(documentID: session, text: url.standardizedFileURL.absoluteString)
+    }
+
+    func revision(_ workspace: Workspace) -> String {
         AutomationContract.revision(
-            documentID: session + ":" + documentID + ":" + String(workspace.revision),
+            documentID: session + ":" + documentID + ":" + fileID(workspace.documentURL) + ":" +
+                String(workspace.revision) + ":" + String(projectGeneration),
             text: workspace.text,
         )
     }
 
-    private func snapshot(_ workspace: Workspace) throws -> JSONValue {
-        guard !workspace.isLibraryHome
-        else {
-            throw AutomationFailure("no_document", "Open or create a document first.")
-        }
-        guard workspace.text.utf8.count <= AutomationContract.maximumSourceBytes else {
-            throw AutomationFailure("document_too_large", "Agent reads are limited to 2 MiB of source.")
-        }
-        return .object([
-            "document_id": .string(documentID), "title": .string(workspace.title),
-            "revision": .string(revision(workspace)), "text": .string(workspace.text),
-            "unsaved": .bool(workspace.text != workspace.savedText),
-            "selection": .object([
-                "start": .number(Double(workspace.selection.location)),
-                "end": .number(Double(NSMaxRange(workspace.selection))),
-            ]),
-        ])
+    func metadata(_ workspace: Workspace) -> [String: JSONValue] {
+        ["document_id": .string(documentID), "file_id": .string(fileID(workspace.documentURL)),
+         "title": .string(workspace.title), "revision": .string(revision(workspace)),
+         "unsaved": .bool(workspace.text != workspace.savedText),
+         "total_lines": .number(Double(TextLineIndex(workspace.text).position(at: workspace.text.utf16.count)
+                 .line + 1)),
+         "selection": .object(["start": .number(Double(workspace.selection.location)),
+                               "end": .number(Double(NSMaxRange(workspace.selection)))])]
     }
 
-    private func requireCurrent(_ arguments: JSONValue, workspace: Workspace, revisionRequired: Bool = false) throws {
+    func snapshot(_ workspace: Workspace) throws -> JSONValue {
+        guard !workspace.isLibraryHome else {
+            throw AutomationFailure("no_document", "Open or create a document first.")
+        }
+        return .object(metadata(workspace))
+    }
+
+    /// Project writes invalidate both agent CAS and the compiler, without creating a text undo step.
+    func projectChanged(_ workspace: Workspace) {
+        projectGeneration += 1
+        compiledPreview = nil
+        workspace.previewStale = true
+        workspace.startService()
+    }
+
+    func requireCurrent(_ arguments: JSONValue, workspace: Workspace, revisionRequired: Bool = false) throws {
+        try requireAccess(AutomationAccess.generation ?? accessGeneration)
         guard !workspace.isLibraryHome
         else {
             throw AutomationFailure("no_document", "Open or create a document first.")
@@ -97,7 +139,14 @@ final class WorkspaceAutomation {
         }
     }
 
-    private func requireEditable(_ workspace: Workspace) throws {
+    func requireAccess(_ generation: UUID) throws {
+        guard enabled, generation == accessGeneration else {
+            throw AutomationFailure("access_disabled", "Agent Access was disabled during this operation.")
+        }
+    }
+
+    func requireEditable(_ workspace: Workspace) throws {
+        try requireAccess(AutomationAccess.generation ?? accessGeneration)
         guard !workspace.documentTransitionInProgress, !workspace.applyingCommand,
               workspace.editor?.hasMarkedText() != true, workspace.editor?.window?.attachedSheet == nil
         else {
@@ -115,37 +164,31 @@ final class WorkspaceAutomation {
         guard enabled, expectedGeneration == nil || expectedGeneration == accessGeneration, let workspace else {
             throw AutomationFailure("access_disabled", "Agent Access is disabled in LeftBlank.")
         }
-        guard [
-            "get_document",
-            "list_documents",
-            "open_document",
-            "create_document",
-            "apply_edits",
-            "get_preview",
-            "export_pdf",
-            "get_settings",
-            "set_settings",
-        ].contains(request.operation) else {
-            throw AutomationFailure("unknown_operation", "This operation is not available in LeftBlank.")
+        let generation = accessGeneration
+        return try await AutomationAccess.$generation.withValue(generation) {
+            let result = try await dispatch(request, workspace: workspace)
+            try requireAccess(generation)
+            return result
         }
+    }
+
+    private func dispatch(_ request: AutomationRequest, workspace: Workspace) async throws -> JSONValue {
         let args = request.arguments
         workspace.recordOperation("agent.request", ["operation": request.operation])
         switch request.operation {
-        case "get_document": return try snapshot(workspace)
-        case "list_documents":
-            let query = args["query"].string ?? ""
-            let documents: [AutomationDocument] = if let library {
-                try await library.list(query)
-            } else {
-                query.isEmpty || workspace.title.localizedCaseInsensitiveContains(query) ? [.init(
-                    id: documentID,
-                    title: workspace.title,
-                )] : []
-            }
-            return try .object([
-                "documents": AutomationContract.encode(documents),
-                "active_document_id": .string(documentID),
+        case "get_status":
+            return .object([
+                "bridge_version": .number(2),
+                "enabled": .bool(enabled),
+                "library_home": .bool(workspace.isLibraryHome),
+                "active_document": workspace.isLibraryHome ? .null : .object(metadata(workspace)),
             ])
+        case "get_document": return try readDocument(args, workspace: workspace)
+        case "get_outline": return try outline(args, workspace: workspace)
+        case "search_document": return try search(args, workspace: workspace)
+        case "list_files": return try listFiles(args, workspace: workspace)
+        case "open_file": return try openFile(args, workspace: workspace)
+        case "create_file": return try createFile(args, workspace: workspace)
         case "open_document":
             try requireEditable(workspace)
             guard let id = args["document_id"].string else {
@@ -183,7 +226,7 @@ final class WorkspaceAutomation {
             }
             try await library.create(title, source)
             return try snapshot(workspace)
-        case "apply_edits":
+        case "apply_edits", "edit_document":
             try requireEditable(workspace)
             try requireCurrent(args, workspace: workspace, revisionRequired: true)
             guard let editor = workspace.editor else {
@@ -192,7 +235,9 @@ final class WorkspaceAutomation {
                     "The editor is not ready.",
                 )
             }
-            let changed = try AutomationContract.replacing(args["edits"], in: workspace.text)
+            let changed = try request.operation == "edit_document" ?
+                AutomationContract.replacingText(args["edits"], in: workspace.text) :
+                AutomationContract.replacing(args["edits"], in: workspace.text)
             if changed != workspace.text {
                 workspace.closePalette()
                 if workspace.layout == .preview {
@@ -210,65 +255,12 @@ final class WorkspaceAutomation {
                     )
                 }
             }
-            return try snapshot(workspace)
-        case "get_preview":
-            try requireCurrent(args, workspace: workspace)
-            return .object([
-                "document_id": .string(documentID), "revision": .string(revision(workspace)),
-                "ready": .bool(workspace.serviceReady), "stale": .bool(workspace.previewStale),
-                "has_successful_preview": .bool(workspace.hasSuccessfulPreview),
-                "diagnostics": .array(workspace.diagnostics.map {
-                    .object(["message": .string($0.message), "severity": .number(Double($0.severity)),
-                             "line": .number(Double($0.position.line)),
-                             "character": .number(Double($0.position.character)),
-                             "uri": .string($0.url.absoluteString)])
-                }),
-            ])
-        case "export_pdf":
-            try requireEditable(workspace)
-            try requireCurrent(args, workspace: workspace, revisionRequired: true)
-            let expected = revision(workspace), id = documentID
-            let directory = workspace.stateDirectory.appendingPathComponent("AgentExports", isDirectory: true)
-            try FileManager.default.createDirectory(
-                at: directory,
-                withIntermediateDirectories: true,
-                attributes: [.posixPermissions: 0o700],
-            )
-            let destination = directory.appendingPathComponent(UUID().uuidString + ".pdf")
-            do {
-                try await workspace.exportPDF(to: destination)
-                guard enabled, expected == revision(workspace), documentID == id else {
-                    throw AutomationFailure(
-                        "revision_conflict",
-                        "The document changed during export. Re-read and export again.",
-                    )
-                }
-                guard let pdf = PDFDocument(url: destination) else {
-                    throw AutomationFailure(
-                        "preview_unavailable",
-                        "The exported preview could not be read.",
-                    )
-                }
-                let number = args["page"].int ?? 1
-                guard number >= 1, number <= pdf.pageCount, let page = pdf.page(at: number - 1) else {
-                    throw AutomationFailure("invalid_page", "The requested page is outside the exported PDF.")
-                }
-                let thumbnail = page.thumbnail(of: NSSize(width: 1000, height: 1400), for: .mediaBox)
-                guard let tiff = thumbnail.tiffRepresentation,
-                      let bitmap = NSBitmapImageRep(data: tiff), let png = bitmap.representation(
-                          using: .png,
-                          properties: [:],
-                      )
-                else {
-                    throw AutomationFailure("preview_unavailable", "The preview image could not be rendered.")
-                }
-                return .object(["document_id": .string(id), "revision": .string(expected),
-                                "path": .string(destination.path), "uri": .string(destination.absoluteString),
-                                "page_count": .number(Double(pdf.pageCount)), "page": .number(Double(number)),
-                                "image_png": .string(png.base64EncodedString())])
-            } catch { try? FileManager.default.removeItem(at: destination)
-                throw error
-            }
+            var result = metadata(workspace)
+            result["changed_edits"] = .number(Double(args["edits"].array.filter {
+                request.operation == "edit_document" ? $0["old_text"].string != $0["new_text"].string : true
+            }.count))
+            return .object(result)
+        case "format_document": return try await formatSource(args, workspace: workspace)
         case "get_settings": return settings(workspace)
         case "set_settings":
             try requireEditable(workspace)
@@ -314,7 +306,14 @@ final class WorkspaceAutomation {
                 workspace.appearance = appearance
             }
             return settings(workspace)
-        default: throw AutomationFailure("unknown_operation", "This operation is not available in LeftBlank.")
+        default:
+            if let result = try await handleCapabilities(request.operation, args, workspace: workspace) {
+                return result
+            }
+            if let result = try await handlePreview(request.operation, args, workspace: workspace) {
+                return result
+            }
+            throw AutomationFailure("unknown_operation", "This operation is not available in LeftBlank.")
         }
     }
 

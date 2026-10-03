@@ -23,10 +23,11 @@ App icon is an original LeftBlank vector mark (AppIcon.svg): a continuous ivory 
 Nano Emacs and Spacemacs inspired the visual and command-discovery design;
 no source code from either project is bundled.
 
-The bundled LeftBlankMCP helper uses the official MCP Swift SDK 0.12.1
-https://github.com/modelcontextprotocol/swift-sdk/tree/0.12.1
-MCP SDK (Apache-2.0 and MIT), Swift System / Swift Log (Apache-2.0 with Swift exception), and EventSource (MIT).
-Full dependency license texts are in Licenses/. Resolved versions are recorded in Package.resolved.
+The macOS LeftBlankMCP helper uses the official Rust SDK rmcp 3.5.0 (Apache-2.0).
+https://github.com/modelcontextprotocol/rust-sdk
+Resolved dependencies are recorded in Tools/LeftBlankMCP/Cargo.lock.
+Their original copyright and license notices are in Licenses/LeftBlankMCP-NOTICES.txt.
+The App Store edition distributes the same signed helper separately.
 
 Code notes includes codly 1.3.0 and codly-languages 0.1.1 (MIT).
 https://typst.app/universe/package/codly/

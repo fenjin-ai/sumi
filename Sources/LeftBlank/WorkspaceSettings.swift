@@ -155,12 +155,13 @@ final class WorkspaceSettings: ObservableObject {
         }
     }
 
-    var connectionCommand: String {
-        let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/LeftBlankMCP").path
-        return "codex mcp add " + AppDistribution.current.agentName + " -- '" + helper.replacingOccurrences(
-            of: "'",
-            with: "'\\''",
-        ) + "'"
+    var installationPrompt: String {
+        AutomationInstallation.prompt(
+            bundle: Bundle.main.bundleURL,
+            distribution: Bundle.main.object(forInfoDictionaryKey: "LeftBlankDistribution") as? String ??
+                ProcessInfo.processInfo.environment["LEFTBLANK_DISTRIBUTION"] ?? "direct",
+            serverName: AppDistribution.current.agentName,
+        )
     }
 
     func stop() {
@@ -241,11 +242,11 @@ struct WritingSettingsView: View {
                     ))
                     .font(.footnote).foregroundStyle(Theme.secondary)
                 HStack {
-                    Text(L10n.text("Connect Codex")).font(.system(size: 12))
+                    Text(L10n.text("Connect a coding agent")).font(.system(size: 12))
                     Spacer()
-                    Button(L10n.text("Copy setup command")) {
+                    Button(L10n.text("Copy installation prompt")) {
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(settings.connectionCommand, forType: .string)
+                        NSPasteboard.general.setString(settings.installationPrompt, forType: .string)
                     }
                 }
                 if let error = settings.agentError {
