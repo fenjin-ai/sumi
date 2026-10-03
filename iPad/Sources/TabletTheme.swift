@@ -84,6 +84,52 @@ struct TabletBackButton: View {
     }
 }
 
+/// UIKit keeps its menu preview inside this native container instead of
+/// reparenting views directly into SwiftUI's hosting controller.
+struct TabletLibraryMenu: UIViewRepresentable {
+    struct Action {
+        let title: String
+        let icon: String
+        let perform: @MainActor () -> Void
+    }
+
+    let actions: [Action]
+
+    func makeUIView(context _: Context) -> UIView {
+        let container = UIView()
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.showsMenuAsPrimaryAction = true
+        button.setImage(TabletIconStore.image("dots-three-vertical", size: 18), for: .normal)
+        button.accessibilityIdentifier = "library-actions"
+        container.addSubview(button)
+        NSLayoutConstraint.activate([
+            button.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            button.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            button.topAnchor.constraint(equalTo: container.topAnchor),
+            button.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        return container
+    }
+
+    func updateUIView(_ container: UIView, context _: Context) {
+        guard let button = container.subviews.first as? UIButton else {
+            return
+        }
+        button.tintColor = TabletTheme.nativeSecondary
+        button.accessibilityLabel = L10n.text("Library actions")
+        let items = actions.map { action in
+            UIAction(title: action.title, image: TabletIconStore.image(action.icon, size: 18)) { _ in
+                MainActor.assumeIsolated { action.perform() }
+            }
+        }
+        button.menu = UIMenu(children: [
+            UIMenu(options: .displayInline, children: Array(items.prefix(2))),
+            UIMenu(options: .displayInline, children: Array(items.dropFirst(2))),
+        ])
+    }
+}
+
 @MainActor private enum TabletIconStore {
     private static var images: [String: UIImage] = [:]
     static func image(_ name: String, size: CGFloat) -> UIImage? {

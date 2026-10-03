@@ -60,6 +60,38 @@ interaction wall/CPU timings, and an end-of-run footprint is not a peak-memory
 or leak measurement. Release benchmarks and whole-process-tree memory budgets
 need separate representative workloads and measured runner baselines.
 
+## iPad safety checks
+
+Pull requests and main run the iPad simulator unit and UI suites, the separate
+80% application coverage gate, and three memory jobs. The lifecycle job reuses
+the normal simulator products and checks ownership release after repeated
+workspace/editor/engine lifecycles. XCTest memory metrics and performance
+diagnostics are retained in its result bundle. Address Sanitizer and Thread
+Sanitizer each compile separate Swift test products and run the hosted unit
+suite; these tools are mutually exclusive. The compiler treats warnings as
+errors, applies complete Swift concurrency checking, and enables actor runtime
+checks. The normal scheme retains Main Thread Checker. A successful process
+exit with zero executed tests, failed tests, or recorded runtime safety warnings
+fails validation. Simulator discovery, test execution, diagnostics and shutdown
+are bounded, and timeouts kill the test runner's process group.
+
+The Rust bridge also runs formatting and Clippy checks with warnings and unsafe
+operations inside unsafe functions treated as errors, followed by real engine
+integration. The Swift/Xcode sanitizers do **not** instrument the precompiled
+Rust engine or WebKit child processes. Weak ownership assertions detect retained
+objects; XCTest memory metrics record footprint but do not establish whole-heap
+leak freedom or a peak-memory regression budget without a measured baseline.
+The Mac differential `leaks` check remains separate. Undefined Behavior
+Sanitizer is omitted because Apple's tool supports C-family languages, not
+Swift or this prebuilt Rust library. See
+[Apple's sanitizer scope](https://developer.apple.com/documentation/xcode/diagnosing-memory-thread-and-crash-issues-early).
+
+All required iPad build, native test, coverage and memory jobs feed the final
+`build and test` gate. Native `.xcresult` and memory diagnostics remain available
+as Actions artifacts for 14 days. Device compilation continues independently
+to catch simulator-only assumptions; actual device performance and App Store
+StoreKit delivery still require release acceptance on hardware.
+
 ## Dependency maintenance
 
 Actions are pinned to full commit SHAs with readable version comments, so a

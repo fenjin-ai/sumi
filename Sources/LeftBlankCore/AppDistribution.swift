@@ -1,6 +1,6 @@
 import Foundation
 
-/// Distribution identity is compiled into the app.
+/// Distribution identity is compiled into the native apps.
 /// Local state stays separate; both distributions can use the shared iCloud library.
 public enum AppDistribution: Sendable {
     case standard

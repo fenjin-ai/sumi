@@ -52,13 +52,11 @@ public final class TinymistClient {
     public private(set) var semanticTokenTypes: [String] = []
     public private(set) var semanticTokenModifiers: [String] = []
 
-    public static var binaryURL: URL? {
-        #if os(macOS)
+    #if os(macOS)
+        public static var binaryURL: URL? {
             ProcessTinymistTransport.binaryURL
-        #else
-            nil
-        #endif
-    }
+        }
+    #endif
 
     public func start(root: URL, outputDirectory: URL, fontPaths: [URL] = []) async throws {
         stop()

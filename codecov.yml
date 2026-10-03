@@ -4,17 +4,36 @@ coverage:
   range: "80...100"
   status:
     project:
-      default:
+      default: false
+      macos:
         target: 80%
         threshold: 0%
         if_not_found: failure
-    patch:
-      default:
+        flags: [macos]
+      ipad:
         target: 80%
         threshold: 0%
+        if_not_found: failure
+        flags: [ipad]
+    patch:
+      default: false
+      macos:
+        target: 80%
+        threshold: 0%
+        flags: [macos]
+      ipad:
+        target: 80%
+        threshold: 0%
+        flags: [ipad]
+
+flags:
+  macos:
+    carryforward: false
+  ipad:
+    carryforward: false
 
 comment:
-  layout: "header, diff, files, footer"
+  layout: "header, diff, flags, files, footer"
   behavior: default
   require_changes: false
   require_base: false

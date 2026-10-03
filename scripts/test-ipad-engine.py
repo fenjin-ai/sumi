@@ -27,8 +27,10 @@ def assert_pdf_draws_text(data):
 
 
 class Engine:
-    def __init__(self, library):
-        self.process = subprocess.Popen([str(library)], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    def __init__(self, library, *, linger=False):
+        self.process = subprocess.Popen([str(library), *(['--linger'] if linger else [])],
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE if linger else None)
         self.writer = self.process.stdin.fileno()
         self.reader = self.process.stdout.fileno()
         self.buffer = bytearray()
@@ -174,9 +176,42 @@ def verify(library, scratch):
     print("PASS: in-process LSP, outline, loopback preview, live edits, PDF export and shutdown")
 
 
+def verify_shutdown_during_compile(library, scratch):
+    with tempfile.TemporaryDirectory(prefix="ipad-engine-stop.", dir=scratch) as directory:
+        root = Path(directory)
+        source = root / "main.typ"
+        text = "= Shutdown during compilation\n" + "Paragraph with $x^2$.\n\n" * 1000
+        source.write_text(text)
+        for delay in (0, 0.01, 0.03, 0.1):
+            engine = Engine(library, linger=True)
+            try:
+                engine.request("initialize", {
+                    "processId": None, "rootUri": root.as_uri(), "capabilities": {},
+                    "initializationOptions": {"exportPdf": "never", "compileStatus": "enable"},
+                })
+                engine.notify("initialized", {})
+                engine.notify("textDocument/didOpen", {"textDocument": {
+                    "uri": source.as_uri(), "languageId": "typst", "version": 1, "text": text,
+                }})
+                time.sleep(delay)
+                # A document switch closes input while background work may still
+                # be compiling. The native host deliberately stays alive.
+                engine.process.stdin.close()
+                engine.process.stdin = None
+                _, errors = engine.process.communicate(timeout=15)
+                assert engine.process.returncode == 0, (
+                    f"Shutdown during compilation returned {engine.process.returncode}: {errors[-1000:]!r}")
+            finally:
+                if engine.process.poll() is None:
+                    engine.process.kill()
+                    engine.process.communicate(timeout=10)
+    print("PASS: EOF during compilation leaves the embedded host alive")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("library", type=Path)
     parser.add_argument("--scratch", type=Path, required=True)
     arguments = parser.parse_args()
     verify(arguments.library.resolve(), arguments.scratch.resolve())
+    verify_shutdown_during_compile(arguments.library.resolve(), arguments.scratch.resolve())

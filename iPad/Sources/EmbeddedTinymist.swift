@@ -43,7 +43,9 @@ final class EmbeddedTinymist: TinymistTransport {
         isRunning = true
         try? incoming.fileHandleForReading.close()
         try? outgoing.fileHandleForWriting.close()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // The blocking LSP loop exchanges work with Rust's default-priority threads.
+        // UI requests use asynchronous continuations; the main thread never joins this worker.
+        DispatchQueue.global(qos: .default).async(qos: .default, flags: .enforceQoS) { [weak self] in
             let fonts = Self.fontDirectory()
             let status = fonts.path.withCString { leftblank_tinymist_run(readFD, writeFD, $0) }
             Task { @MainActor [weak self] in

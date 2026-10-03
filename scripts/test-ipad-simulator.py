@@ -73,6 +73,39 @@ class SimulatorContracts(unittest.TestCase):
             self.assertEqual(runner.main(['--size', '13-inch']), 0)
         tests.assert_called_once_with('13-inch', DEVICES[1][1], bundle, self.root / 'build/iPad-writing')
 
+    def test_fresh_device_owns_only_created_simulator_even_on_failure(self):
+        self.prepare_bundle()
+        existing = dict(DEVICES[1][1], deviceTypeIdentifier='iPad-Air-13-inch')
+        devices = {'com.apple.CoreSimulator.SimRuntime.iOS-26-2': [existing]}
+        identifier = '12345678-1234-1234-1234-123456789abc'
+        for outcome in (True, False, RuntimeError('test process failed')):
+            with self.subTest(outcome=outcome), \
+                 patch.dict(os.environ, {'GITHUB_ACTIONS': 'true'}), \
+                 patch.object(runner, '__file__', str(self.root / 'scripts/ipad_simulator.py')), \
+                 patch.object(runner, 'inventory', return_value=devices), \
+                 patch.object(runner, 'run', return_value=subprocess.CompletedProcess([], 0, stdout=identifier)) as run, \
+                 patch.object(runner, 'test_device') as tests:
+                if isinstance(outcome, Exception):
+                    tests.side_effect = outcome
+                    with self.assertRaises(RuntimeError):
+                        runner.main(['--size', '13-inch', '--fresh-device'])
+                else:
+                    tests.return_value = outcome
+                    self.assertEqual(runner.main(['--size', '13-inch', '--fresh-device']), 0 if outcome else 1)
+                created = tests.call_args.args[1]
+                self.assertEqual(created['udid'], identifier)
+                self.assertNotEqual(created['udid'], existing['udid'])
+                create = next(call.args[0] for call in run.call_args_list if call.args[0][1:3] == ['simctl', 'create'])
+                self.assertEqual(create[-2:], ['iPad-Air-13-inch', 'com.apple.CoreSimulator.SimRuntime.iOS-26-2'])
+                self.assertEqual(run.call_args.args[0], ['xcrun', 'simctl', 'delete', identifier])
+
+    def test_fresh_device_rejects_local_default_device_storage(self):
+        with patch.dict(os.environ, {'GITHUB_ACTIONS': 'false'}), \
+             patch.object(runner, 'inventory') as inventory, contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                runner.main(['--size', '13-inch', '--fresh-device'])
+            inventory.assert_not_called()
+
     def test_discovery_failure_saves_diagnostics_without_booting_or_testing(self):
         self.prepare_bundle()
         for error in (subprocess.TimeoutExpired(['xcrun', 'simctl'], 180),
@@ -111,6 +144,9 @@ class SimulatorContracts(unittest.TestCase):
         result_paths = []
 
         def command(args, timeout, **_options):
+            if args[:2] == ['xcrun', 'xcresulttool']:
+                return subprocess.CompletedProcess(args, 0, stdout=json.dumps(
+                    {'result': 'Passed', 'passedTests': 1, 'failedTests': 0, 'runtimeWarnings': []}))
             if args[0] == 'xcodebuild':
                 device = args[args.index('-destination') + 1].split('id=')[1]
                 operation = 'test'
@@ -133,7 +169,8 @@ class SimulatorContracts(unittest.TestCase):
             return subprocess.CompletedProcess(args, 0)
 
         device = next(device for label, device in DEVICES if label == size)
-        with patch.object(runner, 'run', side_effect=command), patch.object(runner, 'diagnostics'):
+        with patch.object(runner, 'run', side_effect=command), patch.object(runner, 'diagnostics'), \
+             patch.object(runner, 'export_coverage'), patch.object(runner, 'configure_coverage'):
             passed = runner.test_device(size, device, self.root / 'test.xctestrun', self.root)
         self.assertFalse(active)
         self.assertEqual(len(result_paths), len(set(result_paths)))
@@ -145,11 +182,138 @@ class SimulatorContracts(unittest.TestCase):
             self.assertTrue(passed)
             self.assertEqual(events, [(operation, device['udid']) for operation in ('bootstatus', 'test', 'shutdown')])
 
+    def test_memory_tests_select_unit_target_and_performance_diagnostics(self):
+        with patch.object(runner, 'run', return_value=subprocess.CompletedProcess([], 0)) as run, \
+             patch.object(runner, 'verify_result') as verify, patch.object(runner, 'export_coverage'), \
+             patch.object(runner, 'configure_coverage'):
+            self.assertTrue(runner.test_device('11-inch', DEVICES[0][1], self.root / 'test.xctestrun',
+                                             self.root, suite='unit', memory=True))
+        command = next(call.args[0] for call in run.call_args_list if call.args[0][0] == 'xcodebuild')
+        self.assertIn('-only-testing:LeftBlankTabletTests', command)
+        self.assertIn('-derivedDataPath', command)
+        self.assertEqual(command[command.index('-enableCodeCoverage') + 1], 'YES')
+        self.assertEqual(command[command.index('-enablePerformanceTestsDiagnostics') + 1], 'YES')
+        verify.assert_called_once_with(self.root / '11-inch.xcresult', self.root, memory=True)
+
+    def test_custom_memory_products_do_not_reuse_coverage_build(self):
+        bundle = self.root / 'build/iPad-memory/address/Build/Products/memory.xctestrun'
+        bundle.parent.mkdir(parents=True)
+        bundle.touch()
+        devices = {'com.apple.CoreSimulator.SimRuntime.iOS-26-2': [DEVICES[0][1]]}
+        with patch.object(runner, '__file__', str(self.root / 'scripts/ipad_simulator.py')), \
+             patch.object(runner, 'run'), patch.object(runner, 'inventory', return_value=devices), \
+             patch.object(runner, 'test_device', return_value=True) as tests:
+            self.assertEqual(runner.main(['--size', '11-inch', '--suite', 'unit', '--memory',
+                                         '--derived-data', 'build/iPad-memory/address',
+                                         '--results', 'build/iPad-memory/address-results']), 0)
+        tests.assert_called_once_with('11-inch', DEVICES[0][1], bundle,
+                                      self.root / 'build/iPad-memory/address-results', suite='unit', memory=True)
+
+    def test_success_without_executed_tests_or_with_runtime_warnings_fails(self):
+        for summary in ({'result': 'Passed', 'passedTests': 0, 'failedTests': 0},
+                        {'result': 'Failed', 'passedTests': 1, 'failedTests': 1},
+                        {'result': 'Passed', 'passedTests': 1, 'failedTests': 0,
+                         'runtimeWarnings': [{'issueType': 'Main Thread Checker'}]}):
+            with self.subTest(summary=summary), patch.object(runner, 'run', return_value=
+                    subprocess.CompletedProcess([], 0, stdout=json.dumps(summary))):
+                with self.assertRaises(RuntimeError):
+                    runner.verify_result(self.root / 'test.xcresult', self.root)
+            self.assertEqual(json.loads((self.root / 'test-summary.json').read_text()), summary)
+
     def test_boot_failure_cleans_up_without_testing(self):
         passed, events = self.exercise(('bootstatus', 'small'))
         self.assertFalse(passed)
         self.assertNotIn(('test', 'small'), events)
         self.assertEqual(events[-1], ('shutdown', 'small'))
+
+    def test_cold_appearance_setup_is_bounded_and_verified_before_tests(self):
+        events = []
+
+        def command(args, timeout, **_options):
+            if args[:3] == ['xcrun', 'simctl', 'ui']:
+                # Both setting and reading the first appearance can stall while
+                # hosted UI services initialize, even after bootstatus returns.
+                if timeout < 90:
+                    raise subprocess.TimeoutExpired(args, timeout)
+                self.assertLessEqual(timeout, 120)
+                if len(args) == 6:
+                    events.append('set appearance')
+                    return subprocess.CompletedProcess(args, 0)
+                events.append('verify appearance')
+                return subprocess.CompletedProcess(args, 0, stdout='Dark\n')
+            if args[0] == 'xcodebuild':
+                events.append('test')
+            return subprocess.CompletedProcess(args, 0)
+
+        with patch.object(runner, 'run', side_effect=command), patch.object(runner, 'verify_result'), \
+             patch.object(runner, 'configure_coverage'), patch.object(runner, 'export_coverage'):
+            self.assertTrue(runner.test_device('13-inch', DEVICES[1][1], self.root / 'tests.xctestrun',
+                                              self.root, appearance='dark'))
+        self.assertEqual(events, ['set appearance', 'verify appearance', 'test'])
+
+    def test_wrong_appearance_cleans_up_without_testing(self):
+        for failure in ('mismatch', 'timeout'):
+            def command(args, timeout, **_options):
+                if failure == 'timeout' and args[:3] == ['xcrun', 'simctl', 'ui'] and len(args) == 5:
+                    raise subprocess.TimeoutExpired(args, timeout)
+                return subprocess.CompletedProcess(args, 0, stdout='Light\n')
+
+            with self.subTest(failure=failure), \
+                 patch.object(runner, 'run', side_effect=command) as run, \
+                 patch.object(runner, 'diagnostics'), patch.object(runner, 'configure_coverage'):
+                self.assertFalse(runner.test_device('13-inch', DEVICES[1][1], self.root / 'tests.xctestrun',
+                                                   self.root, appearance='dark'))
+            self.assertFalse(any(call.args[0][0] == 'xcodebuild' for call in run.call_args_list))
+            self.assertEqual(run.call_args.args[0][:3], ['xcrun', 'simctl', 'shutdown'])
+
+    def test_memory_validation_rejects_missing_workload_metrics(self):
+        summary = {'result': 'Passed', 'passedTests': 2, 'failedTests': 0}
+        with patch.object(runner, 'run', side_effect=[
+                subprocess.CompletedProcess([], 0, stdout=json.dumps(summary)),
+                subprocess.CompletedProcess([], 0, stdout='[]')]):
+            with self.assertRaisesRegex(RuntimeError, 'physical peak memory'):
+                runner.verify_result(self.root / 'test.xcresult', self.root, memory=True)
+
+    def test_coverage_export_requires_fresh_run_and_includes_core_image(self):
+        products = self.root / 'Build/Products'
+        app = products / 'Debug-iphonesimulator/LeftBlank.app'
+        app.mkdir(parents=True)
+        (app / 'LeftBlank.debug.dylib').touch()
+        framework = products / 'Debug-iphonesimulator/PackageFrameworks/LeftBlankCore.framework'
+        framework.mkdir(parents=True)
+        (framework / 'LeftBlankCore').touch()
+        injected = app / 'Frameworks/Testing.framework/Testing'
+        injected.parent.mkdir(parents=True)
+        injected.touch()
+        profile = self.root / 'Build/ProfileData/small/Coverage.profdata'
+        with self.assertRaisesRegex(RuntimeError, 'fresh coverage profile'):
+            runner.export_coverage(products / 'tests.xctestrun', DEVICES[0][1], self.root, '11-inch', 0)
+        profile.parent.mkdir(parents=True)
+        profile.touch()
+        with patch.object(runner, 'run', return_value=subprocess.CompletedProcess([], 0, stdout='real LCOV')) as run:
+            runner.export_coverage(products / 'tests.xctestrun', DEVICES[0][1], self.root, '11-inch', 0)
+        self.assertIn(str(framework / 'LeftBlankCore'), run.call_args.args[0])
+        self.assertNotIn(str(injected), run.call_args.args[0])
+        self.assertEqual((self.root / '11-inch.lcov').read_text(), 'real LCOV')
+
+    def test_relocatable_run_declares_both_instrumented_images(self):
+        import plistlib
+        bundle = self.prepare_bundle()
+        bundle.write_bytes(plistlib.dumps({'TestConfigurations': []}))
+        for folder, image in [('iPad/Sources', 'LeftBlank.app/LeftBlank.debug.dylib'),
+                              ('Sources/LeftBlankCore', 'PackageFrameworks/LeftBlankCore.framework/LeftBlankCore')]:
+            base = self.root / folder
+            base.mkdir(parents=True)
+            (base / 'Source.swift').touch()
+            binary = bundle.parent / 'Debug-iphonesimulator' / image
+            binary.parent.mkdir(parents=True)
+            binary.touch()
+        with patch.object(runner, '__file__', str(self.root / 'scripts/ipad_simulator.py')):
+            runner.configure_coverage(bundle)
+        targets = plistlib.loads(bundle.read_bytes())['CodeCoverageBuildableInfos']
+        self.assertEqual([target['Name'] for target in targets], ['LeftBlank.app', 'LeftBlankCore.framework'])
+        self.assertTrue(all(target['IncludeInReport'] for target in targets))
+        self.assertTrue(all('__TESTROOT__' in target['ProductPaths'][0] for target in targets))
 
     def test_test_failure_cleans_up_and_cannot_report_success(self):
         passed, events = self.exercise(('test', 'small'))

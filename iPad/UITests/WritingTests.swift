@@ -1,24 +1,38 @@
 import Nimble
+import StoreKitTest
 import XCTest
 
 @MainActor
 final class WritingTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
+    private var storeSession: SKTestSession?
+
+    override func setUp() async throws {
+        try await super.setUp()
         continueAfterFailure = false
+        let session = try SKTestSession(configurationFileNamed: "LeftBlank")
+        session.resetToDefaultState()
+        session.disableDialogs = true
+        session.clearTransactions()
+        if !name.contains("testSubscriptionPurchaseAndExpiredProjectExport") {
+            _ = try await session.buyProduct(identifier: "app.leftblank.writer.ipad.monthly")
+        }
+        storeSession = session
     }
 
-    override func tearDown() {
-        XCUIApplication().terminate()
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            XCUIApplication().terminate()
+            storeSession?.clearTransactions()
+            storeSession = nil
+        }
+        try await super.tearDown()
     }
 
     private func startWriting(template: String = "blank", language: String = "en") -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-appLanguage", language,
                                "-iPadCloudEnabled", "NO"]
-        XCUIDevice.shared.orientation = .landscapeLeft
-        app.launch()
+        launchInLandscape(app)
         let create = app.buttons["new-document"]
         let actions = app.buttons["document-actions"]
         let loading = app.progressIndicators["document-loading"]
@@ -43,7 +57,9 @@ final class WritingTests: XCTestCase {
             waitForExpectations(timeout: 60)
             create.tap()
         }
-        app.buttons["universe.builtin." + template].tap()
+        let starter = app.buttons["universe.builtin." + template]
+        waitForStableControl(starter, in: app)
+        starter.tap()
         expect(app.textViews["manuscript"].waitForExistence(timeout: 60)) == true
         let settled = NSPredicate { _, _ in !app.progressIndicators["document-loading"].exists }
         expectation(for: settled, evaluatedWith: app)
@@ -67,8 +83,185 @@ final class WritingTests: XCTestCase {
         add(screenshot)
     }
 
+    private func launchInLandscape(_ app: XCUIApplication) {
+        app.launch()
+        // Prelaunch device orientation does not ensure the app's window orientation.
+        // Deliver a real rotation after launch, including when the last test was landscape.
+        XCUIDevice.shared.orientation = .portrait
+        waitForOrientation(in: app, landscape: false)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        waitForOrientation(in: app, landscape: true)
+    }
+
+    private func waitForOrientation(in app: XCUIApplication, landscape: Bool) {
+        let rotated = NSPredicate { _, _ in
+            let frame = app.windows.firstMatch.frame
+            return frame.width > 0 && frame.height > 0 && (frame.width > frame.height) == landscape
+        }
+        waitForState(rotated, in: app, name: "Window orientation")
+    }
+
+    private func waitForStableControl(_ control: XCUIElement, in app: XCUIApplication) {
+        var previous = CGRect.zero
+        var changed = Date()
+        let settled = NSPredicate { _, _ in
+            guard control.exists, control.isEnabled, control.isHittable else {
+                changed = Date()
+                return false
+            }
+            let frame = control.frame
+            if frame != previous {
+                previous = frame
+                changed = Date()
+            }
+            return Date().timeIntervalSince(changed) >= 1
+        }
+        waitForState(settled, in: app, name: "Template control position")
+    }
+
+    private func waitForState(_ predicate: NSPredicate, in app: XCUIApplication, name: String) {
+        let ready = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        let completed = XCTWaiter.wait(for: [ready], timeout: 30) == .completed
+        if !completed {
+            capture(name)
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = name + " hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        expect(completed) == true
+    }
+
+    private func expectShareSheet(in app: XCUIApplication) {
+        // The system sharing extension can still be loading on a cold hosted simulator.
+        let share = app.descendants(matching: .any)["Save to Files"].firstMatch
+        let visible = share.waitForExistence(timeout: 60)
+        if !visible {
+            capture("Share sheet unavailable")
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Share sheet hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        expect(visible) == true
+    }
+
+    private func reveal(_ element: XCUIElement, in form: XCUIElement, scrollingUp: Bool = true) {
+        for _ in 0 ..< 6 {
+            if element.exists, element.isHittable {
+                return
+            }
+            if scrollingUp {
+                form.swipeUp()
+            } else {
+                form.swipeDown()
+            }
+        }
+        if !element.exists || !element.isHittable {
+            capture("Subscription control unavailable")
+            let hierarchy = XCTAttachment(string: form.debugDescription)
+            hierarchy.name = "Subscription form hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        expect(element.exists && element.isHittable) == true
+    }
+
+    func testSubscriptionPurchaseAndExpiredProjectExport() throws {
+        let session = try XCTUnwrap(storeSession)
+        session.clearTransactions()
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-appLanguage", "en",
+                               "-iPadCloudEnabled", "NO"]
+        launchInLandscape(app)
+        let banner = app.buttons["subscription-banner"]
+        if !banner.waitForExistence(timeout: 3) || !banner.isHittable {
+            app.buttons["sidebar-toggle"].tap()
+        }
+        expect(banner.waitForExistence(timeout: 30)) == true
+        banner.tap()
+        let form = app.collectionViews["subscription-form"]
+        expect(form.waitForExistence(timeout: 30)) == true
+        let restore = app.buttons["subscription-restore"]
+        reveal(restore, in: form)
+        restore.tap()
+        let noPurchases = app.staticTexts["No active subscription was found for this Apple Account."]
+        reveal(noPurchases, in: form)
+        let purchase = app.buttons["subscription-purchase"]
+        reveal(purchase, in: form, scrollingUp: false)
+        // Introductory eligibility belongs to the Apple account's subscription group;
+        // prior writing tests may already have consumed its introductory offer.
+        expect(["Subscribe", "Start free trial"].contains(purchase.label)) == true
+        capture("Monthly subscription")
+        purchase.tap()
+        reveal(app.staticTexts["subscription-status"], in: form, scrollingUp: false)
+        expectation(
+            for: NSPredicate(format: "label BEGINSWITH %@", "Writing access until"),
+            evaluatedWith: app.staticTexts["subscription-status"],
+        )
+        waitForExpectations(timeout: 30)
+        // Locate legal controls by their accessible names across supported runtimes.
+        let privacy = app.descendants(matching: .any)["Privacy policy"].firstMatch
+        reveal(privacy, in: form)
+        expect(privacy.exists) == true
+        let terms = app.descendants(matching: .any)["Terms of use"].firstMatch
+        reveal(terms, in: form)
+        expect(terms.exists) == true
+        app.buttons["Done"].tap()
+        app.terminate()
+        _ = startWriting()
+        let title = "Expired export " + UUID().uuidString.prefix(8)
+        app.buttons["document-actions"].tap()
+        app.buttons["Rename"].tap()
+        let titleField = app.alerts.textFields.firstMatch
+        titleField.tap()
+        titleField.typeText(String(
+            repeating: XCUIKeyboardKey.delete.rawValue,
+            count: (titleField.value as? String)?.count ?? 0,
+        ) + title)
+        app.alerts.buttons["Save"].tap()
+        app.textViews["manuscript"].tap()
+        app.textViews["manuscript"].typeText("\nPreserved after subscription expiration.\n")
+        expectation(for: NSPredicate(format: "label == %@", "Saved"), evaluatedWith: app.staticTexts["save-status"])
+        waitForExpectations(timeout: 30)
+        let manuscript = app.textViews["manuscript"].value as? String
+        try session.expireSubscription(productIdentifier: "app.leftblank.writer.ipad.monthly")
+        app.terminate()
+        launchInLandscape(app)
+        expect(app.buttons["library-actions"].waitForExistence(timeout: 30)) == true
+        app.buttons["library-actions"].tap()
+        app.buttons["Settings"].tap()
+        app.buttons["subscription-settings"].tap()
+        expect(form.waitForExistence(timeout: 30)) == true
+        // StoreKitTest's imperative expiration needs a sync to invalidate cached signed status.
+        reveal(restore, in: form)
+        restore.tap()
+        reveal(app.staticTexts["subscription-status"], in: form, scrollingUp: false)
+        expectation(
+            for: NSPredicate(format: "label BEGINSWITH %@", "Your subscription has expired"),
+            evaluatedWith: app.staticTexts["subscription-status"],
+        )
+        waitForExpectations(timeout: 30)
+        app.buttons["Done"].tap()
+        expect(banner.exists) == true
+        app.buttons["new-document"].tap()
+        let starter = app.buttons["universe.builtin.blank"]
+        waitForStableControl(starter, in: app)
+        starter.tap()
+        expect(form.waitForExistence(timeout: 30)) == true
+        app.buttons["Done"].tap()
+        app.staticTexts[title].tap()
+        expect(app.textViews["manuscript"].waitForExistence(timeout: 30)) == true
+        expect(app.textViews["manuscript"].value as? String) == manuscript
+        app.buttons["document-actions"].tap()
+        app.buttons["export-project"].tap()
+        expectShareSheet(in: app)
+        capture("Expired subscription project export")
+    }
+
     func testWelcomePreviewAndPDFExport() {
         let app = startWriting(template: "welcome")
+        capture("English writing")
         expect((app.textViews["manuscript"].value as? String)?.contains("leftblank-mark.svg")) == true
         app.buttons["layout-preview"].tap()
         expectation(
@@ -86,7 +279,7 @@ final class WritingTests: XCTestCase {
         app.buttons["Done"].tap()
         app.buttons["document-actions"].tap()
         app.buttons["Export PDF…"].tap()
-        expect(app.descendants(matching: .any)["Save to Files"].firstMatch.waitForExistence(timeout: 30)) == true
+        expectShareSheet(in: app)
         capture("Welcome PDF sharing")
     }
 
@@ -142,11 +335,12 @@ final class WritingTests: XCTestCase {
         screenshot.lifetime = .keepAlways
         add(screenshot)
         XCUIDevice.shared.orientation = .portrait
+        waitForOrientation(in: app, landscape: false)
         app.buttons["layout-writing"].tap()
         expect((app.textViews["manuscript"].value as? String)?.contains("iPad writing")) == true
         app.buttons["document-actions"].tap()
         app.buttons["Export PDF…"].tap()
-        expect(app.descendants(matching: .any)["Save to Files"].firstMatch.waitForExistence(timeout: 30)) == true
+        expectShareSheet(in: app)
     }
 
     func testCommandInsertionAndPDFExport() {
@@ -173,12 +367,8 @@ final class WritingTests: XCTestCase {
         waitForExpectations(timeout: 60)
         app.buttons["document-actions"].tap()
         app.buttons["Export PDF…"].tap()
-        let share = app.descendants(matching: .any)["Save to Files"].firstMatch
-        let visible = share.waitForExistence(timeout: 30)
-        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
-        expect(visible) == true
+        expectShareSheet(in: app)
+        capture("Command PDF sharing")
     }
 
     func testPreviewTapRevealsSourcePosition() {
@@ -230,6 +420,11 @@ final class WritingTests: XCTestCase {
         expect(app.navigationBars["Templates & Packages"].waitForExistence(timeout: 10)) == true
         expect(app.navigationBars["Templates & Packages"].frame.width) > app.frame.width * 0.7
         capture("Templates landscape")
+        XCUIDevice.shared.orientation = .portrait
+        waitForOrientation(in: app, landscape: false)
+        capture("Template storefront portrait")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        waitForOrientation(in: app, landscape: true)
         let search = app.textFields["universe.search"]
         expect(search.waitForExistence(timeout: 10)) == true
         expect(search.placeholderValue) == "Find a resume, paper, presentation…"
@@ -239,6 +434,7 @@ final class WritingTests: XCTestCase {
         expect(resume.waitForExistence(timeout: 20)) == true
         search.typeText("\n")
         XCUIDevice.shared.orientation = .portrait
+        waitForOrientation(in: app, landscape: false)
         expect(resume.waitForExistence(timeout: 10)) == true
         expect(search.value as? String) == "basic-resume"
         capture("Templates portrait")
@@ -246,8 +442,15 @@ final class WritingTests: XCTestCase {
         let templateApply = app.buttons["universe.apply"]
         expect(templateApply.waitForExistence(timeout: 10)) == true
         expect(templateApply.isHittable) == true
+        expect(search.exists) == false
         capture("Template details portrait")
         XCUIDevice.shared.orientation = .landscapeLeft
+        waitForOrientation(in: app, landscape: true)
+        let landscape = NSPredicate { _, _ in
+            templateApply.isHittable && search.isHittable && resume.isHittable
+        }
+        expectation(for: landscape, evaluatedWith: app)
+        waitForExpectations(timeout: 15)
         expect(templateApply.isHittable) == true
         expect(search.isHittable) == true
         expect(resume.isHittable) == true

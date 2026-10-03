@@ -96,15 +96,10 @@ struct TabletRoot: View {
             }
         }
         .sheet(item: panelBinding) { panel in
-            if panel == .universe, #available(iOS 18.0, *) {
-                TabletPanel(workspace: workspace, panel: panel)
-                    .presentationSizing(TabletUniverseSizing(windowSize: windowSize))
-            } else {
-                TabletPanel(workspace: workspace, panel: panel)
-                    .presentationDetents(panel == .commands ? [.large] : [.medium, .large])
-            }
+            TabletPanel(workspace: workspace, panel: panel)
+                .presentationDetents(panel == .commands ? [.large] : [.medium, .large])
         }
-        .fullScreenCover(isPresented: legacyUniverseBinding) {
+        .fullScreenCover(isPresented: universeBinding) {
             TabletPanel(workspace: workspace, panel: .universe)
         }
         .sheet(isPresented: Binding(get: { workspace.shareURL != nil }, set: {
@@ -135,6 +130,14 @@ struct TabletRoot: View {
 
     private var libraryHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if !workspace.canWrite {
+                Button(subscriptionText(
+                    "Subscribe to write · Reading and exports remain available",
+                    "订阅以写作 · 阅读和导出仍可使用",
+                )) {
+                    workspace.panel = .subscription
+                }.font(.footnote).accessibilityIdentifier("subscription-banner")
+            }
             Text(L10n.text("Your writing")).font(.system(size: 23, weight: .medium, design: .serif))
                 .foregroundStyle(Color(uiColor: TabletTheme.nativeText))
                 .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("library-title")
@@ -150,36 +153,12 @@ struct TabletRoot: View {
                     TabletIcon(name: "grid-four").frame(width: 44, height: 44)
                 }.buttonStyle(.plain).disabled(workspace.busy)
                     .accessibilityLabel(L10n.text("Browse templates")).accessibilityIdentifier("new-document")
-                Menu {
-                    Button { importing = true } label: {
-                        Label { Text(L10n.text("Import a document…")) } icon: { TabletIcon.menuImage(
-                            "file-text",
-                            title: L10n.text("Import a document…"),
-                        ) }
-                    }
-                    Button { importingProject = true } label: {
-                        Label { Text(L10n.text("Import Project…")) } icon: { TabletIcon.menuImage(
-                            "folder-open",
-                            title: L10n.text("Import Project…"),
-                        ) }
-                    }
-                    Divider()
-                    Button { workspace.panel = .settings } label: {
-                        Label { Text(L10n.text("Settings")) } icon: { TabletIcon.menuImage(
-                            "gear",
-                            title: L10n.text("Settings"),
-                        ) }
-                    }
-                    Button { Task { await workspace.showTrash() } } label: {
-                        Label { Text(L10n.text("Trash")) } icon: { TabletIcon.menuImage(
-                            "trash",
-                            title: L10n.text("Trash"),
-                        ) }
-                    }
-                } label: {
-                    TabletIcon(name: "dots-three-vertical").frame(width: 44, height: 44)
-                }.buttonStyle(.plain).accessibilityLabel(L10n.text("Library actions"))
-                    .accessibilityIdentifier("library-actions")
+                TabletLibraryMenu(actions: [
+                    .init(title: L10n.text("Import a document…"), icon: "file-text") { importing = true },
+                    .init(title: L10n.text("Import Project…"), icon: "folder-open") { importingProject = true },
+                    .init(title: L10n.text("Settings"), icon: "gear") { workspace.panel = .settings },
+                    .init(title: L10n.text("Trash"), icon: "trash") { Task { await workspace.showTrash() } },
+                ]).frame(width: 44, height: 44)
             }
         }.padding(16).foregroundStyle(TabletTheme.secondary).background(TabletTheme.background)
             .overlay(alignment: .bottom) { Rectangle().fill(TabletTheme.border).frame(height: 0.5) }
@@ -203,19 +182,13 @@ struct TabletRoot: View {
 
     private var panelBinding: Binding<TabletWorkspace.Panel?> {
         Binding(get: {
-            if #available(iOS 18.0, *) {
-                return workspace.panel
-            }
-            return workspace.panel == .universe ? nil : workspace.panel
+            workspace.panel == .universe ? nil : workspace.panel
         }, set: { workspace.panel = $0 })
     }
 
-    private var legacyUniverseBinding: Binding<Bool> {
+    private var universeBinding: Binding<Bool> {
         Binding(get: {
-            if #available(iOS 18.0, *) {
-                return false
-            }
-            return workspace.panel == .universe
+            workspace.panel == .universe
         }, set: { presented in
             if !presented, workspace.panel == .universe {
                 workspace.panel = nil
@@ -338,6 +311,8 @@ struct TabletRoot: View {
                         renaming = true
                     }
                     Button(L10n.text("Save")) { Task { await workspace.save() } }.keyboardShortcut("s")
+                    Button(subscriptionText("Export Project…", "导出项目…")) { Task { await workspace.exportProject() } }
+                        .accessibilityIdentifier("export-project")
                     Button(L10n.text("Export PDF…")) { Task { await workspace.exportPDF() } }
                         .keyboardShortcut("e", modifiers: [.command, .shift]).disabled(!workspace.serviceReady)
                     Button(L10n.text("Templates & Packages")) { workspace.showUniverse() }

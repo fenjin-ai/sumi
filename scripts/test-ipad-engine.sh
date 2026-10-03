@@ -7,6 +7,7 @@ if [ "${GITHUB_ACTIONS:-}" = true ]; then
 else
   export CARGO_HOME=/Volumes/SSD/Developer/Codex/cargo-ipad
 fi
+scripts/prepare-ipad-engine.sh
 rustup toolchain install 1.92.0 --profile minimal
 manifest=Engine/TinymistBridge/Cargo.toml
 cargo +1.92.0 build --locked --manifest-path "$manifest" --example engine-probe --release

@@ -4,7 +4,18 @@ import LeftBlankTestSupport
 import Testing
 
 private func libraryFixture() throws -> URL {
-    let url = TestPaths.temporaryDirectory.appendingPathComponent("LeftBlank-library-" + UUID().uuidString)
+    #if os(iOS)
+        // File coordination does not notify presenters for temporary sandbox files.
+        let base = try FileManager.default.url(
+            for: .cachesDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true,
+        )
+    #else
+        let base = TestPaths.temporaryDirectory
+    #endif
+    let url = base.appendingPathComponent("LeftBlank-library-" + UUID().uuidString)
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url
 }
@@ -286,8 +297,9 @@ private final class LibraryEventCounter: @unchecked Sendable {
     let monitor = LibraryFileMonitor(rootURL: root) { counter.increment() }
     defer { monitor.stop() }
     #expect(NSFileCoordinator.filePresenters.contains { $0 === monitor })
-    let file = root.appendingPathComponent("main.typ")
-    _ = try DocumentStorage.write("Hello", to: file, baseline: nil)
+    try CoordinatedFileAccess.write(root) { folder in
+        try Data("Hello".utf8).write(to: folder.appendingPathComponent("main.typ"))
+    }
     for _ in 0 ..< 50 where counter.value == 0 {
         try await Task.sleep(for: .milliseconds(20))
     }

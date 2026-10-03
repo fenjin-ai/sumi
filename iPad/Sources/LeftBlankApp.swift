@@ -10,9 +10,12 @@ struct LeftBlankApp: App {
         WindowGroup {
             TabletRoot(workspace: workspace)
                 .task { await workspace.start() }
+                .task { await workspace.subscription.start() }
                 .onOpenURL { url in Task { await workspace.importDocument(url) } }
                 .onChange(of: phase) { _, phase in
-                    if phase != .active {
+                    if phase == .active {
+                        Task { await workspace.subscription.refresh() }
+                    } else {
                         workspace.saveInBackground()
                     }
                 }

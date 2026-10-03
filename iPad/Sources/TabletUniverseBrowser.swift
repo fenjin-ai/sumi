@@ -15,7 +15,7 @@ struct TabletUniverseBrowser: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let wide = geometry.size.width >= 1000
+            let wide = geometry.size.width >= 1000 && geometry.size.width > geometry.size.height
             HStack(spacing: 0) {
                 if wide || model.selected == nil {
                     VStack(spacing: 0) {
@@ -122,9 +122,7 @@ struct TabletUniverseBrowser: View {
                         .foregroundStyle(.secondary)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
                         ForEach(builtIn) { template in
-                            Button { Task { await workspace.create(template)
-                                workspace.panel = nil
-                            } } label: {
+                            Button { Task { await workspace.create(template) } } label: {
                                 HStack(spacing: 10) {
                                     TabletIcon(name: template == .blank ? "file-plus" : "book-open-text")
                                     Text(template.title).font(.system(size: 13, weight: .medium))
@@ -134,7 +132,9 @@ struct TabletUniverseBrowser: View {
                                     Color(uiColor: TabletTheme.nativeEditor),
                                     in: RoundedRectangle(cornerRadius: 10),
                                 )
-                            }.buttonStyle(.plain).accessibilityIdentifier("universe.builtin." + template.rawValue)
+                            }.buttonStyle(.plain)
+                                .disabled(workspace.subscription.access == .checking)
+                                .accessibilityIdentifier("universe.builtin." + template.rawValue)
                         }
                         if showSample {
                             Button { Task {

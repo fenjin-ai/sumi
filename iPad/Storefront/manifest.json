@@ -1,0 +1,50 @@
+{
+  "bundle_id": "app.leftblank.writer",
+  "app_store_app_id": "6818442294",
+  "platform": "IOS",
+  "minimum_os": "17.0",
+  "download_price": "0.00",
+  "subscription": {
+    "product_id": "app.leftblank.writer.ipad.monthly",
+    "reference_name": "LeftBlank iPad Monthly",
+    "group_reference_name": "LeftBlank iPad",
+    "period": "ONE_MONTH",
+    "base_territory": "USA",
+    "base_price": "2.99",
+    "currency": "USD",
+    "introductory_offer": {
+      "mode": "FREE_TRIAL",
+      "duration": "TWO_WEEKS",
+      "number_of_periods": 1
+    },
+    "localizations": {
+      "en-US": {
+        "name": "LeftBlank for iPad",
+        "description": "Write and typeset on iPad."
+      },
+      "zh-Hans": {
+        "name": "留白 iPad 版",
+        "description": "在 iPad 上专注写作与排版。"
+      }
+    }
+  },
+  "privacy_url": "https://leftblank.app/privacy.html",
+  "support_url": "https://github.com/leftblank-app/leftblank/issues",
+  "terms_url": "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/",
+  "screenshots": {
+    "en-US": [
+      "01-preview.png",
+      "en-dark-writing.png",
+      "02-writing.png",
+      "03-templates.png"
+    ],
+    "zh-Hans": [
+      "zh-light-preview.png",
+      "zh-dark-preview.png"
+    ]
+  },
+  "privacy_urls": {
+    "en-US": "https://leftblank.app/privacy.html",
+    "zh-Hans": "https://leftblank.app/privacy.html?lang=zh"
+  }
+}

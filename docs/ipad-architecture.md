@@ -33,6 +33,21 @@ It is an architectural choice, not a claim that Apple requires this exact split.
 The platform workspaces still contain presentation orchestration; future features
 should extend shared services rather than copy business rules into both workspaces.
 
+The Mac Swift package uses the repository's `Package.swift`. The iPad Xcode
+project points to the fixed core-only manifest in `Sources/Package.swift`, which
+compiles the same `Sources/LeftBlankCore` files and resources. Its only package
+dependency is ZIPFoundation; the UI test target separately uses Nimble. iPad
+does not resolve or compile the Mac app or Sparkle updater. The shared engine
+process transport is also guarded with `os(macOS)`.
+
+The manifests use the same package and target names to preserve the generated
+resource bundle identity. iPad's graph stays fixed even when
+`LEFTBLANK_DISTRIBUTION=preview` is present in the host environment. Checking the
+host operating system in one manifest would not distinguish an iPad destination:
+Xcode evaluates both manifests on a Mac. `scripts/test-package-graphs.py`
+evaluates both real manifests in standard and preview modes without dependency
+downloads, and verifies the iPad project and dependency lock against this boundary.
+
 ## Why Mac still runs an engine process
 
 iPad embeds Tinymist as a Rust static library. Its background worker and pipes
@@ -68,7 +83,7 @@ not a substitute for these measurements.
 | Platform | Build and validation | Distribution |
 | --- | --- | --- |
 | Mac | SwiftPM, `scripts/test.sh`, existing Mac CI and book benchmarks | Existing signed preview and Mac release workflows |
-| iPad | Xcode target, `scripts/build-ipad.sh`, iPad jobs in `.github/workflows/ci.yml` | Development installation works; TestFlight/App Store automation is not configured |
+| iPad | Xcode target, `scripts/build-ipad.sh`, iPad jobs in `.github/workflows/ci.yml` | `ipad-v*` release tags start production signing, upload and storefront preparation |
 
 One `build and test` workflow contains Mac and iPad validation. Mac regression
 and main-only App Store distribution validation run independently. PRs avoid
@@ -82,8 +97,8 @@ builds are unsigned; simulator tests do not establish physical-device performanc
 
 The current main-branch ruleset requires `build and test` and 80% coverage, but
 has no separate iPad check requirements. The existing `build and test` check now
-aggregates Mac regression, Mac App Store validation, all iPad builds and both UI
-sizes. A failed, cancelled or unexpectedly skipped prerequisite cannot produce
+aggregates Mac regression, Mac App Store validation, all iPad builds, both UI
+sizes, iPad coverage and independent memory checks. A failed, cancelled or unexpectedly skipped prerequisite cannot produce
 a successful aggregate. Only the main-only App Store job's expected skip is
 accepted on PRs. This PR does not change repository rules. The main-only Mac preview
 still depends on Mac validation; platform release targets remain independent.
@@ -92,9 +107,13 @@ Existing Mac release tags do not publish an iPad build. Apple supports adding an
 [iOS platform to the same app record](https://developer.apple.com/help/app-store-connect/create-an-app-record/add-platforms)
 with the same bundle identifier and independently selected platform versions and
 builds. The iPad app uses the Mac App Store bundle identifier and iCloud container.
-Before distribution, configure the iOS app record, distribution provisioning and
-archive/export/upload pipeline, and replace the initial fixed `1.0` / `1` version
-values with release inputs. Development signing does not validate that pipeline.
+The separate iPad archive/export/upload pipeline and initial `1.0.0 (1)` release
+metadata are described in [ipad-app-store.md](ipad-app-store.md). The pipeline
+prepares the iOS record, subscription and production profile using existing
+credentials. Apple requires the first subscription to be submitted with the app
+through the website; the pipeline records this handoff rather than claiming
+submission. Later releases can submit through the API after subscription approval.
+Development signing does not validate production signing or Apple review.
 
 ## Current parity and release gaps
 
@@ -107,7 +126,7 @@ values with release inputs. Development signing does not validate that pipeline.
 | Editor assistance | Syntax styling, checks, outline, command insertion, formatting, native undo/find | Completion, signature-help and hover UI are missing |
 | Projects | Built-in/community templates and folder import | Folder import expects `main.typ`; only the entry file can be edited |
 | History and recovery | Shared snapshots, version restore and conflict-aware saves | Mac's full history diff UI is missing; background/relaunch recovery needs stress testing |
-| Native workflows | Adaptive writing/preview/split, rotation, touch controls and common shortcuts | Multiwindow, complete keyboard-menu parity, printing and project export are missing |
+| Native workflows | Adaptive writing/preview/split, rotation, touch controls, common shortcuts and complete project ZIP export | Multiwindow, complete keyboard-menu parity and printing are missing |
 | Input/accessibility | Native UIKit editor with composition safeguards | Chinese IME, hardware keyboard/trackpad, VoiceOver and Dynamic Type need manual verification |
 | Cloud/lifecycle | Shared iCloud library services and background save hook | Cross-device conflicts, suspension/resume and memory-pressure behavior need device testing |
 

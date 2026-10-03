@@ -73,6 +73,7 @@ class FakeApple:
             self.items.append({**resource('reviewSubmissionItems', 'item', state='READY_FOR_REVIEW'),
                                'relationships': payload['data']['relationships']})
             self.version['attributes']['appVersionState'] = 'READY_FOR_REVIEW'
+            return {'data': self.items[-1]}
         elif path == '/v1/reviewSubmissions/submission':
             self.submission['attributes']['state'] = 'WAITING_FOR_REVIEW'
             self.version['attributes']['appVersionState'] = 'WAITING_FOR_REVIEW'

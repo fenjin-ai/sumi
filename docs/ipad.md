@@ -16,7 +16,12 @@ On iPad, Tinymist runs as a Rust static library on a background worker, with the
 same framed LSP and local WebKit preview. It does not launch an executable. Pipes
 connect the Swift client to the engine without replacing application stdin/stdout
 or changing its working directory. Each document connection owns its worker and
-runtime. Closing the client delivers EOF and shuts down that worker. CoreText
+runtime. Closing the client delivers EOF and shuts down that worker. The embedded
+build applies `scripts/tinymist-ipad.patch` to the verified upstream revision:
+compile-status notifications tolerate a closed editor channel when a Rayon
+compilation finishes after shutdown. This prevents a process-wide panic during
+document switching. The source stays in the workspace's `.tools` directory;
+the macOS CLI and shared Cargo source cache are unaffected. CoreText
 font URLs are copied into an application cache and explicitly included in LSP
 initialization, so package-cache options cannot replace the font search path.
 Typst's default fonts are also embedded as a fallback. Identical pagination still requires the same fonts and assets on both
@@ -75,7 +80,7 @@ link the static engine for the selected SDK. Builds are unsigned by default.
 The engine integration probe runs the C bridge in a native host executable. It
 checks initialization, Unicode edits, outline updates, live preview HTTP, PDF
 export from an unsaved buffer (including actual text drawing commands), and
-orderly shutdown. It establishes engine and
+orderly shutdown and EOF during active compilation while the host stays alive. It establishes engine and
 transport behavior, but does not replace iPad runtime testing.
 
 The UI test target checks editing, autosave, preview switching, rotation, command

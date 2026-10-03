@@ -44,7 +44,7 @@ struct TabletEditor: UIViewRepresentable {
                 length: 0,
             )
         }
-        let editable = !workspace.busy && workspace.layout != .preview
+        let editable = workspace.canWrite && !workspace.busy && workspace.layout != .preview
         if view.isEditable != editable {
             view.isEditable = editable
         }

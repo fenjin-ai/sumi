@@ -1,4 +1,4 @@
-"""Upload and submit a tagged Mac release using Apple's App Store Connect API."""
+"""Upload tagged Apple builds; submit Mac versions after validating provenance."""
 import argparse
 import base64
 import json
@@ -16,6 +16,12 @@ SUBMITTED = {'WAITING_FOR_REVIEW', 'IN_REVIEW', 'ACCEPTED', 'PENDING_APPLE_RELEA
              'PROCESSING_FOR_DISTRIBUTION', 'READY_FOR_DISTRIBUTION', 'PENDING_DEVELOPER_RELEASE',
              'PROCESSING_FOR_APP_STORE', 'READY_FOR_SALE', 'PENDING_CONTRACT'}
 EDITABLE = {'PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED', 'METADATA_REJECTED', 'INVALID_BINARY'}
+
+
+class APIError(RuntimeError):
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
 
 
 def encode(data):
@@ -52,7 +58,7 @@ class Client:
 
     def request(self, method, path, payload=None):
         url = path if path.startswith(API + '/') else API + path
-        if not url.startswith(API + '/v1/'):
+        if not any(url.startswith(API + prefix) for prefix in ('/v1/', '/v2/', '/v3/')):
             raise ValueError('Unexpected API pagination origin')
         headers = {'Authorization': 'Bearer ' + jwt(self.key, self.key_id, self.issuer),
                    'Content-Type': 'application/json'}
@@ -74,7 +80,15 @@ class Client:
                 except json.JSONDecodeError:
                     body = {}
                 details = '; '.join(item.get('detail', item.get('title', 'API error')) for item in body.get('errors', []))
-                raise RuntimeError(f'Apple API {method} {path.split("?")[0]}: HTTP {error.code}: {details}') from None
+                raise APIError(error.code, f'Apple API {method} {path.split("?")[0]}: HTTP {error.code}: {details}') from None
+
+    def optional(self, path):
+        try:
+            return self.request('GET', path).get('data')
+        except APIError as error:
+            if error.status == 404:
+                return None
+            raise
 
     def list(self, path, **query):
         next_page = path + ('?' + urllib.parse.urlencode(query) if query else '')
@@ -85,8 +99,8 @@ class Client:
             next_page = page.get('links', {}).get('next')
         return result
 
-    def patch(self, kind, identifier, attributes):
-        return self.request('PATCH', f'/v1/{kind}/{identifier}',
+    def patch(self, kind, identifier, attributes, api_version='v1'):
+        return self.request('PATCH', f'/{api_version}/{kind}/{identifier}',
                             {'data': {'type': kind, 'id': identifier, 'attributes': attributes}})
 
 
@@ -96,15 +110,18 @@ def relationship(kind, identifier):
 
 def state(version):
     attrs = version['attributes']
-    return attrs.get('appVersionState') or attrs.get('appStoreState')
+    return attrs.get('appVersionState') or attrs.get('state') or attrs.get('appStoreState')
 
 
 class Release:
-    def __init__(self, client, app, metadata):
+    def __init__(self, client, app, metadata, platform='MAC_OS'):
+        if platform not in ('MAC_OS', 'IOS'):
+            raise ValueError('Unsupported App Store platform')
         self.client, self.app, self.metadata = client, app, metadata
+        self.platform = platform
 
     def versions(self):
-        return self.client.list(f'/v1/apps/{self.app}/appStoreVersions', **{'filter[platform]': 'MAC_OS', 'limit': 200})
+        return self.client.list(f'/v1/apps/{self.app}/appStoreVersions', **{'filter[platform]': self.platform, 'limit': 200})
 
     def current(self):
         versions = self.versions()
@@ -138,7 +155,7 @@ class Release:
                 raise RuntimeError(f"Another version is pending: {other['attributes']['versionString']} ({state(other)})")
         if not self.build():
             builds = self.client.list('/v1/builds', **{'filter[app]': self.app,
-                                      'filter[preReleaseVersion.platform]': 'MAC_OS', 'limit': 200})
+                                      'filter[preReleaseVersion.platform]': self.platform, 'limit': 200})
             numbers = [int(b['attributes']['version']) for b in builds if b['attributes']['version'].isdigit()]
             if numbers and int(self.metadata['build']) <= max(numbers):
                 raise RuntimeError('Increase CFBundleVersion above every previous App Store build')
@@ -148,7 +165,7 @@ class Release:
         matches = self.client.list('/v1/builds', **{'filter[app]': self.app,
                                    'filter[version]': self.metadata['build'],
                                    'filter[preReleaseVersion.version]': self.metadata['version'],
-                                   'filter[preReleaseVersion.platform]': 'MAC_OS', 'limit': 200})
+                                   'filter[preReleaseVersion.platform]': self.platform, 'limit': 200})
         if len(matches) > 1:
             raise RuntimeError('Ambiguous Apple build')
         return matches[0] if matches else None
@@ -184,7 +201,7 @@ class Release:
             release = None
         else:
             release = json.loads(view.stdout)
-        asset = 'appstore-source.json'
+        asset = 'appstore-source.json' if self.platform == 'MAC_OS' else 'appstore-source-ios.json'
         if release and any(item['name'] == asset for item in release['assets']):
             with tempfile.TemporaryDirectory(dir=os.environ['TMPDIR']) as directory:
                 subprocess.run(['gh', 'release', 'download', tag, '--pattern', asset, '--dir', directory], check=True)
@@ -197,12 +214,18 @@ class Release:
         if release and not release['isDraft']:
             raise RuntimeError('Published GitHub release has no CI provenance; use a new release tag')
         if not release:
+            notes = ['--notes-file', 'build/release-metadata.md'] if self.platform == 'MAC_OS' else [
+                '--notes', 'iPad App Store build provenance. Initial app and subscription review is submitted together in App Store Connect.']
             subprocess.run(['gh', 'release', 'create', tag, '--verify-tag', '--draft',
-                            '--title', 'LeftBlank ' + tag, '--notes-file', 'build/release-metadata.md'], check=True)
-        Path('build/appstore-source.json').write_text(json.dumps(self.metadata, ensure_ascii=False, indent=2) + '\n')
-        subprocess.run(['gh', 'release', 'upload', tag, 'build/appstore-source.json'], check=True)
+                            '--title', 'LeftBlank ' + tag, *notes], check=True)
+        path = Path('build') / asset
+        path.write_text(json.dumps(self.metadata, ensure_ascii=False, indent=2) + '\n')
+        subprocess.run(['gh', 'release', 'upload', tag, str(path)], check=True)
 
     def submit(self, build):
+        if self.platform == 'IOS':
+            from ipad_storefront import Storefront
+            return Storefront(self).submit(build)
         if not self.preflight():
             return self.current()
         version = self.current()
@@ -270,16 +293,25 @@ class Release:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['preflight', 'claim', 'upload', 'submit', 'status'])
+    parser.add_argument('command', choices=['preflight', 'claim', 'upload', 'submit', 'status', 'profile', 'prepare'])
     parser.add_argument('--metadata', type=Path, default=Path('build/release-metadata.json'))
     parser.add_argument('--key', type=Path, required=True)
     parser.add_argument('--package', type=Path, default=Path('build/LeftBlank-AppStore.pkg'))
+    parser.add_argument('--platform', choices=['MAC_OS', 'IOS'], default='MAC_OS')
+    parser.add_argument('--identity', help='SHA-1 of the existing Apple Distribution certificate')
+    parser.add_argument('--profile-output', type=Path)
     parser.add_argument('--timeout', type=int, default=2400)
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error('--timeout must be positive')
     client = Client(args.key, os.environ['APP_STORE_CONNECT_KEY_ID'], os.environ['APP_STORE_CONNECT_ISSUER_ID'])
-    release = Release(client, os.environ['APP_STORE_APP_ID'], json.loads(args.metadata.read_text()))
+    release = Release(client, os.environ['APP_STORE_APP_ID'], json.loads(args.metadata.read_text()), args.platform)
+    if args.command == 'profile':
+        if args.platform != 'IOS' or not args.identity or not args.profile_output:
+            parser.error('profile requires IOS, --identity and --profile-output')
+        from ipad_storefront import Storefront
+        Storefront(release).profile(args.identity, args.profile_output)
+        return
     if args.command == 'status':
         version, build = release.current(), release.build()
         print(json.dumps({'versionState': state(version) if version else None,
@@ -305,7 +337,13 @@ def main():
             print('Reusing the uploaded build for this immutable tag')
         release.wait_build(args.timeout)
         return
-    result = release.submit(release.wait_build(args.timeout))
+    if args.command == 'prepare':
+        if args.platform != 'IOS':
+            parser.error('prepare is supported for IOS')
+        from ipad_storefront import Storefront
+        result = Storefront(release).prepare(release.wait_build(args.timeout))
+    else:
+        result = release.submit(release.wait_build(args.timeout))
     Path('build/appstore-submission.json').write_text(json.dumps(result, indent=2) + '\n')
 
 
