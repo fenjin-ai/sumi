@@ -229,6 +229,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             target: self,
         )
         item(L10n.text("Open external file…"), #selector(openDocument), "", file, target: self)
+        item(L10n.text("Reconstruct from Image or PDF…"), #selector(reconstructPage), "", file, target: self)
         file.addItem(.separator())
         item(L10n.text("Save"), #selector(saveDocument), "s", file, target: self)
         item(L10n.text("Save As…"), #selector(saveAs), "s", file, modifiers: [.command, .shift], target: self)
@@ -290,6 +291,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(reconstructPage) {
+            menuItem.title = L10n
+                .text(workspace.reconstructingPage ? "Cancel Page Reconstruction" : "Reconstruct from Image or PDF…")
+            return !workspace.library.busy && !workspace.documentTransitionInProgress
+        }
         if menuItem.action == #selector(printDocument) {
             return workspace.serviceReady && !workspace.exporting && !workspace.isLibraryHome
         }
@@ -352,6 +358,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     @objc private func importDocument() {
         workspace.library.importPanel()
+    }
+
+    @objc private func reconstructPage() {
+        workspace.chooseReferencePage()
     }
 
     @objc private func newDocument() {

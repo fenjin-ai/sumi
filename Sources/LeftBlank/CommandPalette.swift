@@ -179,7 +179,10 @@ struct CommandPalette: View {
                 HStack(spacing: 5) {
                     Keycap(value: "⌘\(workspace.commandKey.uppercased())")
                     Text("→").font(.system(size: 10)).foregroundStyle(Theme.muted)
-                    ForEach(Array(command.keyPath.split(separator: " ").enumerated()), id: \.offset) { _, key in
+                    ForEach(
+                        Array(workspace.keyPath(for: command).split(separator: " ").enumerated()),
+                        id: \.offset,
+                    ) { _, key in
                         Keycap(value: String(key))
                     }
                 }
@@ -214,6 +217,23 @@ struct CommandPalette: View {
                         "Enter a category with its letter, choose with ↑ ↓ and run with ↵. Shortcuts are always here to discover.",
                     ))
                     .font(.system(size: 11)).foregroundStyle(Theme.secondary).lineSpacing(4)
+            }
+            if workspace.searchMode, workspace.activeCommand == nil {
+                Button { workspace.understandTypesettingRequest() } label: {
+                    HStack(spacing: 8) {
+                        if workspace.understandingRequest {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            PhosphorIcon(name: "sparkle", size: 14)
+                        }
+                        Text(L10n.text("Understand Request")).font(.system(size: 11, weight: .medium))
+                    }
+                    .padding(10).background(Theme.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 5))
+                }.buttonStyle(.plain).disabled(
+                    workspace.understandingRequest || workspace.query.trimmingCharacters(in: .whitespacesAndNewlines)
+                        .isEmpty,
+                )
+                .help(workspace.typesettingRequestHelp)
             }
             Spacer(minLength: 0)
         }.padding(.top, 9).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).clipped()
