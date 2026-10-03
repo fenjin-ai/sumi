@@ -13,7 +13,7 @@ export, including source and assets.
 
 `iPad/Storefront/manifest.json` is the business configuration; `en-US.json` and
 `zh-Hans.json` provide final localized storefront copy. The initial iPad version is
-`1.0.1 (2)` in `iPad/Info.plist`, independently versioned from Mac. The initial
+`1.0.2 (3)` in `iPad/Info.plist`, independently versioned from Mac. The initial
 `ipad-v1.0.0` attempt stopped before upload because its profile validator did not
 accept Apple's iCloud entitlement allowlists; that tag remains immutable. Subsequent iPad
 releases must increase the build number; Apple preflight checks previous iOS builds.
@@ -50,6 +50,13 @@ API key cannot manage profiles. The required existing secrets are
 `APPSTORE_CONNECT_PRIVATE_KEY`; `APP_STORE_APP_ID` is the existing repository
 variable. Signing materials use an ephemeral keychain and are cleaned up.
 
+The 1024-pixel light and dark icons reuse the Mac designs as opaque RGB PNGs.
+iPadOS 18 and later select the dark asset when the Home Screen icon appearance
+is dark (including Automatic when the system is dark). Earlier systems use the
+default light icon. Release validation rejects alpha channels and PNG transparency
+before signing. Upload validation also checks
+`altool` JSON errors, because its process can exit zero after Apple rejects a package.
+
 Validate the preparation without credentials:
 
 ```sh
@@ -64,8 +71,8 @@ Only then push an immutable tag matching the iPad version; do not start a releas
 runner just to wait for CI:
 
 ```sh
-git tag ipad-v1.0.1 <merged-main-commit>
-git push origin ipad-v1.0.1
+git tag ipad-v1.0.2 <merged-main-commit>
+git push origin ipad-v1.0.2
 ```
 
 This automatically starts **iPad App Store release**, independently from Mac

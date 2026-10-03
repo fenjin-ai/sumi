@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -22,6 +23,30 @@ spec.loader.exec_module(mac)
 
 
 class MetadataTests(unittest.TestCase):
+    def test_icon_rejects_alpha_channel_even_if_pixels_are_opaque(self):
+        source = ipad.ROOT / 'iPad/Assets.xcassets/AppIcon.appiconset/icon.png'
+        with tempfile.TemporaryDirectory(dir=os.environ['TMPDIR']) as directory:
+            path = Path(directory) / 'icon.png'
+            data = bytearray(source.read_bytes())
+            data[25] = 6
+            path.write_bytes(data)
+            with self.assertRaisesRegex(ValueError, 'alpha channel'):
+                ipad.validate_icon(path)
+
+    def test_icon_rejects_transparency_chunk_and_wrong_size(self):
+        source = ipad.ROOT / 'iPad/Assets.xcassets/AppIcon.appiconset/icon.png'
+        with tempfile.TemporaryDirectory(dir=os.environ['TMPDIR']) as directory:
+            path = Path(directory) / 'icon.png'
+            data = source.read_bytes()
+            path.write_bytes(data[:33] + struct.pack('>I', 6) + b'tRNS' + bytes(10) + data[33:])
+            with self.assertRaisesRegex(ValueError, 'transparency'):
+                ipad.validate_icon(path)
+            resized = bytearray(data)
+            resized[16:20] = struct.pack('>I', 512)
+            path.write_bytes(resized)
+            with self.assertRaisesRegex(ValueError, '1024x1024'):
+                ipad.validate_icon(path)
+
     def test_bilingual_metadata_and_confirmed_subscription(self):
         result = ipad.metadata(ipad.ROOT)
         self.assertEqual(result['platform'], 'IOS')
