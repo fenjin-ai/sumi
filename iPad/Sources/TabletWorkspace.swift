@@ -6,7 +6,7 @@ import UIKit
 @MainActor
 final class TabletWorkspace: ObservableObject {
     enum Layout: String, CaseIterable { case writing, split, preview }
-    enum Panel: String, Identifiable { case commands, outline, checks, history, settings, universe, trash
+    enum Panel: String, Identifiable { case commands, outline, checks, history, settings, universe, trash, subscription
         var id: String {
             rawValue
         }
@@ -41,6 +41,9 @@ final class TabletWorkspace: ObservableObject {
     @Published var highlightedText = ""
     @Published var tokens: [HighlightToken] = []
     @Published var shareURL: URL?
+    @Published private(set) var canWrite = false
+    let subscription: TabletSubscription
+    private var subscriptionObserver: AnyCancellable?
     @Published var cloudEnabled = false
     weak var editor: UITextView?
     private let library = DocumentLibrary(rootURL: AppDistribution.defaultStateDirectory
@@ -57,6 +60,30 @@ final class TabletWorkspace: ObservableObject {
     private var started = false
     private var changing = false
     private let recoveryURL = AppDistribution.defaultStateDirectory.appendingPathComponent("iPadRecovery.json")
+
+    init(subscription: TabletSubscription = TabletSubscription()) {
+        self.subscription = subscription
+        subscriptionObserver = subscription.$access.sink { [weak self] access in
+            guard let self else {
+                return
+            }
+            let allowed = access.permitsWriting(at: Date())
+            if canWrite, !allowed {
+                commitComposition()
+            }
+            canWrite = allowed
+            editor?.isEditable = allowed && !busy && layout != .preview
+        }
+    }
+
+    @discardableResult
+    private func requireWriting() -> Bool {
+        guard subscription.canWrite else {
+            panel = .subscription
+            return false
+        }
+        return true
+    }
 
     func start() async {
         guard !started else {
@@ -216,6 +243,9 @@ final class TabletWorkspace: ObservableObject {
     }
 
     func edited(_ source: String, selection: NSRange) {
+        guard canWrite else {
+            return
+        }
         self.selection = selection
         guard source != text else {
             return
@@ -334,7 +364,7 @@ final class TabletWorkspace: ObservableObject {
     }
 
     func create(_ template: BuiltInTemplate) async {
-        guard !busy else {
+        guard requireWriting(), !busy else {
             return
         }
         do {
@@ -349,6 +379,9 @@ final class TabletWorkspace: ObservableObject {
     }
 
     func importDocument(_ url: URL) async {
+        guard requireWriting() else {
+            return
+        }
         let access = url.startAccessingSecurityScopedResource()
         defer {
             if access {
@@ -395,6 +428,35 @@ final class TabletWorkspace: ObservableObject {
         } catch { message = error.localizedDescription }
     }
 
+    func exportProject() async {
+        commitComposition()
+        guard let document, !busy, await save() else {
+            return
+        }
+        busy = true
+        defer { busy = false }
+        let directory = AppDistribution.defaultStateDirectory.appendingPathComponent("Exports")
+            .appendingPathComponent(UUID().uuidString)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let project = directory.appendingPathComponent("Project")
+            try await library.exportProject(document.id, to: project)
+            defer { try? FileManager.default.removeItem(at: project) }
+            let destination = directory.appendingPathComponent("LeftBlank-project.zip")
+            var coordinationError: NSError?
+            var copyError: Error?
+            NSFileCoordinator()
+                .coordinate(readingItemAt: project, options: .forUploading, error: &coordinationError) { archive in
+                    do { try FileManager.default.copyItem(at: archive, to: destination) }
+                    catch { copyError = error }
+                }
+            if let error = coordinationError ?? copyError {
+                throw error
+            }
+            shareURL = destination
+        } catch { message = error.localizedDescription }
+    }
+
     func showHistory() async {
         guard let document else {
             return
@@ -405,7 +467,7 @@ final class TabletWorkspace: ObservableObject {
     }
 
     func restore(_ revision: DocumentRevision) async {
-        guard let document, !busy else {
+        guard requireWriting(), let document, !busy else {
             return
         }
         do {
@@ -442,7 +504,7 @@ final class TabletWorkspace: ObservableObject {
             layout = .writing
         }
         panel = nil
-        editor?.isEditable = !busy
+        editor?.isEditable = canWrite && !busy
         editor?.selectedRange = selection
         editor?.scrollRangeToVisible(selection)
         editor?.becomeFirstResponder()
@@ -462,7 +524,7 @@ final class TabletWorkspace: ObservableObject {
 
 extension TabletWorkspace {
     func insert(_ command: WritingCommand, values: [String: String]) {
-        guard let editor, editor.markedTextRange == nil else {
+        guard requireWriting(), let editor, editor.markedTextRange == nil else {
             return
         }
         do {
@@ -486,7 +548,7 @@ extension TabletWorkspace {
     }
 
     private func apply(_ edit: TextReplacement, restoringSelection: NSRange? = nil) {
-        guard let editor, editor.markedTextRange == nil,
+        guard requireWriting(), let editor, editor.markedTextRange == nil,
               edit.range.location >= 0, edit.range.length >= 0,
               edit.range.location <= editor.textStorage.length,
               edit.range.length <= editor.textStorage.length - edit.range.location
@@ -512,7 +574,7 @@ extension TabletWorkspace {
     }
 
     func format() async {
-        guard let document, serviceReady, editor?.markedTextRange == nil else {
+        guard requireWriting(), let document, serviceReady, editor?.markedTextRange == nil else {
             return
         }
         let revision = version, session = generation, original = text
@@ -552,7 +614,7 @@ extension TabletWorkspace {
     }
 
     func addPackage(_ package: UniversePackage) {
-        guard let editor, editor.markedTextRange == nil else {
+        guard requireWriting(), let editor, editor.markedTextRange == nil else {
             return
         }
         do {
@@ -568,7 +630,7 @@ extension TabletWorkspace {
     }
 
     func createTemplate(_ package: UniversePackage) async {
-        guard !busy else {
+        guard requireWriting(), !busy else {
             return
         }
         busy = true
@@ -595,7 +657,7 @@ extension TabletWorkspace {
     }
 
     func addSampleBook() async {
-        guard !busy else {
+        guard requireWriting(), !busy else {
             return
         }
         busy = true
@@ -621,6 +683,9 @@ extension TabletWorkspace {
     }
 
     func importProject(_ url: URL) async {
+        guard requireWriting() else {
+            return
+        }
         let access = url.startAccessingSecurityScopedResource()
         defer {
             if access {

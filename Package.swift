@@ -2,6 +2,7 @@
 import Foundation
 import PackageDescription
 
+// The iPad Xcode project uses Sources/Package.swift to resolve only the shared core.
 // App Store and direct builds never resolve or link an external updater.
 let preview = ProcessInfo.processInfo.environment["LEFTBLANK_DISTRIBUTION"] == "preview"
 let distributionSettings: [SwiftSetting] = preview ? [.define("LEFTBLANK_PREVIEW")] : []

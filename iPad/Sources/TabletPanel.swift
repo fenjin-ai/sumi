@@ -34,6 +34,7 @@ struct TabletPanel: View {
                 case .settings: settings
                 case .universe: TabletUniverseBrowser(workspace: workspace)
                 case .trash: trash
+                case .subscription: TabletSubscriptionView(subscription: workspace.subscription)
                 }
             }
             .navigationTitle(title)
@@ -51,6 +52,7 @@ struct TabletPanel: View {
         case .settings: L10n.text("Settings")
         case .universe: L10n.text("Templates & Packages")
         case .trash: L10n.text("Trash")
+        case .subscription: subscriptionText("Subscription", "订阅")
         }
     }
 
@@ -71,10 +73,16 @@ struct TabletPanel: View {
                 }
             } else {
                 Section {
-                    Button(L10n.text("Undo")) { workspace.editor?.undoManager?.undo()
+                    Button(L10n.text("Undo")) {
+                        if workspace.canWrite {
+                            workspace.editor?.undoManager?.undo()
+                        }
                         dismiss()
                     }
-                    Button(L10n.text("Redo")) { workspace.editor?.undoManager?.redo()
+                    Button(L10n.text("Redo")) {
+                        if workspace.canWrite {
+                            workspace.editor?.undoManager?.redo()
+                        }
                         dismiss()
                     }
                     Button(L10n.text("Indent")) { workspace.lineAction(.indent)
@@ -186,6 +194,10 @@ struct TabletPanel: View {
 
     private var settings: some View {
         Form {
+            Section(subscriptionText("Subscription", "订阅")) {
+                Button(subscriptionText("Subscription & purchases", "订阅与购买")) { workspace.panel = .subscription }
+                    .accessibilityIdentifier("subscription-settings")
+            }
             Section(L10n.text("Writing")) {
                 Stepper(
                     L10n.format("Text size: %@", String(Int(workspace.fontSize))),

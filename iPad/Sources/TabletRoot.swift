@@ -135,6 +135,14 @@ struct TabletRoot: View {
 
     private var libraryHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if !workspace.canWrite {
+                Button(subscriptionText(
+                    "Subscribe to write · Reading and exports remain available",
+                    "订阅以写作 · 阅读和导出仍可使用",
+                )) {
+                    workspace.panel = .subscription
+                }.font(.footnote).accessibilityIdentifier("subscription-banner")
+            }
             Text(L10n.text("Your writing")).font(.system(size: 23, weight: .medium, design: .serif))
                 .foregroundStyle(Color(uiColor: TabletTheme.nativeText))
                 .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("library-title")
@@ -338,6 +346,8 @@ struct TabletRoot: View {
                         renaming = true
                     }
                     Button(L10n.text("Save")) { Task { await workspace.save() } }.keyboardShortcut("s")
+                    Button(subscriptionText("Export Project…", "导出项目…")) { Task { await workspace.exportProject() } }
+                        .accessibilityIdentifier("export-project")
                     Button(L10n.text("Export PDF…")) { Task { await workspace.exportPDF() } }
                         .keyboardShortcut("e", modifiers: [.command, .shift]).disabled(!workspace.serviceReady)
                     Button(L10n.text("Templates & Packages")) { workspace.showUniverse() }

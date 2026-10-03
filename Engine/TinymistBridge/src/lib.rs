@@ -1,6 +1,8 @@
 //! In-process transport for the same Tinymist engine used by the macOS app.
 //! No subprocess, shell, global stdin/stdout, or working-directory changes.
 
+#![deny(unsafe_op_in_unsafe_fn)]
+
 use std::ffi::{c_char, CStr};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -25,12 +27,14 @@ pub unsafe extern "C" fn leftblank_tinymist_run(
     font_directory: *const c_char,
 ) -> i32 {
     // Take ownership before any fallible work, including runtime creation.
-    let input = File::from_raw_fd(input_fd);
-    let output = File::from_raw_fd(output_fd);
+    // SAFETY: the C API contract transfers two distinct, valid descriptors.
+    let input = unsafe { File::from_raw_fd(input_fd) };
+    let output = unsafe { File::from_raw_fd(output_fd) };
     let fonts = if font_directory.is_null() {
         None
     } else {
-        match CStr::from_ptr(font_directory).to_str() {
+        // SAFETY: the caller keeps this NUL-terminated string readable.
+        match unsafe { CStr::from_ptr(font_directory) }.to_str() {
             Ok(path) => Some(PathBuf::from(path)),
             Err(_) => return 1,
         }

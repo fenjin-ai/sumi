@@ -1,16 +1,31 @@
 import Nimble
+import StoreKitTest
 import XCTest
 
 @MainActor
 final class WritingTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
+    private var storeSession: SKTestSession?
+
+    override func setUp() async throws {
+        try await super.setUp()
         continueAfterFailure = false
+        let session = try SKTestSession(configurationFileNamed: "LeftBlank")
+        session.resetToDefaultState()
+        session.disableDialogs = true
+        session.clearTransactions()
+        if !name.contains("testSubscriptionPurchaseAndExpiredProjectExport") {
+            _ = try await session.buyProduct(identifier: "app.leftblank.writer.ipad.monthly")
+        }
+        storeSession = session
     }
 
-    override func tearDown() {
-        XCUIApplication().terminate()
-        super.tearDown()
+    override func tearDown() async throws {
+        await MainActor.run {
+            XCUIApplication().terminate()
+            storeSession?.clearTransactions()
+            storeSession = nil
+        }
+        try await super.tearDown()
     }
 
     private func startWriting(template: String = "blank", language: String = "en") -> XCUIApplication {
@@ -52,6 +67,102 @@ final class WritingTests: XCTestCase {
         screenshot.name = name
         screenshot.lifetime = .keepAlways
         add(screenshot)
+    }
+
+    private func reveal(_ element: XCUIElement, in form: XCUIElement, scrollingUp: Bool = true) {
+        for _ in 0 ..< 6 {
+            if element.exists, element.isHittable {
+                return
+            }
+            if scrollingUp {
+                form.swipeUp()
+            } else {
+                form.swipeDown()
+            }
+        }
+        expect(element.exists && element.isHittable) == true
+    }
+
+    func testSubscriptionPurchaseAndExpiredProjectExport() throws {
+        let session = try XCTUnwrap(storeSession)
+        session.clearTransactions()
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-appLanguage", "en",
+                               "-iPadCloudEnabled", "NO"]
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app.launch()
+        let banner = app.buttons["subscription-banner"]
+        if !banner.waitForExistence(timeout: 3) || !banner.isHittable {
+            app.buttons["sidebar-toggle"].tap()
+        }
+        expect(banner.waitForExistence(timeout: 30)) == true
+        banner.tap()
+        let form = app.collectionViews["subscription-form"]
+        expect(form.waitForExistence(timeout: 30)) == true
+        let restore = app.buttons["subscription-restore"]
+        reveal(restore, in: form)
+        restore.tap()
+        let noPurchases = app.staticTexts["No active subscription was found for this Apple Account."]
+        reveal(noPurchases, in: form)
+        let purchase = app.buttons["subscription-purchase"]
+        reveal(purchase, in: form, scrollingUp: false)
+        // Introductory eligibility belongs to the Apple account's subscription group;
+        // prior writing tests may already have consumed its introductory offer.
+        expect(["Subscribe", "Start free trial"].contains(purchase.label)) == true
+        capture("Monthly subscription")
+        purchase.tap()
+        reveal(app.staticTexts["subscription-status"], in: form, scrollingUp: false)
+        expectation(
+            for: NSPredicate(format: "label BEGINSWITH %@", "Writing access until"),
+            evaluatedWith: app.staticTexts["subscription-status"],
+        )
+        waitForExpectations(timeout: 30)
+        let privacy = app.links["Privacy policy"]
+        reveal(privacy, in: form)
+        expect(privacy.exists) == true
+        let terms = app.links["Terms of use"]
+        reveal(terms, in: form)
+        expect(terms.exists) == true
+        app.buttons["Done"].tap()
+        app.terminate()
+        _ = startWriting()
+        let title = "Expired export " + UUID().uuidString.prefix(8)
+        app.buttons["document-actions"].tap()
+        app.buttons["Rename"].tap()
+        let titleField = app.alerts.textFields.firstMatch
+        titleField.tap()
+        titleField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue,
+                                  count: (titleField.value as? String)?.count ?? 0) + title)
+        app.alerts.buttons["Save"].tap()
+        app.textViews["manuscript"].tap()
+        app.textViews["manuscript"].typeText("\nPreserved after subscription expiration.\n")
+        expectation(for: NSPredicate(format: "label == %@", "Saved"), evaluatedWith: app.staticTexts["save-status"])
+        waitForExpectations(timeout: 30)
+        let manuscript = app.textViews["manuscript"].value as? String
+        try session.expireSubscription(productIdentifier: "app.leftblank.writer.ipad.monthly")
+        app.terminate()
+        app.launch()
+        expect(app.buttons["library-actions"].waitForExistence(timeout: 30)) == true
+        app.buttons["library-actions"].tap()
+        app.buttons["Settings"].tap()
+        app.buttons["subscription-settings"].tap()
+        expect(form.waitForExistence(timeout: 30)) == true
+        // StoreKitTest's imperative expiration needs a sync to invalidate cached signed status.
+        reveal(restore, in: form)
+        restore.tap()
+        reveal(app.staticTexts["subscription-status"], in: form, scrollingUp: false)
+        expectation(for: NSPredicate(format: "label BEGINSWITH %@", "Your subscription has expired"),
+                    evaluatedWith: app.staticTexts["subscription-status"])
+        waitForExpectations(timeout: 30)
+        app.buttons["Done"].tap()
+        expect(banner.exists) == true
+        app.staticTexts[title].tap()
+        expect(app.textViews["manuscript"].waitForExistence(timeout: 30)) == true
+        expect(app.textViews["manuscript"].value as? String) == manuscript
+        app.buttons["document-actions"].tap()
+        app.buttons["export-project"].tap()
+        expect(app.descendants(matching: .any)["Save to Files"].firstMatch.waitForExistence(timeout: 30)) == true
+        capture("Expired subscription project export")
     }
 
     func testWelcomePreviewAndPDFExport() {

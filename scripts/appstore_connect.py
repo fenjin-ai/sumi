@@ -1,4 +1,4 @@
-"""Upload and submit a tagged Mac release using Apple's App Store Connect API."""
+"""Upload tagged Apple builds; submit Mac versions after validating provenance."""
 import argparse
 import base64
 import json
@@ -100,11 +100,14 @@ def state(version):
 
 
 class Release:
-    def __init__(self, client, app, metadata):
+    def __init__(self, client, app, metadata, platform='MAC_OS'):
+        if platform not in ('MAC_OS', 'IOS'):
+            raise ValueError('Unsupported App Store platform')
         self.client, self.app, self.metadata = client, app, metadata
+        self.platform = platform
 
     def versions(self):
-        return self.client.list(f'/v1/apps/{self.app}/appStoreVersions', **{'filter[platform]': 'MAC_OS', 'limit': 200})
+        return self.client.list(f'/v1/apps/{self.app}/appStoreVersions', **{'filter[platform]': self.platform, 'limit': 200})
 
     def current(self):
         versions = self.versions()
@@ -138,7 +141,7 @@ class Release:
                 raise RuntimeError(f"Another version is pending: {other['attributes']['versionString']} ({state(other)})")
         if not self.build():
             builds = self.client.list('/v1/builds', **{'filter[app]': self.app,
-                                      'filter[preReleaseVersion.platform]': 'MAC_OS', 'limit': 200})
+                                      'filter[preReleaseVersion.platform]': self.platform, 'limit': 200})
             numbers = [int(b['attributes']['version']) for b in builds if b['attributes']['version'].isdigit()]
             if numbers and int(self.metadata['build']) <= max(numbers):
                 raise RuntimeError('Increase CFBundleVersion above every previous App Store build')
@@ -148,7 +151,7 @@ class Release:
         matches = self.client.list('/v1/builds', **{'filter[app]': self.app,
                                    'filter[version]': self.metadata['build'],
                                    'filter[preReleaseVersion.version]': self.metadata['version'],
-                                   'filter[preReleaseVersion.platform]': 'MAC_OS', 'limit': 200})
+                                   'filter[preReleaseVersion.platform]': self.platform, 'limit': 200})
         if len(matches) > 1:
             raise RuntimeError('Ambiguous Apple build')
         return matches[0] if matches else None
@@ -184,7 +187,7 @@ class Release:
             release = None
         else:
             release = json.loads(view.stdout)
-        asset = 'appstore-source.json'
+        asset = 'appstore-source.json' if self.platform == 'MAC_OS' else 'appstore-source-ios.json'
         if release and any(item['name'] == asset for item in release['assets']):
             with tempfile.TemporaryDirectory(dir=os.environ['TMPDIR']) as directory:
                 subprocess.run(['gh', 'release', 'download', tag, '--pattern', asset, '--dir', directory], check=True)
@@ -197,12 +200,17 @@ class Release:
         if release and not release['isDraft']:
             raise RuntimeError('Published GitHub release has no CI provenance; use a new release tag')
         if not release:
+            notes = ['--notes-file', 'build/release-metadata.md'] if self.platform == 'MAC_OS' else [
+                '--notes', 'iPad App Store build provenance. Initial app and subscription review is submitted together in App Store Connect.']
             subprocess.run(['gh', 'release', 'create', tag, '--verify-tag', '--draft',
-                            '--title', 'LeftBlank ' + tag, '--notes-file', 'build/release-metadata.md'], check=True)
-        Path('build/appstore-source.json').write_text(json.dumps(self.metadata, ensure_ascii=False, indent=2) + '\n')
-        subprocess.run(['gh', 'release', 'upload', tag, 'build/appstore-source.json'], check=True)
+                            '--title', 'LeftBlank ' + tag, *notes], check=True)
+        path = Path('build') / asset
+        path.write_text(json.dumps(self.metadata, ensure_ascii=False, indent=2) + '\n')
+        subprocess.run(['gh', 'release', 'upload', tag, str(path)], check=True)
 
     def submit(self, build):
+        if self.platform == 'IOS':
+            raise RuntimeError('Submit the first iPad version, subscription and subscription group together in App Store Connect')
         if not self.preflight():
             return self.current()
         version = self.current()
@@ -274,12 +282,13 @@ def main():
     parser.add_argument('--metadata', type=Path, default=Path('build/release-metadata.json'))
     parser.add_argument('--key', type=Path, required=True)
     parser.add_argument('--package', type=Path, default=Path('build/LeftBlank-AppStore.pkg'))
+    parser.add_argument('--platform', choices=['MAC_OS', 'IOS'], default='MAC_OS')
     parser.add_argument('--timeout', type=int, default=2400)
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error('--timeout must be positive')
     client = Client(args.key, os.environ['APP_STORE_CONNECT_KEY_ID'], os.environ['APP_STORE_CONNECT_ISSUER_ID'])
-    release = Release(client, os.environ['APP_STORE_APP_ID'], json.loads(args.metadata.read_text()))
+    release = Release(client, os.environ['APP_STORE_APP_ID'], json.loads(args.metadata.read_text()), args.platform)
     if args.command == 'status':
         version, build = release.current(), release.build()
         print(json.dumps({'versionState': state(version) if version else None,
