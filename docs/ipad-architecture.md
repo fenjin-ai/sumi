@@ -108,7 +108,6 @@ values with release inputs. Development signing does not validate that pipeline.
 | Projects | Built-in/community templates and folder import | Folder import expects `main.typ`; only the entry file can be edited |
 | History and recovery | Shared snapshots, version restore and conflict-aware saves | Mac's full history diff UI is missing; background/relaunch recovery needs stress testing |
 | Native workflows | Adaptive writing/preview/split, rotation, touch controls and common shortcuts | Multiwindow, complete keyboard-menu parity, printing and project export are missing |
-| Agents | Shared protocol code can build for iPad | Mac agent/MCP workflow has not been ported |
 | Input/accessibility | Native UIKit editor with composition safeguards | Chinese IME, hardware keyboard/trackpad, VoiceOver and Dynamic Type need manual verification |
 | Cloud/lifecycle | Shared iCloud library services and background save hook | Cross-device conflicts, suspension/resume and memory-pressure behavior need device testing |
 
