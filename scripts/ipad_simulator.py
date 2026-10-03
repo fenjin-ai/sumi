@@ -165,13 +165,21 @@ def configure_coverage(bundle):
     bundle.write_bytes(plistlib.dumps(parameters))
 
 
-def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True, appearance=None):
+def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True, appearance=None, show_device=False):
     print(f"::group::{size}: boot, native {suite} tests, shutdown", flush=True)
     try:
         if coverage:
             configure_coverage(bundle)
         # bootstatus also initiates the boot and reports migration progress.
         run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b', '-d'], 240)
+        if show_device:
+            # Attach the hosted UI device to Simulator's display before XCTest
+            # sends orientation events. Keep the actual window-shape assertions.
+            developer = os.environ.get('DEVELOPER_DIR')
+            if not developer:
+                raise RuntimeError('Hosted UI tests require an explicit DEVELOPER_DIR')
+            simulator = str(Path(developer) / 'Applications/Simulator.app')
+            run(['open', '-a', simulator, '--args', '-CurrentDeviceUDID', device['udid']], 30)
         if appearance:
             # A cold hosted simulator can still be initializing UI services after
             # bootstatus completes. Keep a bounded startup allowance and confirm
@@ -256,7 +264,7 @@ def main(argv=None):
         return 1
     finally:
         print('::endgroup::', flush=True)
-    options = {}
+    options = {'show_device': True} if args.fresh_device else {}
     if args.appearance:
         options['appearance'] = args.appearance
     if args.suite != 'all':

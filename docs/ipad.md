@@ -20,7 +20,11 @@ runtime. Closing the client delivers EOF and shuts down that worker. The embedde
 build applies `scripts/tinymist-ipad.patch` to the verified upstream revision:
 compile-status notifications tolerate a closed editor channel when a Rayon
 compilation finishes after shutdown. This prevents a process-wide panic during
-document switching. The source stays in the workspace's `.tools` directory;
+document switching. `scripts/tinymist-ipad-export.patch` makes explicit exports
+use the latest LSP buffers, including unsaved included files, even while the
+compiler is processing a close/reopen filesystem invalidation. The integration
+test immediately exports repeated edits without waiting for preview and verifies
+that closing an included file restores its saved contents. The source stays in the workspace's `.tools` directory;
 the macOS CLI and shared Cargo source cache are unaffected. CoreText
 font URLs are copied into an application cache and explicitly included in LSP
 initialization, so package-cache options cannot replace the font search path.

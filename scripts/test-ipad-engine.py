@@ -176,6 +176,58 @@ def verify(library, scratch):
     print("PASS: in-process LSP, outline, loopback preview, live edits, PDF export and shutdown")
 
 
+def verify_immediate_exports(library, scratch):
+    with tempfile.TemporaryDirectory(prefix="ipad-export.", dir=scratch) as directory:
+        root = Path(directory)
+        source, included = root / 'main.typ', root / 'section.typ'
+        source.write_text('Saved baseline')
+        included.write_text('Saved include')
+        engine = Engine(library)
+        try:
+            engine.request('initialize', {
+                'processId': None, 'rootUri': root.as_uri(), 'capabilities': {},
+                'initializationOptions': {'exportPdf': 'never', 'outputPath': str(root / '$name')},
+            })
+            engine.notify('initialized', {})
+            for path in (source, included):
+                engine.notify('textDocument/didOpen', {'textDocument': {
+                    'uri': path.as_uri(), 'languageId': 'typst', 'version': 1, 'text': path.read_text(),
+                }})
+            engine.command('tinymist.doStartPreview', [[
+                '--task-id=leftblank', '--data-plane-host=127.0.0.1:0',
+                '--control-plane-host=127.0.0.1:0', '--no-open', str(source),
+            ]])
+            for version in range(2, 22):
+                # didClose causes an asynchronous filesystem invalidation. Queue a
+                # reopen/edit/export immediately; do not wait for preview or retry.
+                engine.notify('textDocument/didClose', {'textDocument': {'uri': source.as_uri()}})
+                engine.notify('textDocument/didOpen', {'textDocument': {
+                    'uri': source.as_uri(), 'languageId': 'typst', 'version': 1, 'text': 'Saved baseline',
+                }})
+                before, after = f'Before revision {version}', f'After revision {version}'
+                current_include = f'Unsaved include {version}'
+                for path, text in ((included, current_include),
+                                   (source, before + '\n\n#include "section.typ"\n\n' + after)):
+                    engine.notify('textDocument/didChange', {
+                        'textDocument': {'uri': path.as_uri(), 'version': version},
+                        'contentChanges': [{'text': text}],
+                    })
+                result = engine.command('tinymist.exportText', [str(source)])
+                rendered = Path(result['path']).read_text()
+                for expected in (before, current_include, after):
+                    assert expected in rendered, (version, expected, rendered)
+                assert 'Saved baseline' not in rendered and 'Saved include' not in rendered
+            engine.notify('textDocument/didClose', {'textDocument': {'uri': included.as_uri()}})
+            rendered = Path(engine.command('tinymist.exportText', [str(source)])['path']).read_text()
+            assert 'Saved include' in rendered and current_include not in rendered
+            assert before in rendered and after in rendered
+            assert source.read_text() == 'Saved baseline'
+            assert included.read_text() == 'Saved include'
+        finally:
+            engine.close()
+    print('PASS: immediate exports preserve latest unsaved document and include after reopen')
+
+
 def verify_shutdown_during_compile(library, scratch):
     with tempfile.TemporaryDirectory(prefix="ipad-engine-stop.", dir=scratch) as directory:
         root = Path(directory)
@@ -214,4 +266,5 @@ if __name__ == "__main__":
     parser.add_argument("--scratch", type=Path, required=True)
     arguments = parser.parse_args()
     verify(arguments.library.resolve(), arguments.scratch.resolve())
+    verify_immediate_exports(arguments.library.resolve(), arguments.scratch.resolve())
     verify_shutdown_during_compile(arguments.library.resolve(), arguments.scratch.resolve())

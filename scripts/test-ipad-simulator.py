@@ -99,6 +99,30 @@ class SimulatorContracts(unittest.TestCase):
                 self.assertEqual(create[-2:], ['iPad-Air-13-inch', 'com.apple.CoreSimulator.SimRuntime.iOS-26-2'])
                 self.assertEqual(run.call_args.args[0], ['xcrun', 'simctl', 'delete', identifier])
 
+    def test_hosted_display_attaches_exact_device_and_blocks_tests_on_failure(self):
+        for fails in (False, True):
+            commands = []
+
+            def command(args, timeout, **_options):
+                commands.append(args)
+                if args[0] == 'open':
+                    self.assertEqual(timeout, 30)
+                    self.assertEqual(args, ['open', '-a', '/selected/Xcode/Applications/Simulator.app',
+                                            '--args', '-CurrentDeviceUDID', 'large'])
+                    if fails:
+                        raise subprocess.TimeoutExpired(args, timeout)
+                return subprocess.CompletedProcess(args, 0)
+
+            with self.subTest(fails=fails), patch.dict(os.environ, {'DEVELOPER_DIR': '/selected/Xcode'}), \
+                 patch.object(runner, 'run', side_effect=command), patch.object(runner, 'diagnostics'), \
+                 patch.object(runner, 'verify_result'):
+                self.assertEqual(runner.test_device('13-inch', DEVICES[1][1], self.root / 'test.xctestrun',
+                                                   self.root, coverage=False, show_device=True), not fails)
+            self.assertEqual(commands[0][2], 'bootstatus')
+            self.assertEqual(commands[1][0], 'open')
+            self.assertEqual(any(command[0] == 'xcodebuild' for command in commands), not fails)
+            self.assertEqual(commands[-1], ['xcrun', 'simctl', 'shutdown', 'large'])
+
     def test_fresh_device_rejects_local_default_device_storage(self):
         with patch.dict(os.environ, {'GITHUB_ACTIONS': 'false'}), \
              patch.object(runner, 'inventory') as inventory, contextlib.redirect_stderr(io.StringIO()):
