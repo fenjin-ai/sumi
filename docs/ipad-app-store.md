@@ -13,7 +13,9 @@ export, including source and assets.
 
 `iPad/Storefront/manifest.json` is the business configuration; `en-US.json` and
 `zh-Hans.json` provide final localized storefront copy. The initial iPad version is
-`1.0.0 (1)` in `iPad/Info.plist`, independently versioned from Mac. Subsequent iPad
+`1.0.1 (2)` in `iPad/Info.plist`, independently versioned from Mac. The initial
+`ipad-v1.0.0` attempt stopped before upload because its profile validator did not
+accept Apple's iCloud entitlement allowlists; that tag remains immutable. Subsequent iPad
 releases must increase the build number; Apple preflight checks previous iOS builds.
 
 CI creates or reuses the iOS version in app **6818442294**, the **LeftBlank iPad**
@@ -59,8 +61,8 @@ python3 scripts/ipad_release.py
 After merging, push an immutable tag matching the iPad version:
 
 ```sh
-git tag ipad-v1.0.0 <merged-main-commit>
-git push origin ipad-v1.0.0
+git tag ipad-v1.0.1 <merged-main-commit>
+git push origin ipad-v1.0.1
 ```
 
 This automatically starts **iPad App Store release**, independently from Mac

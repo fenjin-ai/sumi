@@ -83,8 +83,17 @@ def validate_profile(profile, identity, now=None):
     for key in ('com.apple.developer.icloud-container-identifiers', 'com.apple.developer.ubiquity-container-identifiers'):
         if cloud not in allowed.get(key, []):
             raise ValueError('iPad profile must authorize ' + key)
-    if ('CloudDocuments' not in allowed.get('com.apple.developer.icloud-services', [])
-            or allowed.get('com.apple.developer.icloud-container-environment') != 'Production'
+    # A profile lists allowed entitlements, not the app's selected environment.
+    # Apple's App Store profiles can allow both environments and wildcard services;
+    # exportOptions still explicitly selects Production for the signed IPA.
+    services = allowed.get('com.apple.developer.icloud-services', [])
+    environments = allowed.get('com.apple.developer.icloud-container-environment', [])
+    if isinstance(services, str):
+        services = [services]
+    if isinstance(environments, str):
+        environments = [environments]
+    if (not isinstance(services, list) or not {'CloudDocuments', '*'}.intersection(services)
+            or not isinstance(environments, list) or 'Production' not in environments
             or allowed.get('com.apple.developer.ubiquity-kvstore-identifier') not in (team + '.' + BUNDLE, team + '.*')):
         raise ValueError('iPad profile must authorize production iCloud document storage')
     return team, profile['UUID']
