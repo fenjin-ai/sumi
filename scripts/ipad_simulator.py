@@ -172,7 +172,7 @@ def test_device(size, device, bundle, results, *, suite='all', memory=False, cov
             # bootstatus completes. Keep a bounded startup allowance and confirm
             # the actual appearance before measuring the test run.
             run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance', appearance], 120)
-            actual = run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance'], 30, capture=True).stdout
+            actual = run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance'], 120, capture=True).stdout
             if actual.strip().lower() != appearance:
                 raise RuntimeError('Simulator appearance differs from the requested ' + appearance)
         # Xcode's verbose sysdiagnose can spend ten minutes after a test failure.

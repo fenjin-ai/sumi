@@ -198,11 +198,12 @@ class SimulatorContracts(unittest.TestCase):
 
         def command(args, timeout, **_options):
             if args[:3] == ['xcrun', 'simctl', 'ui']:
+                # Both setting and reading the first appearance can stall while
+                # hosted UI services initialize, even after bootstatus returns.
+                if timeout < 90:
+                    raise subprocess.TimeoutExpired(args, timeout)
+                self.assertLessEqual(timeout, 120)
                 if len(args) == 6:
-                    # Hosted startup can take longer than the old 30-second limit.
-                    if timeout < 90:
-                        raise subprocess.TimeoutExpired(args, timeout)
-                    self.assertLessEqual(timeout, 120)
                     events.append('set appearance')
                     return subprocess.CompletedProcess(args, 0)
                 events.append('verify appearance')
@@ -218,15 +219,19 @@ class SimulatorContracts(unittest.TestCase):
         self.assertEqual(events, ['set appearance', 'verify appearance', 'test'])
 
     def test_wrong_appearance_cleans_up_without_testing(self):
-        def command(args, _timeout, **_options):
-            return subprocess.CompletedProcess(args, 0, stdout='Light\n')
+        for failure in ('mismatch', 'timeout'):
+            def command(args, timeout, **_options):
+                if failure == 'timeout' and args[:3] == ['xcrun', 'simctl', 'ui'] and len(args) == 5:
+                    raise subprocess.TimeoutExpired(args, timeout)
+                return subprocess.CompletedProcess(args, 0, stdout='Light\n')
 
-        with patch.object(runner, 'run', side_effect=command) as run, patch.object(runner, 'diagnostics'), \
-             patch.object(runner, 'configure_coverage'):
-            self.assertFalse(runner.test_device('13-inch', DEVICES[1][1], self.root / 'tests.xctestrun',
-                                               self.root, appearance='dark'))
-        self.assertFalse(any(call.args[0][0] == 'xcodebuild' for call in run.call_args_list))
-        self.assertEqual(run.call_args.args[0][:3], ['xcrun', 'simctl', 'shutdown'])
+            with self.subTest(failure=failure), \
+                 patch.object(runner, 'run', side_effect=command) as run, \
+                 patch.object(runner, 'diagnostics'), patch.object(runner, 'configure_coverage'):
+                self.assertFalse(runner.test_device('13-inch', DEVICES[1][1], self.root / 'tests.xctestrun',
+                                                   self.root, appearance='dark'))
+            self.assertFalse(any(call.args[0][0] == 'xcodebuild' for call in run.call_args_list))
+            self.assertEqual(run.call_args.args[0][:3], ['xcrun', 'simctl', 'shutdown'])
 
     def test_memory_validation_rejects_missing_workload_metrics(self):
         summary = {'result': 'Passed', 'passedTests': 2, 'failedTests': 0}
