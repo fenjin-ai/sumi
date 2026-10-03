@@ -2,7 +2,7 @@
 
 The iPad download is free. Creating and editing documents requires the monthly
 `app.leftblank.writer.ipad.monthly` auto-renewable subscription. Eligible new
-subscribers receive **two months free**, followed by **US $2.99/month** in the USA.
+subscribers receive **two weeks free**, followed by **US $2.99/month** in the USA.
 The app displays Apple's localized price and checks introductory-offer eligibility;
 it never starts a local countdown or treats installing the app as a subscription.
 Apple permits one introductory offer per subscription group. Mac remains free.
@@ -18,7 +18,7 @@ releases must increase the build number; Apple preflight checks previous iOS bui
 
 CI creates or reuses the iOS version in app **6818442294**, the **LeftBlank iPad**
 subscription group, its monthly product and English/Chinese localizations. It
-configures the USA $2.99 price and Apple's equalizations, plus a two-month free
+configures the USA $2.99 price and Apple's equalizations, plus a two-week free
 trial without an end date in every supported territory. Existing conflicting
 products, pricing, offers or unrelated review drafts stop the release.
 
@@ -92,7 +92,7 @@ Xcode's Swift sanitizer instrumentation does not instrument the precompiled Rust
 library. See `docs/coverage.md` for the coverage denominator and gate.
 
 Test the StoreKit configuration in Xcode, then Apple's Sandbox/TestFlight product:
-eligible two-month offer, ineligible returning subscriber, cancellation, pending
+eligible two-week offer, ineligible returning subscriber, cancellation, pending
 approval, verified renewal, expiration, restore, refunds/revocation, billing grace
 and retry, and offline relaunch. Confirm expired users can export full source and
 assets. StoreKit's local test configuration never travels inside an App Store app;

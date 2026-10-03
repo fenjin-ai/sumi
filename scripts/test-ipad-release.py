@@ -228,7 +228,7 @@ class PricingTests(unittest.TestCase):
         self.price = {**mac.resource('subscriptionPrices', 'price', startDate='2026-01-01'),
                       'relationships': {'territory': asc.relationship('territories', 'USA'),
                                         'subscriptionPricePoint': asc.relationship('subscriptionPricePoints', 'usd-299')}}
-        self.offer = {**mac.resource('subscriptionIntroductoryOffers', 'offer', duration='TWO_MONTHS',
+        self.offer = {**mac.resource('subscriptionIntroductoryOffers', 'offer', duration='TWO_WEEKS',
                                     offerMode='FREE_TRIAL', numberOfPeriods=1, startDate=None, endDate=None),
                       'relationships': {'territory': asc.relationship('territories', 'USA')}}
         self.prices, self.offers = [self.price], [self.offer]
@@ -276,7 +276,7 @@ class PricingTests(unittest.TestCase):
         self.store.prices_and_trial('monthly')
         self.assertEqual(len(writes), 1)
         self.assertEqual(writes[0][0], 'subscriptionIntroductoryOffers')
-        self.assertEqual(writes[0][1], {'duration': 'TWO_MONTHS', 'offerMode': 'FREE_TRIAL', 'numberOfPeriods': 1})
+        self.assertEqual(writes[0][1], {'duration': 'TWO_WEEKS', 'offerMode': 'FREE_TRIAL', 'numberOfPeriods': 1})
         self.assertEqual(writes[0][2]['territory']['data']['id'], 'USA')
 
 

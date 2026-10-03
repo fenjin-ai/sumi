@@ -23,7 +23,7 @@ PENDING = {'WAITING_FOR_REVIEW', 'IN_REVIEW'}
 REVIEW_NOTES = (
     'iPad-only writing and typesetting app. No login is required. Open Settings > '
     'Subscription to purchase or restore. Eligible new subscribers receive two '
-    'months free, then USD 2.99/month in the USA. Use an App Review sandbox Apple '
+    'weeks free, then USD 2.99/month in the USA. Use an App Review sandbox Apple '
     'Account to test. Creating/editing require a subscription; existing documents '
     'remain readable and exportable, including full source and assets, after expiry. '
     'Mac remains free. Rendering runs locally. Additional Typst packages use HTTPS.'
@@ -245,14 +245,14 @@ class Storefront:
             if territory in offers_by_territory:
                 raise RuntimeError('Multiple introductory offers need attention: ' + territory)
             offers_by_territory[territory] = offer
-        wanted = {'offerMode': 'FREE_TRIAL', 'duration': 'TWO_MONTHS', 'numberOfPeriods': 1}
+        wanted = {'offerMode': 'FREE_TRIAL', 'duration': 'TWO_WEEKS', 'numberOfPeriods': 1}
         for territory in territories:
             identifier = territory['id']
             existing = offers_by_territory.get(identifier)
             if existing:
                 attrs = existing['attributes']
                 if any(attrs.get(k) != v for k, v in wanted.items()) or attrs.get('endDate') or (attrs.get('startDate') or today) > today:
-                    raise RuntimeError('Existing introductory offer differs from the two-month trial: ' + identifier)
+                    raise RuntimeError('Existing introductory offer differs from the two-week trial: ' + identifier)
             else:
                 self.create('subscriptionIntroductoryOffers', wanted, {
                     'subscription': relationship('subscriptions', product_id),

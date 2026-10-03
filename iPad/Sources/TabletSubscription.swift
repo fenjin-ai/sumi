@@ -12,7 +12,7 @@ enum TabletSubscriptionConfiguration {
 
 struct SubscriptionOffering: Equatable {
     let displayPrice: String
-    let trialMonths: Int?
+    let trialWeeks: Int?
 }
 
 enum SubscriptionAccess: Equatable {
@@ -216,15 +216,15 @@ final class StoreKitTabletPurchases: TabletPurchaseService {
         guard let subscription = product.subscription else {
             throw PurchaseError.unavailable
         }
-        var trialMonths: Int?
+        var trialWeeks: Int?
         if await subscription.isEligibleForIntroOffer,
            let offer = subscription.introductoryOffer,
            offer.paymentMode == .freeTrial,
-           offer.period.unit == .month
+           offer.period.unit == .week
         {
-            trialMonths = offer.period.value * offer.periodCount
+            trialWeeks = offer.period.value * offer.periodCount
         }
-        return SubscriptionOffering(displayPrice: product.displayPrice, trialMonths: trialMonths)
+        return SubscriptionOffering(displayPrice: product.displayPrice, trialWeeks: trialWeeks)
     }
 
     func entitlement() async throws -> SubscriptionAccess {

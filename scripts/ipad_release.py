@@ -31,14 +31,14 @@ def metadata(root):
             or subscription['product_id'] != PRODUCT or subscription['period'] != 'ONE_MONTH'
             or subscription['base_territory'] != 'USA' or subscription['base_price'] != '2.99'
             or subscription['currency'] != 'USD' or subscription['introductory_offer'] != {
-                'mode': 'FREE_TRIAL', 'duration': 'TWO_MONTHS', 'number_of_periods': 1}):
-        raise ValueError('iPad business model must be free download, two months trial, then US $2.99/month')
+                'mode': 'FREE_TRIAL', 'duration': 'TWO_WEEKS', 'number_of_periods': 1}):
+        raise ValueError('iPad business model must be free download, two weeks trial, then US $2.99/month')
     configuration = json.loads((root / 'iPad/Storefront/LeftBlank.storekit').read_text())
     products = [product for group in configuration['subscriptionGroups'] for product in group['subscriptions']]
     if (len(products) != 1 or products[0]['productID'] != PRODUCT or products[0]['displayPrice'] != '2.99'
             or products[0]['recurringSubscriptionPeriod'] != 'P1M'
             or products[0]['introductoryOffer']['paymentMode'] != 'free'
-            or products[0]['introductoryOffer']['subscriptionPeriod'] != 'P2M'
+            or products[0]['introductoryOffer']['subscriptionPeriod'] != 'P2W'
             or products[0]['introductoryOffer']['numberOfPeriods'] != 1):
         raise ValueError('StoreKit test configuration differs from the iPad subscription')
     locales = {}

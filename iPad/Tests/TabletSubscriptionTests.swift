@@ -20,7 +20,7 @@ private final class WeakReference<Value: AnyObject> {
 
 @MainActor
 private final class PurchaseFixture: TabletPurchaseService {
-    var product = SubscriptionOffering(displayPrice: "$2.99", trialMonths: 2)
+    var product = SubscriptionOffering(displayPrice: "$2.99", trialWeeks: 2)
     var current: SubscriptionAccess = .inactive
     var purchaseResult: SubscriptionPurchaseResult = .purchased
     var purchasedAccess: SubscriptionAccess?
@@ -159,12 +159,12 @@ struct TabletSubscriptionTests {
         fixture.purchasedAccess = .subscribed(until: Date().addingTimeInterval(3600))
         let subscription = TabletSubscription(service: fixture)
         await subscription.refresh()
-        #expect(subscription.offering?.trialMonths == 2)
-        fixture.product = SubscriptionOffering(displayPrice: "€3.49", trialMonths: nil)
+        #expect(subscription.offering?.trialWeeks == 2)
+        fixture.product = SubscriptionOffering(displayPrice: "€3.49", trialWeeks: nil)
         await subscription.purchase()
         #expect(subscription.canWrite)
         #expect(subscription.offering?.displayPrice == "€3.49")
-        #expect(subscription.offering?.trialMonths == nil)
+        #expect(subscription.offering?.trialWeeks == nil)
     }
 
     @Test func catalogFailureRetainsVerifiedAccessAndPreventsUnknownPricePurchase() async {
@@ -347,17 +347,19 @@ struct StoreKitSubscriptionTests {
         #expect(product.type == .autoRenewable)
         #expect(product.subscription?.subscriptionPeriod.unit == .month)
         #expect(product.subscription?.subscriptionPeriod.value == 1)
+        #expect(product.subscription?.introductoryOffer?.period.unit == .week)
+        #expect(product.subscription?.introductoryOffer?.period.value == 2)
         let service = StoreKitTabletPurchases()
         let subscription = TabletSubscription(service: service)
         await subscription.start()
         #expect(!subscription.canWrite)
-        #expect(subscription.offering?.trialMonths == 2)
+        #expect(subscription.offering?.trialWeeks == 2)
         #expect(subscription.offering?.displayPrice.contains("2.99") == true)
         await subscription.purchase()
         try await waitFor(subscription) { subscription.canWrite }
         #expect(subscription.canWrite)
-        try await waitFor(subscription) { subscription.offering?.trialMonths == nil }
-        #expect(subscription.offering?.trialMonths == nil)
+        try await waitFor(subscription) { subscription.offering?.trialWeeks == nil }
+        #expect(subscription.offering?.trialWeeks == nil)
         await subscription.restore()
         #expect(subscription.notice == .restored)
         try session.expireSubscription(productIdentifier: TabletSubscriptionConfiguration.productID)

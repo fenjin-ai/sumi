@@ -31,7 +31,7 @@
             "internalID": "20000003",
             "numberOfPeriods": 1,
             "paymentMode": "free",
-            "subscriptionPeriod": "P2M"
+            "subscriptionPeriod": "P2W"
           },
           "localizations": [
             {

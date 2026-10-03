@@ -14,7 +14,7 @@
     "currency": "USD",
     "introductory_offer": {
       "mode": "FREE_TRIAL",
-      "duration": "TWO_MONTHS",
+      "duration": "TWO_WEEKS",
       "number_of_periods": 1
     },
     "localizations": {

@@ -22,6 +22,6 @@ The dark template browser capture comes from the native full-screen presentation
 including portrait/landscape rotation and preserved search/selection checks.
 
 The subscription review image uses the checked-in StoreKit test configuration.
-Its two-month trial and USD 2.99 monthly price describe the confirmed business
+Its two-week trial and USD 2.99 monthly price describe the confirmed business
 model. Production pricing and offer eligibility still come from Apple, and the
 release workflow separately configures and verifies those resources.

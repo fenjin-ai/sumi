@@ -27,14 +27,14 @@ struct TabletSubscriptionView: View {
                 Text(status).accessibilityIdentifier("subscription-status")
                 if let offering = subscription.offering {
                     Text(subscriptionText("\(offering.displayPrice) per month", "每月 \(offering.displayPrice)"))
-                    if let months = offering.trialMonths {
+                    if let weeks = offering.trialWeeks {
                         Text(subscriptionText(
-                            "\(months) months free, then \(offering.displayPrice) per month.",
-                            "免费试用 \(months) 个月，之后每月 \(offering.displayPrice)。",
+                            "\(weeks) weeks free, then \(offering.displayPrice) per month.",
+                            "免费试用 \(weeks) 周，之后每月 \(offering.displayPrice)。",
                         )).accessibilityIdentifier("subscription-trial")
                     }
                     if !subscription.canWrite {
-                        Button(offering.trialMonths == nil
+                        Button(offering.trialWeeks == nil
                             ? subscriptionText("Subscribe", "订阅")
                             : subscriptionText("Start free trial", "开始免费试用"))
                         {
