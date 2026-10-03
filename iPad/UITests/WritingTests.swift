@@ -79,6 +79,20 @@ final class WritingTests: XCTestCase {
         add(screenshot)
     }
 
+    private func expectShareSheet(in app: XCUIApplication) {
+        // The system sharing extension can still be loading on a cold hosted simulator.
+        let share = app.descendants(matching: .any)["Save to Files"].firstMatch
+        let visible = share.waitForExistence(timeout: 60)
+        if !visible {
+            capture("Share sheet unavailable")
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Share sheet hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        expect(visible) == true
+    }
+
     private func reveal(_ element: XCUIElement, in form: XCUIElement, scrollingUp: Bool = true) {
         for _ in 0 ..< 6 {
             if element.exists, element.isHittable {
@@ -183,7 +197,7 @@ final class WritingTests: XCTestCase {
         expect(app.textViews["manuscript"].value as? String) == manuscript
         app.buttons["document-actions"].tap()
         app.buttons["export-project"].tap()
-        expect(app.descendants(matching: .any)["Save to Files"].firstMatch.waitForExistence(timeout: 30)) == true
+        expectShareSheet(in: app)
         capture("Expired subscription project export")
     }
 
@@ -207,7 +221,7 @@ final class WritingTests: XCTestCase {
         app.buttons["Done"].tap()
         app.buttons["document-actions"].tap()
         app.buttons["Export PDF…"].tap()
-        expect(app.descendants(matching: .any)["Save to Files"].firstMatch.waitForExistence(timeout: 30)) == true
+        expectShareSheet(in: app)
         capture("Welcome PDF sharing")
     }
 
@@ -267,7 +281,7 @@ final class WritingTests: XCTestCase {
         expect((app.textViews["manuscript"].value as? String)?.contains("iPad writing")) == true
         app.buttons["document-actions"].tap()
         app.buttons["Export PDF…"].tap()
-        expect(app.descendants(matching: .any)["Save to Files"].firstMatch.waitForExistence(timeout: 30)) == true
+        expectShareSheet(in: app)
     }
 
     func testCommandInsertionAndPDFExport() {
@@ -294,12 +308,8 @@ final class WritingTests: XCTestCase {
         waitForExpectations(timeout: 60)
         app.buttons["document-actions"].tap()
         app.buttons["Export PDF…"].tap()
-        let share = app.descendants(matching: .any)["Save to Files"].firstMatch
-        let visible = share.waitForExistence(timeout: 30)
-        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
-        expect(visible) == true
+        expectShareSheet(in: app)
+        capture("Command PDF sharing")
     }
 
     func testPreviewTapRevealsSourcePosition() {
