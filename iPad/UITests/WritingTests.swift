@@ -32,9 +32,7 @@ final class WritingTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-appLanguage", language,
                                "-iPadCloudEnabled", "NO"]
-        XCUIDevice.shared.orientation = .landscapeLeft
-        app.launch()
-        waitForOrientation(in: app, landscape: true)
+        launchInLandscape(app)
         let create = app.buttons["new-document"]
         let actions = app.buttons["document-actions"]
         let loading = app.progressIndicators["document-loading"]
@@ -83,6 +81,16 @@ final class WritingTests: XCTestCase {
         screenshot.name = name
         screenshot.lifetime = .keepAlways
         add(screenshot)
+    }
+
+    private func launchInLandscape(_ app: XCUIApplication) {
+        app.launch()
+        // Prelaunch device orientation does not ensure the app's window orientation.
+        // Deliver a real rotation after launch, including when the last test was landscape.
+        XCUIDevice.shared.orientation = .portrait
+        waitForOrientation(in: app, landscape: false)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        waitForOrientation(in: app, landscape: true)
     }
 
     private func waitForOrientation(in app: XCUIApplication, landscape: Bool) {
@@ -165,8 +173,7 @@ final class WritingTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-appLanguage", "en",
                                "-iPadCloudEnabled", "NO"]
-        XCUIDevice.shared.orientation = .landscapeLeft
-        app.launch()
+        launchInLandscape(app)
         let banner = app.buttons["subscription-banner"]
         if !banner.waitForExistence(timeout: 3) || !banner.isHittable {
             app.buttons["sidebar-toggle"].tap()
@@ -220,7 +227,7 @@ final class WritingTests: XCTestCase {
         let manuscript = app.textViews["manuscript"].value as? String
         try session.expireSubscription(productIdentifier: "app.leftblank.writer.ipad.monthly")
         app.terminate()
-        app.launch()
+        launchInLandscape(app)
         expect(app.buttons["library-actions"].waitForExistence(timeout: 30)) == true
         app.buttons["library-actions"].tap()
         app.buttons["Settings"].tap()
@@ -328,6 +335,7 @@ final class WritingTests: XCTestCase {
         screenshot.lifetime = .keepAlways
         add(screenshot)
         XCUIDevice.shared.orientation = .portrait
+        waitForOrientation(in: app, landscape: false)
         app.buttons["layout-writing"].tap()
         expect((app.textViews["manuscript"].value as? String)?.contains("iPad writing")) == true
         app.buttons["document-actions"].tap()
