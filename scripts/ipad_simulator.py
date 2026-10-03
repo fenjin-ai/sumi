@@ -67,7 +67,7 @@ def diagnostics(path, device=None):
         commands.append(['xcrun', 'simctl', 'spawn', device['udid'],
                          'defaults', 'read', 'com.apple.springboard'])
         commands.append(['xcrun', 'simctl', 'spawn', device['udid'], 'log', 'show',
-                         '--last', '3m', '--style', 'compact', '--info', '--debug', '--predicate',
+                         '--last', '20m', '--style', 'compact', '--info', '--debug', '--predicate',
                          'eventMessage CONTAINS[c] "orient" OR eventMessage CONTAINS[c] "rotat"'])
     with path.open('w') as output:
         for command in commands:

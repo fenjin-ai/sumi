@@ -14,7 +14,7 @@ final class WritingTests: XCTestCase {
         session.resetToDefaultState()
         session.disableDialogs = true
         session.clearTransactions()
-        if !name.contains("testSubscriptionPurchaseAndExpiredProjectExport") {
+        if !name.contains("testSubscriptionPurchaseAndRestore") {
             _ = try await session.buyProduct(identifier: "app.leftblank.writer.ipad.monthly")
         }
         storeSession = session
@@ -137,7 +137,9 @@ final class WritingTests: XCTestCase {
     }
 
     private func diagnoseSystemRotation() {
-        guard !Self.capturedRotationFailure else { return }
+        guard !Self.capturedRotationFailure else {
+            return
+        }
         Self.capturedRotationFailure = true
         // A system app is an independent control: it distinguishes app layout
         // failures from simulator orientation delivery or system rotation lock.
@@ -213,7 +215,7 @@ final class WritingTests: XCTestCase {
         expect(element.exists && element.isHittable) == true
     }
 
-    func testSubscriptionPurchaseAndExpiredProjectExport() throws {
+    func testSubscriptionPurchaseAndRestore() throws {
         let session = try XCTUnwrap(storeSession)
         session.clearTransactions()
         let app = XCUIApplication()
@@ -255,7 +257,16 @@ final class WritingTests: XCTestCase {
         expect(terms.exists) == true
         app.buttons["Done"].tap()
         app.terminate()
-        _ = startWriting()
+        let writer = startWriting()
+        expect(writer.textViews["manuscript"].exists) == true
+    }
+
+    func testExpiredSubscriptionProjectExport() throws {
+        let session = try XCTUnwrap(storeSession)
+        let app = startWriting()
+        let banner = app.buttons["subscription-banner"]
+        let form = app.collectionViews["subscription-form"]
+        let restore = app.buttons["subscription-restore"]
         let title = "Expired export " + UUID().uuidString.prefix(8)
         app.buttons["document-actions"].tap()
         app.buttons["Rename"].tap()
@@ -295,7 +306,9 @@ final class WritingTests: XCTestCase {
         waitForStableControl(starter, in: app)
         starter.tap()
         expect(form.waitForExistence(timeout: 30)) == true
+        expect(app.buttons["universe.builtin.blank"].exists) == false
         app.buttons["Done"].tap()
+        waitForState(NSPredicate { _, _ in !form.exists }, in: app, name: "Subscription dismissal")
         app.staticTexts[title].tap()
         expect(app.textViews["manuscript"].waitForExistence(timeout: 30)) == true
         expect(app.textViews["manuscript"].value as? String) == manuscript

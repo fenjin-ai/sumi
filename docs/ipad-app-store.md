@@ -87,11 +87,20 @@ Build processing and App Review submission are distinct from approval.
 ## Validation before review
 
 Hosted CI measures executable iPad Swift/Core coverage and runs the native UI
-suite in light and dark mode, hosted unit/lifecycle tests, Address Sanitizer, Thread Sanitizer and Main
+suite on both 11-inch and 13-inch iPads in each of light and dark mode, hosted
+unit/lifecycle tests, Address Sanitizer, Thread Sanitizer and Main
 Thread Checker. Compiler concurrency checks and warnings are enforced. Rust FFI
 formatting and Clippy checks supplement the embedded-engine integration test.
 Xcode's Swift sanitizer instrumentation does not instrument the precompiled Rust
 library. See `docs/coverage.md` for the coverage denominator and gate.
+
+UI tests verify actual window bounds after rotation. On failure they also rotate
+Apple Settings and capture Control Center and SpringBoard diagnostics, so an
+accepted XCTest orientation request cannot conceal an unchanged app window.
+The template cover and subscription sheet must hand off through `onDismiss`;
+changing both presentation bindings at once can leave XCTest waiting for an
+animation to finish. Purchase and expired-export scenarios run independently,
+with the same per-test timeout and all content/entitlement assertions retained.
 
 Test the StoreKit configuration in Xcode, then Apple's Sandbox/TestFlight product:
 eligible two-week offer, ineligible returning subscriber, cancellation, pending
