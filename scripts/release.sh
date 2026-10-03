@@ -115,6 +115,9 @@ xcrun stapler staple "$app"
 xcrun stapler validate "$app"
 codesign --verify --deep --strict "$app"
 spctl --assess --type execute --verbose=2 "$app"
+if [ "${GITHUB_ACTIONS:-}" = true ]; then
+  scripts/test-mcp-sandbox.sh "$app" "$identities" "$keychain"
+fi
 version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)
 archive="LeftBlank-${version}-macOS-arm64.zip"
 if [ "$distribution" = preview ]; then
@@ -125,4 +128,13 @@ ditto -c -k --sequesterRsrc --keepParent "$app" "build/release/$archive"
 if [ "$distribution" = preview ]; then
   python3 scripts/preview-feed.py "build/release/$archive" "$LEFTBLANK_BUILD_NUMBER"
 fi
+# The standalone MCP binary has the same signed code accepted inside the notarized app.
+# App Store clients install this asset through their coding agent, without inheriting an app sandbox.
+mcp_archive=LeftBlankMCP-macOS-arm64.zip
+mkdir -p build/mcp-release
+cp "$app/Contents/Helpers/LeftBlankMCP" build/mcp-release/LeftBlankMCP
+cp Resources/Licenses/LeftBlankMCP-NOTICES.txt build/mcp-release/ThirdParty.txt
+ditto -c -k build/mcp-release "build/release/$mcp_archive"
+rm -rf build/mcp-release
+(cd build/release && shasum -a 256 "$mcp_archive" > "$mcp_archive.sha256")
 echo "Signed, notarized and stapled: build/release/$archive"

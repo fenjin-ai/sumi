@@ -16,7 +16,7 @@ extension WritingFlowTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = WorkspaceSettings(workspace: app.workspace, defaults: defaults)
         defer { settings.stop() }
-        #expect(settings.connectionCommand.contains("codex mcp add " + AppDistribution.current.agentName + " --"))
+        #expect(settings.installationPrompt.contains("codex mcp add " + AppDistribution.current.agentName + " --"))
         #expect(AutomationContract.defaultStateDirectory == AppDistribution.defaultStateDirectory)
         let previousMenu = NSApp.mainMenu, previousWindowsMenu = NSApp.windowsMenu
         defer { NSApp.mainMenu = previousMenu

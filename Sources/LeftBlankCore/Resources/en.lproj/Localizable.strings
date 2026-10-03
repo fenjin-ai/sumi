@@ -92,14 +92,14 @@
 "Complete" = "Complete";
 "Complete Syntax" = "Complete Syntax";
 "Components" = "Components";
-"Connect Codex" = "Connect Codex";
+"Connect a coding agent" = "Connect a coding agent";
 "Connecting" = "Connecting";
 "Connecting to packages.typst.org…" = "Connecting to packages.typst.org…";
 "Content Alignment" = "Content Alignment";
 "Content Padding" = "Content Padding";
 "Contents" = "Contents";
 "Copy" = "Copy";
-"Copy setup command" = "Copy setup command";
+"Copy installation prompt" = "Copy installation prompt";
 "Copy the selected original Typst source." = "Copy the selected original Typst source.";
 "Could not save the recovery copy: %@" = "Could not save the recovery copy: %@";
 "Create a table. Use Tab to move between cells." = "Create a table. Use Tab to move between cells.";

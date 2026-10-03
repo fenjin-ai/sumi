@@ -79,6 +79,13 @@ jobs:
             python3 scripts/release_metadata.py check "$RELEASE_TAG"
           fi
           git merge-base --is-ancestor HEAD origin/main || { echo 'Release only commits already on main.' >&2; exit 1; }
+      - name: Cache MCP dependencies and test tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tools/cargo-mcp
+            .tools/mcp-test-tools
+          key: mcp-${{ runner.os }}-${{ runner.arch }}-rust-1.92.0-${{ hashFiles('Tools/LeftBlankMCP/Cargo.lock', 'scripts/test-mcp.sh') }}
       - name: Functional integration tests and coverage gate
         run: scripts/test.sh
       - name: Sign, notarize and package app

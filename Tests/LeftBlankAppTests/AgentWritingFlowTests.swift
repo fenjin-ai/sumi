@@ -31,7 +31,8 @@ extension WritingFlowTests {
             ])]),
         ])
         let changed = try await fixture.client.send(.init("apply_edits", arguments: arguments))
-        #expect(changed["text"].string == "= Notes\n\nWelcome 😀 unsaved")
+        #expect(changed["text"].isNull)
+        #expect(app.workspace.text == "= Notes\n\nWelcome 😀 unsaved")
         #expect(changed["revision"].string != before["revision"].string)
         #expect(editor.string == app.workspace.text)
         do {
@@ -99,12 +100,14 @@ extension WritingFlowTests {
             "open_document",
             arguments: .object(["document_id": .string("second")]),
         ))
-        #expect(opened["text"].string == "= Second\n")
+        #expect(opened["text"].isNull)
+        #expect(app.workspace.text == "= Second\n")
         let created = try await fixture.client.send(.init(
             "create_document",
             arguments: .object(["title": .string("Fresh"), "text": .string("= Fresh\n")]),
         ))
-        #expect(created["text"].string == "= Fresh\n")
+        #expect(created["text"].isNull)
+        #expect(app.workspace.text == "= Fresh\n")
     }
 
     @Test func agentSettingsAreAllowlistedAndValidatedAtomically() async throws {
@@ -162,7 +165,16 @@ extension WritingFlowTests {
         let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
         #expect(document.string?.contains("Unsaved live addition") == true)
         #expect(export["page_count"].int == 1)
-        #expect(try Data(base64Encoded: #require(export["image_png"].string))?.starts(with: [137, 80, 78, 71]) == true)
+        #expect(export["image_png"].isNull)
+        let rendered = try await fixture.client.send(.init("render_page", arguments: args))
+        #expect(try Data(base64Encoded: #require(rendered["image_png"].string))?
+            .starts(with: [137, 80, 78, 71]) == true)
+        #expect(rendered["page"].int == 1)
+        await #expect(throws: AutomationFailure.self) {
+            try await fixture.client.send(.init("render_page", arguments: .object([
+                "document_id": snapshot["document_id"], "expected_revision": snapshot["revision"], "page": .number(2),
+            ])))
+        }
         editor.insertSnippet(
             Snippet(text: "\n#not-a-valid-function()"),
             replacing: NSRange(location: editor.string.utf16.count, length: 0),
@@ -187,7 +199,7 @@ extension WritingFlowTests {
 }
 
 @MainActor
-private struct AgentFixture {
+struct AgentFixture {
     let root: URL
     let controller: WorkspaceAutomation
     let client: AutomationBridgeClient
@@ -202,5 +214,100 @@ private struct AgentFixture {
     func close() {
         controller.stop()
         try? FileManager.default.removeItem(at: root)
+    }
+}
+
+extension WritingFlowTests {
+    @Test func agentFormattingUsesLiveRevisionAndNativeUndo() async throws {
+        let source = "#let pairs=(1,2,3)\n=Formatting\n#pairs\n"
+        let app = try WritingFixture(text: source)
+        defer { app.close() }
+        try await app.ready()
+        let agent = try AgentFixture(app.workspace)
+        defer { agent.close() }
+        let before = try await agent.client.send(.init("get_document"))
+        let arguments: JSONValue = .object([
+            "document_id": before["document_id"], "expected_revision": before["revision"],
+        ])
+        let formatted = try await agent.client.send(.init("format_document", arguments: arguments))
+        #expect(formatted["text"].isNull)
+        #expect(app.workspace.text != source)
+        #expect(formatted["revision"].string != before["revision"].string)
+        await #expect(throws: AutomationFailure.self) {
+            try await agent.client.send(.init("format_document", arguments: arguments))
+        }
+        app.workspace.editor?.undoManager?.undo()
+        #expect(app.workspace.text == source)
+    }
+
+    @Test func agentPreviewCacheTracksIncludedResourcesAndSeparatesExport() async throws {
+        let app = try WritingFixture(text: "#include \"chapter.typ\"\n", startService: false)
+        defer { app.close() }
+        let chapter = app.root.appendingPathComponent("chapter.typ")
+        try Data("First chapter version".utf8).write(to: chapter)
+        app.workspace.startService()
+        try await app.ready()
+        let agent = try AgentFixture(app.workspace)
+        defer { agent.close() }
+        let before = try await agent.client.send(.init("get_document"))
+        let arguments: JSONValue = .object([
+            "document_id": before["document_id"], "expected_revision": before["revision"],
+        ])
+        _ = try await agent.client.send(.init("render_page", arguments: arguments))
+        let initial = try #require(agent.controller.compiledPreview)
+        #expect(PDFDocument(data: initial.data)?.string?.contains("First chapter version") == true)
+        _ = try await agent.client.send(.init("render_page", arguments: arguments))
+        #expect(agent.controller.compiledPreview?.key == initial.key)
+        #expect(!FileManager.default
+            .fileExists(atPath: app.workspace.stateDirectory.appendingPathComponent("AgentExports").path))
+        try Data("Second chapter with a changed resource".utf8).write(to: chapter, options: .atomic)
+        try await Task.sleep(for: .milliseconds(200))
+        let exported = try await agent.client.send(.init("export_pdf", arguments: arguments))
+        #expect(agent.controller.compiledPreview?.key != initial.key)
+        let url = try URL(fileURLWithPath: #require(exported["path"].string))
+        #expect(PDFDocument(url: url)?.string?.contains("Second chapter with a changed resource") == true)
+        agent.controller.stop()
+        #expect(agent.controller.compiledPreview == nil)
+    }
+
+    @Test func agentAccessRevokesSuspendedRequestsAfterReenable() async throws {
+        let app = try WritingFixture(text: "Live writing", startService: false)
+        defer { app.close() }
+        let agent = try AgentFixture(app.workspace)
+        defer { agent.close() }
+        var pending: CheckedContinuation<[AutomationDocument], Never>?
+        agent.controller.library = .init(currentID: { "draft" }, list: { _ in
+            await withCheckedContinuation { pending = $0 }
+        }, open: { _ in }, create: { _, _ in })
+        let request = Task { try await agent.controller.handle(.init("list_documents")) }
+        try await app.wait { pending != nil }
+        agent.controller.stop()
+        try agent.controller.start()
+        pending?.resume(returning: [AutomationDocument(id: "draft", title: "Draft")])
+        do {
+            _ = try await request.value
+            Issue.record("A suspended request survived access revocation")
+        } catch let failure as AutomationFailure {
+            #expect(failure.code == "access_disabled")
+        }
+        #expect(try await agent.client.send(.init("get_status"))["enabled"].foundationValue as? Bool == true)
+    }
+
+    @Test func installationPromptDelegatesClientSetupAndSelectsDistribution() {
+        let bundle = URL(fileURLWithPath: "/Applications/LeftBlank Preview.app")
+        let preview = AutomationInstallation.prompt(
+            bundle: bundle,
+            distribution: "preview",
+            serverName: "leftblank-preview",
+        )
+        #expect(preview.contains(bundle.path + "/Contents/Helpers/LeftBlankMCP"))
+        #expect(preview.contains("codex mcp add leftblank-preview"))
+        #expect(preview.contains("leftblank_get_status"))
+        #expect(preview.contains("do not ask the user to run terminal commands"))
+        let store = AutomationInstallation.prompt(bundle: bundle, distribution: "appstore", serverName: "leftblank")
+        #expect(store.contains("LeftBlankMCP-macOS-arm64.zip"))
+        #expect(store.contains("verify the checksum"))
+        #expect(store.contains("TeamIdentifier"))
+        #expect(store.contains("--app-bundle"))
     }
 }

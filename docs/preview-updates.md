@@ -19,7 +19,7 @@ logs and local agent socket. When sync is enabled, both editions use the shared
 iCloud library and writing preferences. Turn sync off to keep an independent local
 library.
 Opening an external file deliberately still edits that file. Preview's MCP
-helper is compiled with the same distribution identity as its app, so agents
+helper reads the selected app's bundle identity, so agents
 connect to the matching library. `LEFTBLANK_STATE_DIR` remains an explicit development
 and test override for both executables.
 

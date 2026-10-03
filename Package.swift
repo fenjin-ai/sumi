@@ -17,10 +17,8 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [.library(name: "LeftBlankCore", targets: ["LeftBlankCore"]),
-               .executable(name: "LeftBlank", targets: ["LeftBlankLauncher"]),
-               .executable(name: "LeftBlankMCP", targets: ["LeftBlankMCP"])],
-    dependencies: [.package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", exact: "0.12.1"),
-                   .package(url: "https://github.com/weichsel/ZIPFoundation.git", exact: "0.9.20")] +
+               .executable(name: "LeftBlank", targets: ["LeftBlankLauncher"])],
+    dependencies: [.package(url: "https://github.com/weichsel/ZIPFoundation.git", exact: "0.9.20")] +
         updaterPackages,
     targets: [
         .target(
@@ -30,11 +28,6 @@ let package = Package(
             swiftSettings: distributionSettings,
         ),
         .target(name: "LeftBlankAutomation", dependencies: ["LeftBlankCore"]),
-        .target(
-            name: "LeftBlankMCPServer",
-            dependencies: ["LeftBlankAutomation", .product(name: "MCP", package: "swift-sdk")],
-        ),
-        .executableTarget(name: "LeftBlankMCP", dependencies: ["LeftBlankMCPServer"]),
         .target(
             name: "LeftBlankApp",
             dependencies: ["LeftBlankCore", "LeftBlankAutomation"] + updaterProducts,
@@ -61,7 +54,7 @@ let package = Package(
         ),
         .testTarget(
             name: "LeftBlankAutomationTests",
-            dependencies: ["LeftBlankAutomation", "LeftBlankMCPServer", "LeftBlankTestSupport"],
+            dependencies: ["LeftBlankAutomation", "LeftBlankTestSupport"],
         ),
     ],
 )
