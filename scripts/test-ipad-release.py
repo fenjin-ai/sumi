@@ -64,6 +64,15 @@ class ProfileTests(unittest.TestCase):
     def test_appstore_production_profile(self):
         self.assertEqual(ipad.validate_profile(self.profile, self.identity), ('TEAM', 'uuid'))
 
+    def test_apple_profile_allows_production_with_wildcard_cloud_services(self):
+        # Entitlement shapes from the actual Apple-generated iOS App Store profile.
+        self.profile['Entitlements'].update({
+            'com.apple.developer.icloud-services': '*',
+            'com.apple.developer.icloud-container-environment': ['Production', 'Development'],
+            'com.apple.developer.ubiquity-kvstore-identifier': 'TEAM.*',
+        })
+        self.assertEqual(ipad.validate_profile(self.profile, self.identity), ('TEAM', 'uuid'))
+
     def test_development_adhoc_enterprise_mac_and_expired_profiles_stop(self):
         for changes in [{'Platform': ['OSX']}, {'ProvisionedDevices': ['device']},
                         {'ProvisionsAllDevices': True}, {'ExpirationDate': datetime.datetime(2020, 1, 1)}]:
@@ -71,6 +80,10 @@ class ProfileTests(unittest.TestCase):
                 ipad.validate_profile({**self.profile, **changes}, self.identity)
         for key, value in [('application-identifier', 'TEAM.other'), ('get-task-allow', True),
                            ('com.apple.developer.icloud-container-environment', 'Development'),
+                           ('com.apple.developer.icloud-container-environment', ['Development']),
+                           ('com.apple.developer.icloud-container-environment', None),
+                           ('com.apple.developer.icloud-services', ['CloudKit']),
+                           ('com.apple.developer.icloud-services', None),
                            ('com.apple.developer.ubiquity-container-identifiers', []),
                            ('com.apple.developer.ubiquity-kvstore-identifier', 'OTHER.*')]:
             with self.subTest(key=key):

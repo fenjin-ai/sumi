@@ -64,18 +64,21 @@ def diagnostics(path, device=None):
         ['tail', '-n', '200', str(Path.home() / 'Library/Logs/CoreSimulator/CoreSimulator.log')],
     ]
     if device:
+        commands.append(['xcrun', 'simctl', 'spawn', device['udid'],
+                         'defaults', 'read', 'com.apple.springboard'])
         commands.append(['xcrun', 'simctl', 'spawn', device['udid'], 'log', 'show',
-                         '--last', '20m', '--style', 'compact', '--predicate',
+                         '--last', '20m', '--style', 'compact', '--info', '--debug', '--predicate',
                          'eventMessage CONTAINS[c] "orient" OR eventMessage CONTAINS[c] "rotat"'])
     with path.open('w') as output:
         for command in commands:
             output.write(f"+ {shlex.join(command)}\n")
             try:
-                result = run(command, 10, capture=True, check=False)
+                timeout = 60 if command[:3] == ['xcrun', 'simctl', 'spawn'] else 10
+                result = run(command, timeout, capture=True, check=False)
                 output.write(result.stdout)
                 print(result.stdout, flush=True)
             except subprocess.TimeoutExpired:
-                output.write('Diagnostic command timed out after 10 seconds.\n')
+                output.write(f'Diagnostic command timed out after {timeout} seconds.\n')
 
 
 def shutdown(device):
@@ -165,7 +168,8 @@ def configure_coverage(bundle):
     bundle.write_bytes(plistlib.dumps(parameters))
 
 
-def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True, appearance=None):
+def test_device(size, device, bundle, results, *, suite='all', memory=False, coverage=True, appearance=None,
+                cold_start=False):
     print(f"::group::{size}: boot, native {suite} tests, shutdown", flush=True)
     try:
         if coverage:
@@ -177,6 +181,14 @@ def test_device(size, device, bundle, results, *, suite='all', memory=False, cov
             # bootstatus completes. Keep a bounded startup allowance and confirm
             # the actual appearance before measuring the test run.
             run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance', appearance], 120)
+        if cold_start:
+            # iOS 26 can crash/respring SpringBoard during first-boot setup and
+            # then acknowledge orientation events without rotating even Settings.
+            # Finish migration/preferences before a full boot of the initialized
+            # device. This is setup, not a retry of failed application tests.
+            shutdown(device)
+            run(['xcrun', 'simctl', 'bootstatus', device['udid'], '-b', '-d'], 240)
+        if appearance:
             actual = run(['xcrun', 'simctl', 'ui', device['udid'], 'appearance'], 120, capture=True).stdout
             if actual.strip().lower() != appearance:
                 raise RuntimeError('Simulator appearance differs from the requested ' + appearance)
@@ -257,6 +269,8 @@ def main(argv=None):
     finally:
         print('::endgroup::', flush=True)
     options = {}
+    if args.fresh_device and args.suite == 'all':
+        options['cold_start'] = True
     if args.appearance:
         options['appearance'] = args.appearance
     if args.suite != 'all':

@@ -13,6 +13,8 @@ struct TabletRoot: View {
     @State private var importingProject = false
     @State private var renaming = false
     @State private var title = ""
+    @State private var presentedPanel: TabletWorkspace.Panel?
+    @State private var dismissingPanel = false
 
     var body: some View {
         NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $column) {
@@ -95,11 +97,12 @@ struct TabletRoot: View {
                 Color.clear.onChange(of: geometry.size, initial: true) { _, size in windowSize = size }
             }
         }
-        .sheet(item: panelBinding) { panel in
+        .onChange(of: workspace.panel, initial: true) { _, _ in updatePanelPresentation() }
+        .sheet(item: panelBinding, onDismiss: panelDismissed) { panel in
             TabletPanel(workspace: workspace, panel: panel)
                 .presentationDetents(panel == .commands ? [.large] : [.medium, .large])
         }
-        .fullScreenCover(isPresented: universeBinding) {
+        .fullScreenCover(isPresented: universeBinding, onDismiss: panelDismissed) {
             TabletPanel(workspace: workspace, panel: .universe)
         }
         .sheet(isPresented: Binding(get: { workspace.shareURL != nil }, set: {
@@ -182,18 +185,48 @@ struct TabletRoot: View {
 
     private var panelBinding: Binding<TabletWorkspace.Panel?> {
         Binding(get: {
-            workspace.panel == .universe ? nil : workspace.panel
-        }, set: { workspace.panel = $0 })
+            presentedPanel == .universe ? nil : presentedPanel
+        }, set: { _ in dismissPanel() })
     }
 
     private var universeBinding: Binding<Bool> {
         Binding(get: {
-            workspace.panel == .universe
+            presentedPanel == .universe
         }, set: { presented in
-            if !presented, workspace.panel == .universe {
-                workspace.panel = nil
+            if !presented {
+                dismissPanel()
             }
         })
+    }
+
+    private func updatePanelPresentation() {
+        guard !dismissingPanel else {
+            return
+        }
+        if presentedPanel != nil,
+           workspace.panel == nil || (presentedPanel == .universe) != (workspace.panel == .universe)
+        {
+            // UIKit must finish dismissing one presentation before changing
+            // between a sheet and a full-screen cover. Keep the requested panel
+            // in the workspace until onDismiss delivers the next presentation.
+            dismissingPanel = true
+            presentedPanel = nil
+        } else {
+            presentedPanel = workspace.panel
+        }
+    }
+
+    private func dismissPanel() {
+        if !dismissingPanel {
+            workspace.panel = nil
+            dismissingPanel = true
+        }
+        presentedPanel = nil
+    }
+
+    private func panelDismissed() {
+        dismissingPanel = false
+        presentedPanel = workspace.panel
     }
 
     private var writing: some View {

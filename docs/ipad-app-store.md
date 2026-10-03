@@ -13,7 +13,9 @@ export, including source and assets.
 
 `iPad/Storefront/manifest.json` is the business configuration; `en-US.json` and
 `zh-Hans.json` provide final localized storefront copy. The initial iPad version is
-`1.0.0 (1)` in `iPad/Info.plist`, independently versioned from Mac. Subsequent iPad
+`1.0.1 (2)` in `iPad/Info.plist`, independently versioned from Mac. The initial
+`ipad-v1.0.0` attempt stopped before upload because its profile validator did not
+accept Apple's iCloud entitlement allowlists; that tag remains immutable. Subsequent iPad
 releases must increase the build number; Apple preflight checks previous iOS builds.
 
 CI creates or reuses the iOS version in app **6818442294**, the **LeftBlank iPad**
@@ -59,8 +61,8 @@ python3 scripts/ipad_release.py
 After merging, push an immutable tag matching the iPad version:
 
 ```sh
-git tag ipad-v1.0.0 <merged-main-commit>
-git push origin ipad-v1.0.0
+git tag ipad-v1.0.1 <merged-main-commit>
+git push origin ipad-v1.0.1
 ```
 
 This automatically starts **iPad App Store release**, independently from Mac
@@ -85,11 +87,26 @@ Build processing and App Review submission are distinct from approval.
 ## Validation before review
 
 Hosted CI measures executable iPad Swift/Core coverage and runs the native UI
-suite in light and dark mode, hosted unit/lifecycle tests, Address Sanitizer, Thread Sanitizer and Main
+suite on both 11-inch and 13-inch iPads in each of light and dark mode, hosted
+unit/lifecycle tests, Address Sanitizer, Thread Sanitizer and Main
 Thread Checker. Compiler concurrency checks and warnings are enforced. Rust FFI
 formatting and Clippy checks supplement the embedded-engine integration test.
 Xcode's Swift sanitizer instrumentation does not instrument the precompiled Rust
 library. See `docs/coverage.md` for the coverage denominator and gate.
+
+UI tests verify actual window bounds after rotation. On failure they also rotate
+Apple Settings and capture Control Center and SpringBoard diagnostics, so an
+accepted XCTest orientation request cannot conceal an unchanged app window.
+Fresh hosted simulators complete first-boot migration and appearance setup, then
+fully shut down and boot again before the measured suite. In run 37125166334,
+SpringBoard crashed during first-boot setup; after its restart both LeftBlank and
+Apple Settings stayed in portrait despite delivered landscape events. The full
+boot separates that setup from testing; it is not an application-test retry.
+The four-device/appearance gate still requires real rotation and passing tests.
+The template cover and subscription sheet must hand off through `onDismiss`;
+changing both presentation bindings at once can leave XCTest waiting for an
+animation to finish. Purchase and expired-export scenarios run independently,
+with the same per-test timeout and all content/entitlement assertions retained.
 
 Test the StoreKit configuration in Xcode, then Apple's Sandbox/TestFlight product:
 eligible two-week offer, ineligible returning subscriber, cancellation, pending

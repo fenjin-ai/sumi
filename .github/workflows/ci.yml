@@ -263,7 +263,7 @@ jobs:
             .tools/cargo-ipad
             .tools/tinymist-ipad-source
             Engine/TinymistBridge/target
-          key: ipad-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-rust-1.92.0-xcode-26.3-${{ hashFiles('Engine/TinymistBridge/Cargo.lock', 'Engine/TinymistBridge/Cargo.toml', 'Engine/TinymistBridge/src/**', 'Engine/TinymistBridge/examples/**', 'scripts/tinymist-ipad.patch', 'scripts/prepare-ipad-engine.sh') }}
+          key: ipad-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-rust-1.92.0-xcode-26.3-${{ hashFiles('Engine/TinymistBridge/Cargo.lock', 'Engine/TinymistBridge/Cargo.toml', 'Engine/TinymistBridge/src/**', 'Engine/TinymistBridge/examples/**', 'scripts/tinymist-ipad*.patch', 'scripts/prepare-ipad-engine.sh') }}
           restore-keys: |
             ipad-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-rust-1.92.0-xcode-26.3-
       - name: Cache Swift package sources
@@ -337,7 +337,7 @@ jobs:
           compression-level: 0
           retention-days: 1
   ipad-ui:
-    name: iPad UI (${{ matrix.size }})
+    name: iPad UI (${{ matrix.size }}, ${{ matrix.appearance }})
     needs: ipad-build
     runs-on: macos-15
     timeout-minutes: 40
@@ -345,6 +345,7 @@ jobs:
       fail-fast: false
       matrix:
         size: [11-inch, 13-inch]
+        appearance: [light, dark]
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
@@ -371,13 +372,13 @@ jobs:
         run: |
           source scripts/environment.sh
           python3 scripts/ipad_simulator.py --fresh-device --size "${{ matrix.size }}" \
-            --appearance "${{ matrix.size == '13-inch' && 'dark' || 'light' }}"
+            --appearance "${{ matrix.appearance }}"
       - name: Upload native iPad test results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         timeout-minutes: 3
         with:
-          name: ipad-writing-${{ matrix.size }}
+          name: ipad-writing-${{ matrix.size }}-${{ matrix.appearance }}
           path: build/iPad-writing
           if-no-files-found: warn
           retention-days: 14
@@ -404,8 +405,10 @@ jobs:
         run: |
           source scripts/environment.sh
           python3 scripts/ipad_coverage.py --minimum 80 --result \
-            build/iPad-results/ipad-writing-11-inch/11-inch.xcresult \
-            build/iPad-results/ipad-writing-13-inch/13-inch.xcresult
+            build/iPad-results/ipad-writing-11-inch-light/11-inch.xcresult \
+            build/iPad-results/ipad-writing-11-inch-dark/11-inch.xcresult \
+            build/iPad-results/ipad-writing-13-inch-light/13-inch.xcresult \
+            build/iPad-results/ipad-writing-13-inch-dark/13-inch.xcresult
       - name: Upload iPad application coverage to Codecov
         if: ${{ !cancelled() && hashFiles('build/iPad-coverage/codecov.lcov') != '' }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
@@ -469,7 +472,7 @@ jobs:
             .tools/cargo-ipad
             .tools/tinymist-ipad-source
             Engine/TinymistBridge/target
-          key: ipad-${{ runner.os }}-${{ runner.arch }}-simulator-rust-1.92.0-xcode-26.3-${{ hashFiles('Engine/TinymistBridge/Cargo.lock', 'Engine/TinymistBridge/Cargo.toml', 'Engine/TinymistBridge/src/**', 'Engine/TinymistBridge/examples/**', 'scripts/tinymist-ipad.patch', 'scripts/prepare-ipad-engine.sh') }}
+          key: ipad-${{ runner.os }}-${{ runner.arch }}-simulator-rust-1.92.0-xcode-26.3-${{ hashFiles('Engine/TinymistBridge/Cargo.lock', 'Engine/TinymistBridge/Cargo.toml', 'Engine/TinymistBridge/src/**', 'Engine/TinymistBridge/examples/**', 'scripts/tinymist-ipad*.patch', 'scripts/prepare-ipad-engine.sh') }}
           restore-keys: |
             ipad-${{ runner.os }}-${{ runner.arch }}-simulator-rust-1.92.0-xcode-26.3-
       - name: Reuse resolved Swift packages
